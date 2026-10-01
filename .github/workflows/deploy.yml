@@ -1,11 +1,21 @@
 name: Deploy to Arbitrum Sepolia
 
-# Manual only. Needs a repository secret DEPLOYER_PRIVATE_KEY holding a funded THROWAWAY testnet key.
-# Optional secret RPC_URL (e.g. a provider endpoint) overrides the rpc_url input below; see the README
-# note about public RPCs rejecting the activation check.
+# Manual only. Needs a repository secret DEPLOYER_PRIVATE_KEY holding a funded THROWAWAY testnet key
+# (not needed for check_only). Optional secret RPC_URL (a provider endpoint) overrides the rpc_url input for
+# Arbitrum Sepolia. For network=robinhood-testnet add a secret ROBINHOOD_RPC_URL (an Alchemy URL for Robinhood
+# Chain testnet). The chain id is read from the RPC, and the run stops if it contradicts the chain_id input.
 on:
   workflow_dispatch:
     inputs:
+      network:
+        description: Which network to use
+        type: choice
+        options: [arbitrum-sepolia, robinhood-testnet]
+        default: arbitrum-sepolia
+      check_only:
+        description: Validate only (no deploy, no gas). Reports the chain id and whether the network accepts Stylus.
+        type: boolean
+        default: false
       template:
         description: Template to scaffold and deploy
         type: choice
@@ -15,11 +25,14 @@ on:
         description: RPC endpoint (ignored if the RPC_URL secret is set)
         default: https://sepolia-rollup.arbitrum.io/rpc
       chain_id:
-        description: Chain id of that endpoint (421614 = Arbitrum Sepolia)
-        default: "421614"
+        description: Expected chain id (blank = trust the RPC; 421614 = Arbitrum Sepolia). A mismatch stops the run.
+        default: ""
       max_fee_gwei:
         description: Gas price cap in gwei (you pay the actual base fee, not the cap)
         default: "0.5"
+      constructor_args:
+        description: 'Constructor arguments, shell-quoted. {{deployer}} becomes the address of the deploy key. erc20: "Buildathon Token" BUIDL 1000000000000000000000000 {{deployer}}  vault: <token address>'
+        default: ""
 
 permissions:
   contents: read
@@ -32,14 +45,21 @@ jobs:
         shell: bash
     env:
       APP: ${{ github.workspace }}/../deploy-app
-      RPC_URL: ${{ secrets.RPC_URL || inputs.rpc_url }}
-      CHAIN_ID: ${{ inputs.chain_id }}
+      NETWORK: ${{ inputs.network }}
+      CHECK_ONLY: ${{ inputs.check_only }}
+      ROBINHOOD_SECRET_SET: ${{ secrets.ROBINHOOD_RPC_URL != '' }}
+      RPC_URL: ${{ inputs.network == 'robinhood-testnet' && secrets.ROBINHOOD_RPC_URL || secrets.RPC_URL || inputs.rpc_url }}
+      INPUT_CHAIN_ID: ${{ inputs.chain_id }}
       MAX_FEE_GWEI: ${{ inputs.max_fee_gwei }}
       PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
     steps:
-      - name: Require the deployer secret
+      - name: Require the secrets this run needs
         run: |
-          if [ -z "$PRIVATE_KEY" ]; then
+          if [ "$NETWORK" = "robinhood-testnet" ] && [ "$ROBINHOOD_SECRET_SET" != "true" ]; then
+            echo "::error::Add a repository secret named ROBINHOOD_RPC_URL (your Alchemy URL for Robinhood Chain testnet) and run again."
+            exit 1
+          fi
+          if [ "$CHECK_ONLY" != "true" ] && [ -z "$PRIVATE_KEY" ]; then
             echo "::error::Add a repository secret named DEPLOYER_PRIVATE_KEY (a funded throwaway testnet key) and run again."
             exit 1
           fi
@@ -60,12 +80,51 @@ jobs:
         with:
           path: ~/.cargo/bin/cargo-stylus
           key: cargo-stylus-${{ runner.os }}-v1
+      - name: Read the chain id from the RPC
+        run: |
+          id=$(curl -fsS -m 30 -X POST -H 'content-type: application/json' \
+            --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' "$RPC_URL" \
+            | python3 -c 'import sys,json; print(int(json.load(sys.stdin)["result"],16))') || {
+            echo "::error::Could not read eth_chainId from the RPC. Is the URL right, and is the network enabled in your provider app?"
+            exit 1
+          }
+          if [ -n "$INPUT_CHAIN_ID" ] && [ "$INPUT_CHAIN_ID" != "$id" ]; then
+            echo "::error::The chain_id input ($INPUT_CHAIN_ID) does not match the RPC ($id). Stopping so nothing goes to the wrong network."
+            exit 1
+          fi
+          echo "CHAIN_ID=$id" >> "$GITHUB_ENV"
+          echo "RPC reports chain id $id"
+          echo "- Network: \`$NETWORK\`, chain id **$id**" >> "$GITHUB_STEP_SUMMARY"
       - run: node bin/create-stylus-latest.js "$APP" -t "${{ inputs.template }}" -y --no-git --with-client
-      - name: Deploy
+      - name: Install client dependencies
+        working-directory: ${{ env.APP }}/client
+        run: npm install --silent
+      - name: Validate only (no deploy)
+        if: ${{ inputs.check_only }}
         working-directory: ${{ env.APP }}
         run: |
+          ./scripts/deploy.sh --check-only 2>&1 | tee check.log
+          echo "- Stylus validation passed on this network for the \`${{ inputs.template }}\` template" >> "$GITHUB_STEP_SUMMARY"
+      - name: Deploy
+        if: ${{ !inputs.check_only }}
+        working-directory: ${{ env.APP }}
+        env:
+          CONSTRUCTOR_ARGS: ${{ inputs.constructor_args }}
+        run: |
           printf 'RPC_URL=%s\nCHAIN_ID=%s\nPRIVATE_KEY=%s\n' "$RPC_URL" "$CHAIN_ID" "$PRIVATE_KEY" > .env
-          ./scripts/deploy.sh 2>&1 | tee deploy.log
+          key="$PRIVATE_KEY"; case "$key" in 0x*) ;; *) key="0x$key" ;; esac
+          deployer=$(cd client && node --input-type=module -e 'import { privateKeyToAddress } from "viem/accounts"; process.stdout.write(privateKeyToAddress(process.argv[1]))' "$key")
+          echo "Deploying from $deployer"
+          args_text="${CONSTRUCTOR_ARGS//\{\{deployer\}\}/$deployer}"
+          ctor=()
+          if [ -n "$args_text" ]; then
+            mapfile -d '' -t ctor < <(python3 -c 'import shlex,sys; sys.stdout.write("\0".join(shlex.split(sys.argv[1])) + "\0")' "$args_text")
+          fi
+          if [ ${#ctor[@]} -gt 0 ]; then
+            ./scripts/deploy.sh -- "${ctor[@]}" 2>&1 | tee deploy.log
+          else
+            ./scripts/deploy.sh 2>&1 | tee deploy.log
+          fi
           addr=$(sed 's/\x1b\[[0-9;]*m//g' deploy.log | grep -iE 'deployed code at address' | grep -oE '0x[0-9a-fA-F]{40}' | head -1)
           test -n "$addr" || { echo "::error::Could not find the deployed address in the output above"; exit 1; }
           echo "CONTRACT_ADDRESS=$addr" >> .env
@@ -77,7 +136,6 @@ jobs:
             if [ "$CHAIN_ID" = "421614" ]; then echo "- Explorer: https://sepolia.arbiscan.io/address/$addr"; fi
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Read it back through the generated client
+        if: ${{ !inputs.check_only }}
         working-directory: ${{ env.APP }}/client
-        run: |
-          npm install --silent
-          npm start
+        run: npm start

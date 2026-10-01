@@ -1,9 +1,8 @@
-import { parseAbi } from "viem";
+import { isAddress, parseAbi, parseUnits } from "viem";
 import { confirm, connect, run } from "./client.js";
 
 // Keep in sync with the contract: run `../scripts/export-abi.sh` to see the interface.
 const abi = parseAbi([
-  "function init(string name, string symbol, uint256 supply)",
   "function name() view returns (string)",
   "function symbol() view returns (string)",
   "function decimals() view returns (uint8)",
@@ -19,21 +18,22 @@ await run(async () => {
 
   const name = await read("name");
   if (name === "") {
-    console.log("Not initialized yet. Call init(name, symbol, supply) once after deploying.");
-    if (walletClient) {
-      const hash = await walletClient.writeContract({
-        address,
-        abi,
-        functionName: "init",
-        args: ["Buildathon Token", "BUIDL", 1_000_000n * 10n ** 18n],
-      });
-      await confirm(publicClient, hash, "init()");
-    }
-  } else {
-    console.log(`${name} (${await read("symbol")}), ${await read("decimals")} decimals`);
-    console.log("total supply:", await read("totalSupply"));
-    if (account) {
-      console.log("your balance:", await publicClient.readContract({ address, abi, functionName: "balanceOf", args: [account.address] }));
-    }
+    // The constructor sets the name at deploy time, so an empty name means this is not our token contract.
+    throw new Error("name() is empty: check CONTRACT_ADDRESS, and that you deployed with constructor arguments");
+  }
+  const decimals = await read("decimals");
+  console.log(`${name} (${await read("symbol")}), ${decimals} decimals`);
+  console.log("total supply:", await read("totalSupply"));
+  if (account) {
+    console.log("your balance:", await publicClient.readContract({ address, abi, functionName: "balanceOf", args: [account.address] }));
+  }
+
+  // Optional: TRANSFER_TO=0x... sends 1 token from your account.
+  const to = process.env.TRANSFER_TO;
+  if (to) {
+    if (!isAddress(to)) throw new Error("TRANSFER_TO is not a valid address");
+    if (!walletClient) throw new Error("Set PRIVATE_KEY in ../.env to send a transfer");
+    const hash = await walletClient.writeContract({ address, abi, functionName: "transfer", args: [to, parseUnits("1", decimals)] });
+    await confirm(publicClient, hash, "transfer()");
   }
 });

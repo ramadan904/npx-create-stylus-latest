@@ -73,6 +73,11 @@ Arbitrum Sepolia → Run workflow**. The key stays in GitHub's secret store. If 
 (see each template's README), add an `RPC_URL` secret with a provider endpoint. Manual workflows only appear in the
 Actions tab once the file is on the default branch.
 
+The workflow also has a **network** choice (`arbitrum-sepolia` or `robinhood-testnet`; the latter needs a
+`ROBINHOOD_RPC_URL` secret holding an Alchemy URL for Robinhood Chain testnet) and a **check_only** switch that
+validates the contract against the network without deploying or spending gas. The chain id is read from the RPC, and
+the run stops if it contradicts the `chain_id` input.
+
 ## Develop
 
 ```bash

@@ -1,7 +1,59 @@
 #!/usr/bin/env bash
-# Validate and deploy this Stylus contract. Usage: ./scripts/deploy.sh [--check-only]
+# Validate and deploy this Stylus contract.
+# Usage: ./scripts/deploy.sh [--check-only] [-- <constructor args>...]
+# Contracts with a constructor (erc20, vault) take their arguments after `--`, e.g.
+#   ./scripts/deploy.sh -- "My Token" MTK 1000000000000000000000000 0xYourAddress
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+# Run a command; if it fails, print plain-English hints for the errors we know how to fix.
+hints() {
+  local log="$1" text
+  text="$(sed 's/\x1b\[[0-9;]*m//g' "$log")"
+  echo >&2
+  case "$text" in
+    *"stylus activations not allowed"*)
+      echo "Hint: this RPC refuses Stylus activation checks (the public Arbitrum RPC does). Use a provider endpoint" >&2
+      echo "      (Alchemy, QuickNode, ...) for Arbitrum Sepolia and set RPC_URL in .env, or run ./scripts/devnode.sh." >&2 ;;
+  esac
+  case "$text" in
+    *"max fee per gas less than block base fee"*)
+      echo "Hint: the gas cap lost a race with the base fee. Retry with MAX_FEE_GWEI=0.5 ./scripts/deploy.sh ..." >&2 ;;
+  esac
+  case "$text" in
+    *"insufficient funds"*|*"gas required exceeds allowance"*)
+      echo "Hint: the deploy wallet has too little ETH on this network. Fund it from a faucet and retry." >&2 ;;
+  esac
+  case "$text" in
+    *"missing Stylus.toml"*)
+      echo "Hint: run this from the project root, next to Stylus.toml." >&2 ;;
+  esac
+  case "$text" in
+    *"could not open private key file"*)
+      echo "Hint: cargo-stylus could not read the key file. Do not remove --no-verify unless Docker can see it." >&2 ;;
+  esac
+}
+
+run_with_hints() {
+  local log status
+  log="$(mktemp)"
+  set +e
+  "$@" 2>&1 | tee "$log"
+  status="${PIPESTATUS[0]}"
+  set -e
+  if [ "$status" -ne 0 ]; then hints "$log"; rm -f "$log"; exit "$status"; fi
+  rm -f "$log"
+}
+
+check_only=0
+ctor=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --check-only) check_only=1; shift ;;
+    --) shift; ctor=("$@"); break ;;
+    *) echo "Unknown argument: $1 (constructor arguments go after --)" >&2; exit 2 ;;
+  esac
+done
 
 caller_rpc="${RPC_URL:-}"   # an RPC_URL set on the command line wins over .env
 if [ -f .env ]; then set -a; . ./.env; set +a; fi
@@ -18,9 +70,9 @@ command -v cargo-stylus >/dev/null 2>&1 || {
 [ -f Cargo.lock ] || cargo generate-lockfile
 
 echo "==> Checking contract against $RPC_URL"
-cargo stylus check --endpoint "$RPC_URL"
+run_with_hints cargo stylus check --endpoint "$RPC_URL"
 
-if [ "${1:-}" = "--check-only" ]; then exit 0; fi
+if [ "$check_only" = 1 ]; then exit 0; fi
 : "${PRIVATE_KEY:?Set PRIVATE_KEY in .env to deploy}"
 
 # Hand the key over via a private temp file so it never shows up in `ps`.
@@ -38,5 +90,9 @@ printf '%s' "${PRIVATE_KEY#0x}" > "$keyfile"
 fee_args=()
 if [ -n "${MAX_FEE_GWEI:-}" ]; then fee_args+=(--max-fee-per-gas-gwei "$MAX_FEE_GWEI"); fi
 
+ctor_args=()
+if [ ${#ctor[@]} -gt 0 ]; then ctor_args=(--constructor-args "${ctor[@]}"); fi
+
 echo "==> Deploying"
-cargo stylus deploy --no-verify --endpoint "$RPC_URL" --private-key-path "$keyfile" ${fee_args[@]+"${fee_args[@]}"}
+run_with_hints cargo stylus deploy --no-verify --endpoint "$RPC_URL" --private-key-path "$keyfile" \
+  ${fee_args[@]+"${fee_args[@]}"} ${ctor_args[@]+"${ctor_args[@]}"}

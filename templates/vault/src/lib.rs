@@ -19,7 +19,7 @@ sol! {
     event Deposited(address indexed account, uint256 amount);
     event Withdrawn(address indexed account, uint256 amount);
 
-    error AlreadyInitialized();
+    error ZeroAddress();
     error ZeroAmount();
     error InsufficientDeposit(uint256 have, uint256 want);
     error TokenTransferFailed();
@@ -27,7 +27,7 @@ sol! {
 
 #[derive(SolidityError)]
 pub enum VaultError {
-    AlreadyInitialized(AlreadyInitialized),
+    ZeroAddress(ZeroAddress),
     ZeroAmount(ZeroAmount),
     InsufficientDeposit(InsufficientDeposit),
     TokenTransferFailed(TokenTransferFailed),
@@ -44,10 +44,12 @@ sol_storage! {
 
 #[public]
 impl Vault {
-    /// One-shot setup: choose the ERC-20 this vault holds (e.g. USDC or USDG).
-    pub fn init(&mut self, asset: Address) -> Result<(), VaultError> {
-        if self.asset.get() != Address::ZERO {
-            return Err(VaultError::AlreadyInitialized(AlreadyInitialized {}));
+    /// Runs once, atomically, when the contract is deployed: chooses the ERC-20 this vault holds
+    /// (e.g. USDC or USDG). Nobody can race the deployer to set a different token.
+    #[constructor]
+    pub fn constructor(&mut self, asset: Address) -> Result<(), Vec<u8>> {
+        if asset == Address::ZERO {
+            return Err(VaultError::ZeroAddress(ZeroAddress {}).into());
         }
         self.asset.set(asset);
         Ok(())
@@ -143,15 +145,16 @@ mod tests {
         let vm = TestVM::default();
         vm.set_sender(ALICE);
         let mut vault = Vault::from(&vm);
-        assert!(vault.init(TOKEN).is_ok());
+        assert!(vault.constructor(TOKEN).is_ok());
         (vm, vault)
     }
 
     #[test]
-    fn init_only_once() {
-        let (_vm, mut vault) = deployed();
+    fn constructor_sets_the_asset_and_rejects_the_zero_address() {
+        let (vm, vault) = deployed();
         assert_eq!(vault.asset(), TOKEN);
-        assert!(vault.init(TOKEN).is_err());
+        let mut fresh = Vault::from(&vm);
+        assert!(fresh.constructor(Address::ZERO).is_err());
     }
 
     #[test]
