@@ -47,6 +47,15 @@ One command produces a working project and a deploy path that has already been r
     https://sepolia.arbiscan.io/tx/0xbc01bc625b064026e62c28eb4b8ff0c6eedb1cfa3544610f6313bc35b506c2a7
     (The client printed a stale `number: 0n` right after, from a lagging RPC node; it now reads at the confirming
     block and checks the receipt status.)
+- The `erc20` and `vault` templates were deployed and activated on Arbitrum Sepolia the same way:
+  - ERC-20 token: `0x45a81630ec980e8517e032d5c069a24011dedba5`
+    (https://sepolia.arbiscan.io/address/0x45a81630ec980e8517e032d5c069a24011dedba5), activation tx
+    `0x9562045cca9777ecd447b07b09f4c01b5ace3ccdffb67725536b67e174f0f305`. The `init()` call was sent
+    (`0x42f5afbf08a50fc49c2516fe027cabf31982800b3c2d2d56fde5b7681d303b5c`).
+  - Vault: `0xcd542511830dbaec42f753f3b96ed8c8c66dc953`
+    (https://sepolia.arbiscan.io/address/0xcd542511830dbaec42f753f3b96ed8c8c66dc953), activation tx
+    `0xd0e2661e4721241166475f213d3cd7feb55dad8cb7e89506e43bc5e3fe52d387`. The generated client read it back
+    (`asset()`, `totalDeposits()`, `depositOf()`); it has not been pointed at a token yet.
 
 ## Tech
 
