@@ -56,6 +56,11 @@ One command produces a working project and a deploy path that has already been r
   - Vault: `0xddcf208635bfdce4379a2535f228473310995915`
     (https://sepolia.arbiscan.io/address/0xddcf208635bfdce4379a2535f228473310995915), constructed with the token
     above; the client read back `asset()` equal to that token.
+  - Escrow: `0x5c3766164e3a2d4abb61f605879c18234b36a60e`
+    (https://sepolia.arbiscan.io/address/0x5c3766164e3a2d4abb61f605879c18234b36a60e), constructed with the token
+    above; the client read back `token()` equal to it and zero deals. Only construction and reads were exercised
+    on-chain; the deal logic is covered by the unit and property tests, not by a live deal. Run:
+    https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36937262867
   - Superseded: an earlier ERC-20 (`0x45a81630ec980e8517e032d5c069a24011dedba5`) and vault
     (`0xcd542511830dbaec42f753f3b96ed8c8c66dc953`) used a callable `init()` that anyone could have called first.
     They remain on the testnet but are not the recommended design, which is why the templates changed.
