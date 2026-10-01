@@ -74,6 +74,7 @@ test("shipped shell scripts parse and deploy.sh needs no .env to validate", asyn
   assert.match(deploy, /RPC_URL="\$\{RPC_URL:-https:\/\/sepolia-rollup\.arbitrum\.io\/rpc\}"/);
   assert.doesNotMatch(deploy, /RPC_URL:\?/);
   assert.match(deploy, /cargo stylus deploy --no-verify/, "deploy must not require Docker or hide the key file from it");
+  assert.match(deploy, /MAX_FEE_GWEI/, "deploy.sh must let callers cap the gas price");
   assert.match(deploy, /cargo generate-lockfile/, "deploy.sh must create Cargo.lock for cargo-stylus --locked builds");
 });
 
@@ -104,6 +105,16 @@ for (const template of Object.keys(TEMPLATES)) {
       assert.ok(files.includes(f), `missing ${f}`);
     }
     assert.match(fs.readFileSync(path.join(dir, "client/package.json"), "utf8"), /"name": "my-app-client"/);
+
+    // Any client that sends a transaction must go through confirm() so a revert fails loudly.
+    const clientMain = fs.readFileSync(path.join(dir, "client/src/main.ts"), "utf8");
+    if (clientMain.includes("writeContract")) {
+      assert.match(clientMain, /await confirm\(/, "client sends transactions but never calls confirm()");
+      assert.ok(!clientMain.includes("waitForTransactionReceipt"), "use confirm() instead of waiting for the receipt directly");
+    }
+    if (clientMain.includes("import { confirm")) {
+      assert.match(clientMain, /await confirm\(/, "confirm is imported but never used");
+    }
 
     // Every function the client calls must exist in the contract (snake_case there, camelCase in the ABI).
     const lib = fs.readFileSync(path.join(dir, "src/lib.rs"), "utf8");

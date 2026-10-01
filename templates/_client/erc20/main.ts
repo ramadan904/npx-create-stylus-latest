@@ -1,5 +1,5 @@
 import { parseAbi } from "viem";
-import { connect, run } from "./client.js";
+import { confirm, connect, run } from "./client.js";
 
 // Keep in sync with the contract: run `../scripts/export-abi.sh` to see the interface.
 const abi = parseAbi([
@@ -27,8 +27,7 @@ await run(async () => {
         functionName: "init",
         args: ["Buildathon Token", "BUIDL", 1_000_000n * 10n ** 18n],
       });
-      await publicClient.waitForTransactionReceipt({ hash });
-      console.log("initialized in", hash);
+      await confirm(publicClient, hash, "init()");
     }
   } else {
     console.log(`${name} (${await read("symbol")}), ${await read("decimals")} decimals`);

@@ -1,0 +1,91 @@
+# create-stylus-latest: Buildathon submission
+
+**Arbitrum Open House Singapore Online Buildathon**
+
+## One line
+
+`npx create-stylus-latest` scaffolds a Stylus (Rust) smart contract project that builds, tests and deploys on the
+first try, pinned to the newest `stylus-sdk` and its matching `alloy` version.
+
+## The problem
+
+Stylus lets developers write Arbitrum contracts in Rust, but the first hours are slow. SDK APIs and the `alloy`
+version they depend on change between releases, and a mismatched pair does not compile. The official generator
+gives one counter example; anything beyond it (a token, a vault, a client) is written from scratch, and the path from
+`cargo test` to a live deployment has pitfalls that are not obvious. In this project we hit these on a real deploy:
+`cargo stylus deploy` defaulting to a Docker build that cannot read a key file, the public Arbitrum Sepolia RPC
+refusing the activation check, and a gas cap that lost a race with the base fee. Each one costs a new builder time
+they do not have in a 3-week buildathon.
+
+## The solution
+
+One command produces a working project and a deploy path that has already been run end to end:
+
+- **Always current.** At scaffold time the CLI reads the crates.io sparse index, picks the newest stable `stylus-sdk`
+  and pins the exact `alloy-primitives` / `alloy-sol-types` it requires. Offline it falls back to a bundled
+  known-good pair.
+- **Three templates.** `counter` (minimal), `erc20` (events, custom errors) and `vault` (a USDC/USDG-style vault using
+  cross-contract ERC-20 calls, tested with a mocked token).
+- **Deploy scripts that work.** `scripts/deploy.sh` validates and deploys with `cargo-stylus`, handles the lockfile,
+  the Docker default, RPC override and an optional gas cap. `scripts/devnode.sh` starts a local Nitro dev node so
+  everything can be validated without a funded testnet key.
+- **Optional TypeScript client.** `--with-client` adds a viem client typed from the contract ABI that fails loudly on
+  reverted transactions.
+- **Safe by default.** The key is handed to `cargo-stylus` through a private temp file, never argv.
+
+## Evidence (all from CI and the live run)
+
+- Every template is scaffolded with live crates.io versions, then built, unit-tested, built to wasm and validated with
+  `cargo stylus check` against a local Nitro dev node in GitHub Actions.
+- An end-to-end CI job deploys a generated counter to a dev node with a throwaway key and calls it through the
+  generated client.
+- A manual workflow deployed the counter to **Arbitrum Sepolia**:
+  - Contract: `0x41218640903eab654a555371d51d1c4fcfb28580`
+  - https://sepolia.arbiscan.io/address/0x41218640903eab654a555371d51d1c4fcfb28580
+  - Deployed and activated (activation tx `0xdd7fb822023b4ef20145786a32d8e8a7407c2b28e9d1b76af92f4c165479e919`).
+  - A live `increment()` call through the generated client confirmed with status **Success** in block 314731830:
+    https://sepolia.arbiscan.io/tx/0xbc01bc625b064026e62c28eb4b8ff0c6eedb1cfa3544610f6313bc35b506c2a7
+    (The client printed a stale `number: 0n` right after, from a lagging RPC node; it now reads at the confirming
+    block and checks the receipt status.)
+- The `erc20` and `vault` templates were deployed and activated on Arbitrum Sepolia the same way:
+  - ERC-20 token: `0x45a81630ec980e8517e032d5c069a24011dedba5`
+    (https://sepolia.arbiscan.io/address/0x45a81630ec980e8517e032d5c069a24011dedba5), activation tx
+    `0x9562045cca9777ecd447b07b09f4c01b5ace3ccdffb67725536b67e174f0f305`. The `init()` call was sent
+    (`0x42f5afbf08a50fc49c2516fe027cabf31982800b3c2d2d56fde5b7681d303b5c`).
+  - Vault: `0xcd542511830dbaec42f753f3b96ed8c8c66dc953`
+    (https://sepolia.arbiscan.io/address/0xcd542511830dbaec42f753f3b96ed8c8c66dc953), activation tx
+    `0xd0e2661e4721241166475f213d3cd7feb55dad8cb7e89506e43bc5e3fe52d387`. The generated client read it back
+    (`asset()`, `totalDeposits()`, `depositOf()`); it has not been pointed at a token yet.
+
+## Tech
+
+Stylus (Rust, `stylus-sdk` 0.10.x, Solidity-ABI compatible), Node 18+ zero-dependency CLI, TypeScript/viem client,
+GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia.
+
+## Mapping to the judging criteria
+
+- **Smart contract quality:** idiomatic `sol_storage!`/`#[public]` contracts, custom Solidity errors, checks-effects-
+  interactions in the vault, unit tests for every template. They are templates, not audited: the vault README says so.
+- **Product-market fit:** the users are Stylus builders, including every team in this and later Open House rounds.
+  We have not yet measured adoption.
+- **Innovation:** resolving the newest compatible SDK at scaffold time, and treating "does it deploy" as a CI test,
+  not a README promise.
+- **Real problem solving:** the deploy pitfalls above were found by running the real tooling against a real network,
+  and the scripts now handle them. Several earlier bugs in our own templates (a missing `Stylus.toml`, a missing
+  lockfile) were caught the same way by CI, not by reading docs.
+
+## Roadmap
+
+1. Publish to npm so `npx create-stylus-latest` works anywhere.
+2. Add Robinhood Chain and USDG presets once their RPC details are confirmed.
+3. A Foundry interop template (Solidity test calling a Stylus contract).
+4. `cargo stylus verify` support with a Docker-friendly key path.
+
+## Try it
+
+```bash
+git clone https://github.com/ramadan904/npx-create-stylus-latest
+cd npx-create-stylus-latest
+node bin/create-stylus-latest.js my-app -t counter --with-client
+cd my-app && cargo test
+```

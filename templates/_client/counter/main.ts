@@ -1,5 +1,5 @@
 import { parseAbi } from "viem";
-import { connect, run } from "./client.js";
+import { confirm, connect, run } from "./client.js";
 
 // Keep in sync with the contract: run `../scripts/export-abi.sh` to see the interface.
 const abi = parseAbi([
@@ -16,9 +16,10 @@ await run(async () => {
 
   if (walletClient) {
     const hash = await walletClient.writeContract({ address, abi, functionName: "increment" });
-    await publicClient.waitForTransactionReceipt({ hash });
-    console.log("incremented in", hash);
-    console.log("number:", await publicClient.readContract({ address, abi, functionName: "number" }));
+    const receipt = await confirm(publicClient, hash, "increment()");
+    // Read at the confirming block so a load-balanced RPC node cannot hand back stale state.
+    const blockNumber = receipt.blockNumber;
+    console.log("number:", await publicClient.readContract({ address, abi, functionName: "number", blockNumber }));
   } else {
     console.log("Set PRIVATE_KEY in ../.env to send an increment() transaction.");
   }

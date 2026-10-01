@@ -38,6 +38,14 @@ export function connect() {
   return { publicClient, walletClient, account, address: address as Address };
 }
 
+// Waits for a transaction and fails loudly if it reverted (viem returns reverted receipts without throwing).
+export async function confirm(publicClient: ReturnType<typeof connect>["publicClient"], hash: Hex, label: string) {
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") throw new Error(`${label} reverted (tx ${hash})`);
+  console.log(`${label} confirmed in block ${receipt.blockNumber} (tx ${hash})`);
+  return receipt;
+}
+
 // Runs a script and prints a one-line error (viem's shortMessage for RPC failures) instead of a stack trace.
 export async function run(main: () => Promise<void>) {
   try {
