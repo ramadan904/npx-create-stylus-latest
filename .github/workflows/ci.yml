@@ -34,6 +34,8 @@ jobs:
         with:
           node-version: 22
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
       - uses: actions/cache/restore@v4
         id: cargo-stylus
         with:
@@ -50,6 +52,11 @@ jobs:
       - run: node bin/create-stylus-latest.js "${{ runner.temp }}/app" -t ${{ matrix.template }} -y --no-git --with-client
       - run: npm install && npm run typecheck
         working-directory: ${{ runner.temp }}/app/client
+      # The generated project pins Rust 1.91.0 (for cargo-stylus), so lint with the stable toolchain.
+      - run: cargo +stable fmt --check
+        working-directory: ${{ runner.temp }}/app
+      - run: cargo +stable clippy --all-targets -- -D warnings
+        working-directory: ${{ runner.temp }}/app
       - run: cargo test --lib
         working-directory: ${{ runner.temp }}/app
       - run: cargo build --release --target wasm32-unknown-unknown --lib
