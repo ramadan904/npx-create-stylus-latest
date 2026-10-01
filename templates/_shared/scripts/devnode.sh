@@ -10,9 +10,14 @@ URL="http://127.0.0.1:8547"
 
 command -v docker >/dev/null 2>&1 || { echo "Docker is required to run the local dev node." >&2; exit 1; }
 
+# Optional: FUND_ADDRESS=0x... pre-funds that address so you can deploy with your own throwaway key.
+extra=()
+if [ -n "${FUND_ADDRESS:-}" ]; then extra+=(--init.dev-init-address "$FUND_ADDRESS"); fi
+
 docker rm -f "$NAME" >/dev/null 2>&1 || true
 docker run -d --name "$NAME" -p 127.0.0.1:8547:8547 "$IMAGE" \
-  --dev --http.addr 0.0.0.0 --http.api=net,web3,eth,debug --http.corsdomain='*' --http.vhosts='*' >/dev/null
+  --dev --http.addr 0.0.0.0 --http.api=net,web3,eth,debug --http.corsdomain='*' --http.vhosts='*' \
+  ${extra[@]+"${extra[@]}"} >/dev/null
 
 echo "Waiting for the dev node at $URL ..."
 for _ in $(seq 1 90); do
