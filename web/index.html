@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>create-stylus-latest</title>
+<meta name="description" content="Scaffold an Arbitrum Stylus (Rust) project pinned to the latest stylus-sdk, with deploy scripts that have been run on a live network.">
+<style>
+  :root {
+    --bg: #0d1117; --panel: #151b24; --line: #263040; --text: #e6edf3; --muted: #8b98a9;
+    --accent: #3fa2ff; --ok: #3ddc97; --warn: #f0b429; --code: #0a0e14;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f6f8fb; --panel: #ffffff; --line: #dbe2ec; --text: #14202e; --muted: #5b6b80;
+      --accent: #0b6fd6; --ok: #138a5c; --warn: #9a6b00; --code: #eef2f7; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); line-height: 1.55;
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 0 16px; }
+  header { padding: 56px 0 28px; }
+  .tag { display: inline-block; font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--accent); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; }
+  h1 { font-size: clamp(30px, 6vw, 46px); line-height: 1.1; margin: 16px 0 12px; letter-spacing: -.02em; }
+  .lead { color: var(--muted); font-size: 18px; max-width: 660px; margin: 0 0 22px; }
+  pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  pre { background: var(--code); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+    overflow-x: auto; font-size: 13.5px; margin: 0; }
+  .btns { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+  a.btn { text-decoration: none; color: var(--text); border: 1px solid var(--line); background: var(--panel);
+    border-radius: 8px; padding: 9px 14px; font-size: 14px; }
+  a.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  section { padding: 26px 0; }
+  h2 { font-size: 22px; margin: 0 0 6px; letter-spacing: -.01em; }
+  .sub { color: var(--muted); margin: 0 0 16px; font-size: 15px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
+  .grid.four { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  .card h3 { margin: 0 0 4px; font-size: 17px; }
+  .card p { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
+  .addr { font: 12.5px ui-monospace, Menlo, Consolas, monospace; color: var(--muted); word-break: break-all; }
+  dl { margin: 12px 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 14px; }
+  dt { color: var(--muted); } dd { margin: 0; text-align: right; word-break: break-word; }
+  .live { font-size: 11px; font-weight: 600; letter-spacing: .05em; color: var(--ok); }
+  .live.err { color: var(--warn); }
+  .card a { color: var(--accent); font-size: 14px; text-decoration: none; }
+  .card a:hover { text-decoration: underline; }
+  ol.steps { padding-left: 20px; margin: 0; } ol.steps li { margin: 8px 0; }
+  .note { color: var(--muted); font-size: 13.5px; }
+  footer { border-top: 1px solid var(--line); padding: 22px 0 40px; color: var(--muted); font-size: 13.5px; }
+  footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="tag">Arbitrum Open House Singapore &middot; Online Buildathon</span>
+    <h1>Scaffold a Stylus project that deploys on the first try.</h1>
+    <p class="lead">create-stylus-latest generates a Rust smart contract project for Arbitrum, pinned to the newest
+      <code>stylus-sdk</code> and its matching <code>alloy</code> version, with deploy scripts that have been run on a live network.</p>
+    <pre>git clone https://github.com/ramadan904/npx-create-stylus-latest
+cd npx-create-stylus-latest
+node bin/create-stylus-latest.js my-app -t counter --with-client</pre>
+    <div class="btns">
+      <a class="btn primary" href="https://github.com/ramadan904/npx-create-stylus-latest">View on GitHub</a>
+      <a class="btn" href="https://github.com/ramadan904/npx-create-stylus-latest/blob/main/README.md">Read the docs</a>
+    </div>
+    <p class="note" style="margin-top:12px">An <code>npx</code> package is planned; until it is published, run the CLI from the repository as shown.</p>
+  </header>
+
+  <section>
+    <h2>Live on Arbitrum Sepolia</h2>
+    <p class="sub">Three contracts scaffolded by this tool and deployed with its own scripts. The values below are read from the chain in your browser right now.</p>
+    <div class="grid" id="contracts"></div>
+  </section>
+
+  <section>
+    <h2>What you get</h2>
+    <div class="grid four">
+      <div class="card"><h3>Always current</h3><p>Reads the crates.io index at scaffold time and pins the newest stable SDK with the exact alloy version it needs. Works offline with a known-good fallback.</p></div>
+      <div class="card"><h3>Three templates</h3><p><code>counter</code>, <code>erc20</code> and <code>vault</code> (a stablecoin vault using cross-contract calls), each with unit tests.</p></div>
+      <div class="card"><h3>Deploy that works</h3><p><code>deploy.sh</code> handles the lockfile, RPC override, gas cap and key hand-off. <code>devnode.sh</code> starts a local Nitro node for free validation.</p></div>
+      <div class="card"><h3>Typed client</h3><p><code>--with-client</code> adds a viem script that fails loudly on reverted transactions.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>How it was verified</h2>
+    <ol class="steps">
+      <li>Every template is built, tested and validated against a local Nitro node in CI, using live crates.io versions.</li>
+      <li>An end-to-end CI job deploys a generated contract and calls it through the generated client.</li>
+      <li>The same flow was then run against Arbitrum Sepolia, producing the contracts above.</li>
+    </ol>
+    <p class="note">These are templates, not audited contracts. Do not hold real funds in them.</p>
+  </section>
+
+  <footer>
+    Built for the Arbitrum Open House Singapore Online Buildathon &middot;
+    <a href="https://github.com/ramadan904/npx-create-stylus-latest/blob/main/SUBMISSION.md">Submission write-up</a>
+  </footer>
+</div>
+
+<script>
+const RPC = "https://sepolia-rollup.arbitrum.io/rpc";
+const SCAN = "https://sepolia.arbiscan.io/address/";
+
+// 4-byte selectors (keccak of the signature).
+const SEL = {
+  number: "0x8381f58a", name: "0x06fdde03", symbol: "0x95d89b41", decimals: "0x313ce567",
+  totalSupply: "0x18160ddd", asset: "0x38d52e0f", totalDeposits: "0x7d882097",
+};
+
+const CONTRACTS = [
+  { title: "Counter", blurb: "Minimal storage contract.", address: "0x41218640903eab654a555371d51d1c4fcfb28580",
+    read: async (to) => [["Current number", (await uint(to, SEL.number)).toString()]] },
+  { title: "ERC-20 token", blurb: "Token with events and custom errors.", address: "0x45a81630ec980e8517e032d5c069a24011dedba5",
+    read: async (to) => {
+      const name = str(await call(to, SEL.name));
+      if (!name) return [["Status", "Deployed, not initialized yet"]];
+      const dec = Number(await uint(to, SEL.decimals));
+      return [["Name", name], ["Symbol", str(await call(to, SEL.symbol))],
+        ["Total supply", units(await uint(to, SEL.totalSupply), dec)]];
+    } },
+  { title: "Vault", blurb: "Deposit and withdraw any ERC-20.", address: "0xcd542511830dbaec42f753f3b96ed8c8c66dc953",
+    read: async (to) => {
+      const asset = addr(await call(to, SEL.asset));
+      return [["Asset", /^0x0+$/.test(asset) ? "Not set yet" : short(asset)],
+        ["Total deposits", (await uint(to, SEL.totalDeposits)).toString()]];
+    } },
+];
+
+async function call(to, data) {
+  const res = await fetch(RPC, { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call", params: [{ to, data }, "latest"] }) });
+  const json = await res.json();
+  if (json.error) throw new Error(json.error.message);
+  return json.result;
+}
+const uint = async (to, sel) => BigInt(await call(to, sel));
+const addr = (hex) => "0x" + hex.slice(-40);
+const short = (a) => a.slice(0, 8) + "…" + a.slice(-6);
+function str(hex) {            // ABI-encoded string: offset, length, bytes
+  const b = hex.slice(2);
+  const len = parseInt(b.slice(64, 128), 16);
+  if (!len) return "";
+  const bytes = (b.slice(128, 128 + len * 2).match(/../g) || []).map((h) => parseInt(h, 16));
+  return new TextDecoder().decode(Uint8Array.from(bytes));
+}
+function units(value, decimals) {   // bigint -> "1,000,000" style string
+  const base = 10n ** BigInt(decimals), whole = value / base, frac = value % base;
+  const w = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return frac === 0n ? w : w + "." + frac.toString().padStart(decimals, "0").replace(/0+$/, "");
+}
+
+function el(tag, props = {}, text) {
+  const e = document.createElement(tag);
+  Object.assign(e, props);
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+async function render(c) {
+  const card = el("div", { className: "card" });
+  card.append(el("h3", {}, c.title), el("p", {}, c.blurb), el("div", { className: "addr" }, c.address));
+  const dl = el("dl"), status = el("span", { className: "live" }, "READING…");
+  card.append(dl);
+  const row = el("div"); row.append(status, document.createTextNode(" "));
+  row.append(el("a", { href: SCAN + c.address, target: "_blank", rel: "noopener" }, "Open on Arbiscan →"));
+  card.append(row);
+  document.getElementById("contracts").append(card);
+  try {
+    for (const [k, v] of await c.read(c.address)) { dl.append(el("dt", {}, k), el("dd", {}, v)); }
+    status.textContent = "● LIVE";
+  } catch (err) {
+    status.textContent = "COULD NOT READ (see Arbiscan)"; status.className = "live err";
+  }
+}
+CONTRACTS.forEach(render);
+</script>
+</body>
+</html>
