@@ -4,7 +4,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 if [ -f .env ]; then set -a; . ./.env; set +a; fi
-: "${RPC_URL:?Set RPC_URL in .env}"
+# Defaults to Arbitrum Sepolia so `--check-only` works on a fresh project.
+RPC_URL="${RPC_URL:-https://sepolia-rollup.arbitrum.io/rpc}"
 
 command -v cargo-stylus >/dev/null 2>&1 || {
   echo "cargo-stylus not found. Install it with: cargo install --locked cargo-stylus" >&2

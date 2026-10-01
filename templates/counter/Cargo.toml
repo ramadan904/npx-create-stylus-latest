@@ -1,7 +1,7 @@
 [package]
 name = "{{name}}"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "A Stylus (Rust) smart contract for Arbitrum"
 license = "MIT OR Apache-2.0"
 
@@ -14,6 +14,8 @@ stylus-sdk = "{{stylus_sdk_version}}"
 stylus-sdk = { version = "{{stylus_sdk_version}}", features = ["stylus-test"] }
 
 [features]
+default = ["mini-alloc"]
+mini-alloc = ["stylus-sdk/mini-alloc"]
 export-abi = ["stylus-sdk/export-abi"]
 debug = ["stylus-sdk/debug"]
 contract-client-gen = []

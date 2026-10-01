@@ -28,7 +28,7 @@ for (const template of Object.keys(TEMPLATES)) {
     const dir = tmp();
     const files = scaffold({ targetDir: dir, name: "my-app", template, versions });
 
-    for (const f of ["Cargo.toml", "src/lib.rs", "src/main.rs", "README.md", ".gitignore", ".env.example", "scripts/deploy.sh"]) {
+    for (const f of ["Cargo.toml", "Stylus.toml", "rust-toolchain.toml", "src/lib.rs", "src/main.rs", "README.md", ".gitignore", ".env.example", "scripts/deploy.sh"]) {
       assert.ok(files.includes(f), `missing ${f}`);
     }
     const cargo = fs.readFileSync(path.join(dir, "Cargo.toml"), "utf8");
@@ -60,4 +60,17 @@ test("every registered template ships a contract and a README", () => {
       assert.ok(fs.existsSync(path.join(root, name, f)), `templates/${name}/${f} is missing`);
     }
   }
+});
+
+test("shipped shell scripts parse and deploy.sh needs no .env to validate", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const dir = tmp();
+  scaffold({ targetDir: dir, name: "my-app", template: "counter", versions });
+  for (const script of ["deploy.sh", "export-abi.sh"]) {
+    const r = spawnSync("bash", ["-n", path.join(dir, "scripts", script)], { encoding: "utf8" });
+    assert.equal(r.status, 0, `${script}: ${r.stderr}`);
+  }
+  const deploy = fs.readFileSync(path.join(dir, "scripts/deploy.sh"), "utf8");
+  assert.match(deploy, /RPC_URL="\$\{RPC_URL:-https:\/\/sepolia-rollup\.arbitrum\.io\/rpc\}"/);
+  assert.doesNotMatch(deploy, /RPC_URL:\?/);
 });

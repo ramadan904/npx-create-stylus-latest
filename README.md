@@ -17,7 +17,7 @@ mismatched pair fails to compile. At scaffold time this CLI reads the [crates.io
 picks the newest stable `stylus-sdk`, and pins the exact `alloy-primitives` / `alloy-sol-types` version that release
 requires. If you are offline it falls back to a bundled known-good pair (`--offline` forces this).
 
-Every template is built and tested in CI against live crates.io versions, so a broken release shows up as a red
+Every template is built, tested and run through `cargo stylus check` in CI against live crates.io versions, so a broken release shows up as a red
 build here rather than in your project.
 
 ## Templates
@@ -34,7 +34,7 @@ build here rather than in your project.
 - Unit tests that run with plain `cargo test` (the SDK's `TestVM`, no node needed)
 - `scripts/export-abi.sh` to print the Solidity interface
 - `scripts/deploy.sh` to validate and deploy with `cargo-stylus` (key passed via a private temp file, not argv)
-- `.env.example` defaulting to Arbitrum Sepolia, `rust-toolchain.toml` with the wasm target, `.gitignore`
+- `Stylus.toml` and a pinned `rust-toolchain.toml` (1.91.0 + wasm target) matching `cargo stylus new`, `.env.example` defaulting to Arbitrum Sepolia, `.gitignore`
 
 ## Options
 
