@@ -1,5 +1,5 @@
 import { parseAbi } from "viem";
-import { connect, run } from "./client.js";
+import { confirm, connect, run } from "./client.js";
 
 // Keep in sync with the contract: run `../scripts/export-abi.sh` to see the interface.
 const abi = parseAbi([
