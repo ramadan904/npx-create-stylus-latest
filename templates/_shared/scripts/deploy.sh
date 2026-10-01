@@ -32,5 +32,11 @@ printf '%s' "${PRIVATE_KEY#0x}" > "$keyfile"
 # --no-verify skips cargo-stylus's default Docker "reproducible build". That mode re-runs the command
 # inside a container that cannot read the key file above, and it needs Docker installed. The trade-off is
 # that the deployment cannot be checked later with `cargo stylus verify`; drop the flag if you need that.
+# Optional gas-price cap in gwei, e.g. MAX_FEE_GWEI=0.5. cargo-stylus otherwise picks a cap equal to the
+# current base fee, and the deploy fails with "max fee per gas less than block base fee" if it ticks up
+# before the transaction lands. You only ever pay the actual base fee, never the cap.
+fee_args=()
+if [ -n "${MAX_FEE_GWEI:-}" ]; then fee_args+=(--max-fee-per-gas-gwei "$MAX_FEE_GWEI"); fi
+
 echo "==> Deploying"
-cargo stylus deploy --no-verify --endpoint "$RPC_URL" --private-key-path "$keyfile"
+cargo stylus deploy --no-verify --endpoint "$RPC_URL" --private-key-path "$keyfile" ${fee_args[@]+"${fee_args[@]}"}

@@ -17,6 +17,9 @@ on:
       chain_id:
         description: Chain id of that endpoint (421614 = Arbitrum Sepolia)
         default: "421614"
+      max_fee_gwei:
+        description: Gas price cap in gwei (you pay the actual base fee, not the cap)
+        default: "0.5"
 
 permissions:
   contents: read
@@ -31,6 +34,7 @@ jobs:
       APP: ${{ github.workspace }}/../deploy-app
       RPC_URL: ${{ secrets.RPC_URL || inputs.rpc_url }}
       CHAIN_ID: ${{ inputs.chain_id }}
+      MAX_FEE_GWEI: ${{ inputs.max_fee_gwei }}
       PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
     steps:
       - name: Require the deployer secret
