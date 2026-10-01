@@ -65,6 +65,14 @@ the contract does not define.
 The CLI checks for `cargo`, the `wasm32-unknown-unknown` target and `cargo-stylus`, and prints the install command for
 anything missing. It never installs anything for you.
 
+## Deploying from GitHub Actions
+
+`.github/workflows/deploy.yml` is a manual workflow that scaffolds a template and deploys it to Arbitrum Sepolia.
+Add a repository secret `DEPLOYER_PRIVATE_KEY` (a funded throwaway testnet key), then run **Actions → Deploy to
+Arbitrum Sepolia → Run workflow**. The key stays in GitHub's secret store. If the public RPC rejects the activation check
+(see each template's README), add an `RPC_URL` secret with a provider endpoint. Manual workflows only appear in the
+Actions tab once the file is on the default branch.
+
 ## Develop
 
 ```bash
