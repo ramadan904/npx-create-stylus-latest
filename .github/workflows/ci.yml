@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+
+  templates:
+    # Scaffold every template with live crates.io versions, then build, test and
+    # validate the result against a local Nitro dev node.
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        template: [counter, erc20, vault]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache/restore@v4
+        id: cargo-stylus
+        with:
+          path: ~/.cargo/bin/cargo-stylus
+          key: cargo-stylus-${{ runner.os }}-v1
+      - if: steps.cargo-stylus.outputs.cache-hit != 'true'
+        run: cargo install --locked cargo-stylus
+      # Save right after installing so a later failure does not throw away the 4-minute build.
+      - if: steps.cargo-stylus.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cargo/bin/cargo-stylus
+          key: cargo-stylus-${{ runner.os }}-v1
+      - run: node bin/create-stylus-latest.js "${{ runner.temp }}/app" -t ${{ matrix.template }} -y --no-git --with-client
+      - run: npm install && npm run typecheck
+        working-directory: ${{ runner.temp }}/app/client
+      - run: cargo test --lib
+        working-directory: ${{ runner.temp }}/app
+      - run: cargo build --release --target wasm32-unknown-unknown --lib
+        working-directory: ${{ runner.temp }}/app
+      - run: ./scripts/devnode.sh
+        working-directory: ${{ runner.temp }}/app
+      # Catches missing Stylus.toml, size limits and activation errors.
+      - run: ./scripts/deploy.sh --check-only
+        working-directory: ${{ runner.temp }}/app
+        env:
+          RPC_URL: http://127.0.0.1:8547
+      - if: failure()
+        run: docker logs --tail 60 stylus-devnode || true
+
+  e2e:
+    # Full flow on a local Nitro dev node: deploy the counter with a throwaway key, then call it
+    # through the generated TypeScript client and check that the state actually changed.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      APP: ${{ github.workspace }}/../e2e-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache/restore@v4
+        id: cargo-stylus
+        with:
+          path: ~/.cargo/bin/cargo-stylus
+          key: cargo-stylus-${{ runner.os }}-v1
+      - if: steps.cargo-stylus.outputs.cache-hit != 'true'
+        run: cargo install --locked cargo-stylus
+      - if: steps.cargo-stylus.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cargo/bin/cargo-stylus
+          key: cargo-stylus-${{ runner.os }}-v1
+      - run: node bin/create-stylus-latest.js "$APP" -t counter -y --no-git --with-client
+      - run: npm install
+        working-directory: ${{ env.APP }}/client
+      - name: Create a throwaway key
+        working-directory: ${{ env.APP }}/client
+        run: |
+          key=0x$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')
+          echo "::add-mask::$key"
+          addr=$(node --input-type=module -e 'import { privateKeyToAddress } from "viem/accounts"; process.stdout.write(privateKeyToAddress(process.argv[1]))' "$key")
+          echo "E2E_KEY=$key" >> "$GITHUB_ENV"
+          echo "E2E_ADDR=$addr" >> "$GITHUB_ENV"
+          echo "Funding $addr"
+      - name: Start a dev node that funds that key
+        working-directory: ${{ env.APP }}
+        run: FUND_ADDRESS="$E2E_ADDR" ./scripts/devnode.sh
+      - name: Deploy
+        working-directory: ${{ env.APP }}
+        run: |
+          printf 'RPC_URL=http://127.0.0.1:8547\nCHAIN_ID=412346\nPRIVATE_KEY=%s\n' "$E2E_KEY" > .env
+          ./scripts/deploy.sh 2>&1 | tee deploy.log
+          addr=$(sed 's/\x1b\[[0-9;]*m//g' deploy.log | grep -iE 'deployed code at address' | grep -oE '0x[0-9a-fA-F]{40}' | head -1)
+          test -n "$addr" || { echo "Could not find the deployed address in the output above"; exit 1; }
+          echo "CONTRACT_ADDRESS=$addr" >> .env
+          echo "Deployed to $addr"
+      - name: Call the contract through the generated client
+        working-directory: ${{ env.APP }}/client
+        run: |
+          npm start | tee out.txt
+          grep -q 'number: 0n' out.txt
+          grep -q 'number: 1n' out.txt
+      - if: failure()
+        run: docker logs --tail 80 stylus-devnode || true

@@ -1,0 +1,17 @@
+{
+  "name": "{{name}}-client",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx --env-file=../.env src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "viem": "^2.57.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.0"
+  }
+}
