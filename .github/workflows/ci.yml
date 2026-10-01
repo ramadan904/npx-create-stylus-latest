@@ -119,7 +119,9 @@ jobs:
         run: |
           node bin/create-stylus-latest.js doctor --rpc http://127.0.0.1:8547
           # Informational: shows what the heuristic reports for a public endpoint; not a gate.
-          node bin/create-stylus-latest.js doctor --rpc https://sepolia-rollup.arbitrum.io/rpc || true
+          node bin/create-stylus-latest.js doctor --rpc https://sepolia-rollup.arbitrum.io/rpc > public-probe.txt 2>&1 || true
+          cat public-probe.txt
+          echo "::notice title=doctor vs public Arbitrum Sepolia RPC::$(tr '\n' '|' < public-probe.txt)"
       - name: Deploy
         working-directory: ${{ env.APP }}
         run: |
