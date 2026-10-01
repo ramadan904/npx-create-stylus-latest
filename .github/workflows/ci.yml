@@ -33,7 +33,9 @@ jobs:
           key: cargo-stylus-${{ runner.os }}-v1
       - if: steps.cargo-stylus.outputs.cache-hit != 'true'
         run: cargo install --locked cargo-stylus
-      - run: node bin/create-stylus-latest.js "${{ runner.temp }}/app" -t ${{ matrix.template }} -y --no-git
+      - run: node bin/create-stylus-latest.js "${{ runner.temp }}/app" -t ${{ matrix.template }} -y --no-git --with-client
+      - run: npm install && npm run typecheck
+        working-directory: ${{ runner.temp }}/app/client
       - run: cargo test --lib
         working-directory: ${{ runner.temp }}/app
       - run: cargo build --release --target wasm32-unknown-unknown --lib

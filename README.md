@@ -36,12 +36,28 @@ build here rather than in your project.
 - `scripts/deploy.sh` to validate and deploy with `cargo-stylus` (key passed via a private temp file, not argv)
 - `Stylus.toml` and a pinned `rust-toolchain.toml` (1.91.0 + wasm target) matching `cargo stylus new`, `.env.example` defaulting to Arbitrum Sepolia, `.gitignore`
 
+## Optional TypeScript client
+
+`--with-client` adds a `client/` folder with a small [viem](https://viem.sh) script wired to the template's ABI,
+so you can call your deployed contract right away:
+
+```bash
+npx create-stylus-latest my-app --with-client
+# deploy, then put the address in .env as CONTRACT_ADDRESS
+cd my-app/client && npm install && npm start
+```
+
+It defaults to Arbitrum Sepolia and reads `RPC_URL`, `CONTRACT_ADDRESS` and `PRIVATE_KEY` from the project's `.env`.
+CI type-checks the generated client for every template, and a unit test fails if the client's ABI lists a function
+the contract does not define.
+
 ## Options
 
 ```
 -t, --template <name>  counter | erc20 | vault (default: counter)
 -y, --yes              Skip prompts and use defaults
     --no-git           Do not run git init
+    --with-client      Also generate a TypeScript (viem) client in client/
     --offline          Use bundled known-good versions instead of querying crates.io
 -l, --list             List templates
 ```

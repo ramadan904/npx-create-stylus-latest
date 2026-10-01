@@ -90,3 +90,25 @@ test("CLI accepts a path and names the project after its last segment", async ()
   assert.equal(dot.status, 0, dot.stderr);
   assert.match(fs.readFileSync(path.join(empty, "Cargo.toml"), "utf8"), /name = "dot-app"/);
 });
+
+for (const template of Object.keys(TEMPLATES)) {
+  test(`scaffold(${template}, withClient) adds a rendered client and omits it by default`, () => {
+    const without = tmp();
+    assert.ok(!scaffold({ targetDir: without, name: "my-app", template, versions }).some((f) => f.startsWith("client/")));
+
+    const dir = tmp();
+    const files = scaffold({ targetDir: dir, name: "my-app", template, versions, withClient: true });
+    for (const f of ["client/package.json", "client/tsconfig.json", "client/.gitignore", "client/src/client.ts", "client/src/main.ts"]) {
+      assert.ok(files.includes(f), `missing ${f}`);
+    }
+    assert.match(fs.readFileSync(path.join(dir, "client/package.json"), "utf8"), /"name": "my-app-client"/);
+
+    // Every function the client calls must exist in the contract (snake_case there, camelCase in the ABI).
+    const lib = fs.readFileSync(path.join(dir, "src/lib.rs"), "utf8");
+    const contractFns = new Set([...lib.matchAll(/pub fn (\w+)/g)].map((m) => m[1].replace(/_(\w)/g, (_, c) => c.toUpperCase())));
+    const main = fs.readFileSync(path.join(dir, "client/src/main.ts"), "utf8");
+    const abiFns = [...main.matchAll(/"function (\w+)\(/g)].map((m) => m[1]);
+    assert.ok(abiFns.length > 0);
+    for (const fn of abiFns) assert.ok(contractFns.has(fn), `client ABI lists ${fn}() which the contract does not define`);
+  });
+}

@@ -31,7 +31,7 @@ function copyDir(src, dest, vars, written) {
   }
 }
 
-export function scaffold({ targetDir, name, template, versions }) {
+export function scaffold({ targetDir, name, template, versions, withClient = false }) {
   const nameError = validateName(name);
   if (nameError) throw new Error(nameError);
   if (!(template in TEMPLATES)) {
@@ -51,5 +51,9 @@ export function scaffold({ targetDir, name, template, versions }) {
   written.root = targetDir;
   copyDir(path.join(TEMPLATES_DIR, "_shared"), targetDir, vars, written);
   copyDir(path.join(TEMPLATES_DIR, template), targetDir, vars, written);
+  if (withClient) {
+    copyDir(path.join(TEMPLATES_DIR, "_client", "common"), path.join(targetDir, "client"), vars, written);
+    copyDir(path.join(TEMPLATES_DIR, "_client", template), path.join(targetDir, "client", "src"), vars, written);
+  }
   return written.sort();
 }

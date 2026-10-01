@@ -19,6 +19,7 @@ Options
   -t, --template <name>  ${Object.keys(TEMPLATES).join(" | ")} (default: ${DEFAULT_TEMPLATE})
   -y, --yes              Skip prompts and use defaults
       --no-git           Do not run git init
+      --with-client      Also generate a TypeScript (viem) client in client/
       --offline          Do not query crates.io; use the bundled known-good versions
   -l, --list             List templates
   -v, --version          Print version
@@ -44,6 +45,7 @@ export async function main(argv) {
       yes: { type: "boolean", short: "y", default: false },
       "no-git": { type: "boolean", default: false },
       offline: { type: "boolean", default: false },
+      "with-client": { type: "boolean", default: false },
       list: { type: "boolean", short: "l", default: false },
       version: { type: "boolean", short: "v", default: false },
       help: { type: "boolean", short: "h", default: false },
@@ -74,7 +76,7 @@ export async function main(argv) {
   }
 
   const versions = await resolveVersions({ offline: values.offline });
-  const files = scaffold({ targetDir, name, template, versions });
+  const files = scaffold({ targetDir, name, template, versions, withClient: values["with-client"] });
 
   console.log(`\nCreated ${path.relative(process.cwd(), targetDir) || "."}/ from the "${template}" template (${files.length} files)`);
   console.log(`  stylus-sdk ${versions.stylusSdk}, alloy ${versions.alloy} (${versions.source})`);
@@ -86,6 +88,10 @@ export async function main(argv) {
   if (hints.length > 0) {
     console.log("\nBefore you build, run:");
     for (const h of hints) console.log(`  ${h}`);
+  }
+  if (values["with-client"]) {
+    console.log("\nClient: set CONTRACT_ADDRESS in .env after deploying, then");
+    console.log("  cd client && npm install && npm start");
   }
   console.log(`\nNext:\n${path.relative(process.cwd(), targetDir) ? `  cd ${path.relative(process.cwd(), targetDir)}\n` : ""}  cargo test\n  ./scripts/deploy.sh --check-only\n`);
 }
