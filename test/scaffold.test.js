@@ -106,6 +106,16 @@ for (const template of Object.keys(TEMPLATES)) {
     }
     assert.match(fs.readFileSync(path.join(dir, "client/package.json"), "utf8"), /"name": "my-app-client"/);
 
+    // Any client that sends a transaction must go through confirm() so a revert fails loudly.
+    const clientMain = fs.readFileSync(path.join(dir, "client/src/main.ts"), "utf8");
+    if (clientMain.includes("writeContract")) {
+      assert.match(clientMain, /await confirm\(/, "client sends transactions but never calls confirm()");
+      assert.ok(!clientMain.includes("waitForTransactionReceipt"), "use confirm() instead of waiting for the receipt directly");
+    }
+    if (clientMain.includes("import { confirm")) {
+      assert.match(clientMain, /await confirm\(/, "confirm is imported but never used");
+    }
+
     // Every function the client calls must exist in the contract (snake_case there, camelCase in the ABI).
     const lib = fs.readFileSync(path.join(dir, "src/lib.rs"), "utf8");
     const contractFns = new Set([...lib.matchAll(/pub fn (\w+)/g)].map((m) => m[1].replace(/_(\w)/g, (_, c) => c.toUpperCase())));

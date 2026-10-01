@@ -27,8 +27,7 @@ await run(async () => {
         functionName: "init",
         args: ["Buildathon Token", "BUIDL", 1_000_000n * 10n ** 18n],
       });
-      await publicClient.waitForTransactionReceipt({ hash });
-      console.log("initialized in", hash);
+      await confirm(publicClient, hash, "init()");
     }
   } else {
     console.log(`${name} (${await read("symbol")}), ${await read("decimals")} decimals`);
