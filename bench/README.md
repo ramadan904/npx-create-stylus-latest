@@ -19,3 +19,25 @@ Caveats, so the numbers are read correctly:
   differ, so the comparison cannot silently be between different computations.
 - `gasUsed` on Arbitrum includes `gasUsedForL1`, a data-posting component independent of the language. The table shows
   execution gas, `gasUsed - gasUsedForL1`, read from the raw receipts.
+
+## Results (CI run 36935538361, 2026-10-01)
+
+https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36935538361 (local Nitro dev node, execution gas =
+`gasUsed - gasUsedForL1`). The Stylus contract was deployed with `scripts/deploy.sh` and no cache bid was placed, so
+this is the uncached case.
+
+| | Stylus | Solidity |
+|---|---|---|
+| `increment`, first call (0 to 1) | 72,299 | 43,561 |
+| `increment`, steady state | 55,199 | 26,461 |
+| `addNumber` | 55,360 | 26,881 |
+| `setNumber` | 55,323 | 26,596 |
+| `work(20000)` | 58,800 | 1,821,893 |
+| on-chain code size | 6,272 bytes | 811 bytes |
+
+Both contracts returned the same `work(20000)` result, `10579850105631593249`.
+
+Reading it honestly: for storage-only calls Stylus used about 2x the gas of Solidity (roughly 29k more per call) and the
+contract is larger on chain. For the compute loop Stylus used about 31x less. The two effects point the same way as
+Stylus's design: a fixed overhead for entering a WASM program, and a very cheap compute path. A real application's
+split between the two decides which side wins; this benchmark does not claim a general speedup.

@@ -7,15 +7,14 @@ const KEY_URL = "https://eth-sepolia.example.com/v2/SECRETKEY123";
 const word = (n) => "0x" + BigInt(n).toString(16).padStart(64, "0");
 
 // Fake JSON-RPC server keyed by eth_call target address.
-function fakeRpc({ chainId = 421614, arbSys = true, stylusVersion = 2, overrides = true, down = false } = {}) {
+function fakeRpc({ chainId = 421614, arbSys = true, stylusVersion = 2, down = false } = {}) {
   return async (_url, init) => {
     if (down) throw new Error("connect ECONNREFUSED");
     const { method, params } = JSON.parse(init.body);
     const reply = (result) => ({ ok: true, json: async () => ({ result }) });
     const fail = (message) => ({ ok: true, json: async () => ({ error: { message } }) });
     if (method === "eth_chainId") return reply("0x" + chainId.toString(16));
-    const [{ to }, , override] = params;
-    if (override && !overrides) return fail("state overrides not supported");
+    const [{ to }] = params;
     if (to === "0x0000000000000000000000000000000000000064") return arbSys ? reply(word(30)) : fail("execution reverted");
     if (to === "0x0000000000000000000000000000000000000071") return stylusVersion === null ? fail("execution reverted") : reply(word(stylusVersion));
     return reply("0x");
@@ -85,9 +84,9 @@ test("doctor fails when the RPC has no Stylus or is down", async () => {
   }
 });
 
-test("doctor warns, not fails, when state overrides are rejected", async () => {
+test("doctor warns, not fails, on a public arbitrum.io endpoint", async () => {
   const { lines, log } = collect();
-  const code = await runDoctor({ rpc: KEY_URL, run_: tools(), nodeVersion: "20.0.0", fetchImpl: fakeRpc({ overrides: false }), offline: true, log });
+  const code = await runDoctor({ rpc: "https://sepolia-rollup.arbitrum.io/rpc", run_: tools(), nodeVersion: "20.0.0", fetchImpl: fakeRpc(), offline: true, log });
   assert.equal(code, 0);
-  assert.match(lines.join("\n"), /state overrides/);
+  assert.match(lines.join("\n"), /public Arbitrum endpoint/);
 });

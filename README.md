@@ -72,8 +72,8 @@ npx create-stylus-latest doctor --rpc "$RPC_URL"
 Checks Node, `cargo`, the wasm target and `cargo-stylus` (against the newest `stylus-sdk`), then asks the RPC whether it
 is an Arbitrum chain with Stylus enabled (it reads the `ArbSys` and `ArbWasm` system contracts; nothing is sent or
 spent). Exits non-zero if something required is missing. Only the RPC host is printed, never the path, so API keys stay
-out of logs. It also warns when an endpoint rejects `eth_call` state overrides, a heuristic for the public-RPC
-activation refusal; that warning is advisory.
+out of logs. For public `arbitrum.io` endpoints it adds an advisory note: during our own deploy the public Sepolia RPC refused
+cargo-stylus's activation check, which `doctor` cannot detect ahead of time (a provider RPC or the dev node worked).
 
 The CLI checks for `cargo`, the `wasm32-unknown-unknown` target and `cargo-stylus`, and prints the install command for
 anything missing. It never installs anything for you.

@@ -97,8 +97,12 @@ export async function runDoctor({
       if (!p.arbitrum) line(BAD, "not an Arbitrum chain", "ArbSys (0x64) did not answer; Stylus needs an Arbitrum Nitro chain");
       else if (!p.stylus) line(BAD, "Stylus is not enabled", "ArbWasm.stylusVersion() returned 0 or reverted");
       else line(OK, `Stylus enabled (ArbWasm version ${p.stylusVersion})`);
-      if (p.stylus && p.stateOverrides === false) {
-        line(WARN, "RPC rejects eth_call state overrides", "cargo-stylus may fail its activation check on this endpoint; a provider RPC (Alchemy, QuickNode) or a dev node usually works");
+      if (p.stylus && /(^|\.)arbitrum\.io$/.test(p.host.split(":")[0])) {
+        line(
+          WARN,
+          "public Arbitrum endpoint",
+          "Observed once: the public Sepolia RPC refused cargo-stylus's activation check during deploy. If that happens, use a provider endpoint (Alchemy, QuickNode) or the local dev node. doctor cannot detect this ahead of time.",
+        );
       }
     }
   }

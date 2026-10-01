@@ -3,7 +3,6 @@
 // only on chains with Stylus enabled.
 const ARB_SYS = "0x0000000000000000000000000000000000000064";
 const ARB_WASM = "0x0000000000000000000000000000000000000071";
-const DEAD = "0x000000000000000000000000000000000000dEaD";
 const SEL = { arbOSVersion: "0x051038f2", stylusVersion: "0xa996e0c2" };
 
 // RPC URLs often embed an API key, so only the host is ever shown.
@@ -36,7 +35,6 @@ export async function probeRpc(url, { fetchImpl = fetch, timeoutMs = 10_000 } = 
     arbitrum: false,
     stylusVersion: null,
     stylus: false,
-    stateOverrides: null,
     notes: [],
   };
   const call = (method, params) => rpcCall(fetchImpl, url, method, params, timeoutMs);
@@ -61,12 +59,6 @@ export async function probeRpc(url, { fetchImpl = fetch, timeoutMs = 10_000 } = 
     out.stylus = version > 0n;
   } catch {
     // ArbWasm missing or reverting: Stylus is not available here
-  }
-  try {
-    await call("eth_call", [{ to: DEAD, data: "0x" }, "latest", { [DEAD]: { balance: "0x1" } }]);
-    out.stateOverrides = true;
-  } catch {
-    out.stateOverrides = false;
   }
   return out;
 }
