@@ -74,3 +74,19 @@ test("shipped shell scripts parse and deploy.sh needs no .env to validate", asyn
   assert.match(deploy, /RPC_URL="\$\{RPC_URL:-https:\/\/sepolia-rollup\.arbitrum\.io\/rpc\}"/);
   assert.doesNotMatch(deploy, /RPC_URL:\?/);
 });
+
+test("CLI accepts a path and names the project after its last segment", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const cli = path.join(path.dirname(new URL(import.meta.url).pathname), "..", "bin", "create-stylus-latest.js");
+  const dir = path.join(path.dirname(tmp()), "nested", "path-app");
+  const r = spawnSync("node", [cli, dir, "-y", "--no-git", "--offline"], { encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(fs.readFileSync(path.join(dir, "Cargo.toml"), "utf8"), /name = "path-app"/);
+
+  // "." scaffolds into an existing empty directory, named after it.
+  const empty = path.join(path.dirname(tmp()), "dot-app");
+  fs.mkdirSync(empty);
+  const dot = spawnSync("node", [cli, ".", "-y", "--no-git", "--offline"], { cwd: empty, encoding: "utf8" });
+  assert.equal(dot.status, 0, dot.stderr);
+  assert.match(fs.readFileSync(path.join(empty, "Cargo.toml"), "utf8"), /name = "dot-app"/);
+});

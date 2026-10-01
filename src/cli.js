@@ -13,7 +13,7 @@ const HELP = `create-stylus-latest ${VERSION}
 Scaffold an Arbitrum Stylus (Rust) project pinned to the latest stylus-sdk.
 
 Usage
-  npx create-stylus-latest [project-name] [options]
+  npx create-stylus-latest [project-name | path] [options]
 
 Options
   -t, --template <name>  ${Object.keys(TEMPLATES).join(" | ")} (default: ${DEFAULT_TEMPLATE})
@@ -60,6 +60,9 @@ export async function main(argv) {
   const interactive = process.stdin.isTTY && !values.yes;
   let name = positionals[0];
   if (!name) name = interactive ? await prompt("Project name", "my-stylus-app") : "my-stylus-app";
+  // The argument may be a path (./apps/my-app, ., /tmp/x); the project name is its last segment.
+  const targetDir = path.resolve(process.cwd(), name);
+  name = path.basename(targetDir);
   const nameError = validateName(name);
   if (nameError) throw new Error(nameError);
 
@@ -71,10 +74,9 @@ export async function main(argv) {
   }
 
   const versions = await resolveVersions({ offline: values.offline });
-  const targetDir = path.resolve(process.cwd(), name);
   const files = scaffold({ targetDir, name, template, versions });
 
-  console.log(`\nCreated ${name}/ from the "${template}" template (${files.length} files)`);
+  console.log(`\nCreated ${path.relative(process.cwd(), targetDir) || "."}/ from the "${template}" template (${files.length} files)`);
   console.log(`  stylus-sdk ${versions.stylusSdk}, alloy ${versions.alloy} (${versions.source})`);
   if (versions.reason) console.log(`  note: could not reach crates.io (${versions.reason}); used known-good versions`);
 
@@ -85,5 +87,5 @@ export async function main(argv) {
     console.log("\nBefore you build, run:");
     for (const h of hints) console.log(`  ${h}`);
   }
-  console.log(`\nNext:\n  cd ${name}\n  cargo test\n  ./scripts/deploy.sh --check-only\n`);
+  console.log(`\nNext:\n${path.relative(process.cwd(), targetDir) ? `  cd ${path.relative(process.cwd(), targetDir)}\n` : ""}  cargo test\n  ./scripts/deploy.sh --check-only\n`);
 }
