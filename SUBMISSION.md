@@ -43,6 +43,10 @@ One command produces a working project and a deploy path that has already been r
   - Contract: `0x41218640903eab654a555371d51d1c4fcfb28580`
   - https://sepolia.arbiscan.io/address/0x41218640903eab654a555371d51d1c4fcfb28580
   - Deployed and activated (activation tx `0xdd7fb822023b4ef20145786a32d8e8a7407c2b28e9d1b76af92f4c165479e919`).
+  - A live `increment()` call through the generated client confirmed with status **Success** in block 314731830:
+    https://sepolia.arbiscan.io/tx/0xbc01bc625b064026e62c28eb4b8ff0c6eedb1cfa3544610f6313bc35b506c2a7
+    (The client printed a stale `number: 0n` right after, from a lagging RPC node; it now reads at the confirming
+    block and checks the receipt status.)
 
 ## Tech
 
