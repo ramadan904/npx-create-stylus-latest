@@ -26,6 +26,7 @@ build here rather than in your project.
 | --- | --- |
 | `counter` | Minimal storage contract with unit tests. Best first step. |
 | `erc20` | ERC-20 token with events, custom Solidity errors and tests. |
+| `vault` | Stablecoin vault for any ERC-20 (USDC, USDG): deposits and withdrawals through cross-contract calls, with mocked-token tests. |
 
 ## What you get in the generated project
 
@@ -38,7 +39,7 @@ build here rather than in your project.
 ## Options
 
 ```
--t, --template <name>  counter | erc20 (default: counter)
+-t, --template <name>  counter | erc20 | vault (default: counter)
 -y, --yes              Skip prompts and use defaults
     --no-git           Do not run git init
     --offline          Use bundled known-good versions instead of querying crates.io

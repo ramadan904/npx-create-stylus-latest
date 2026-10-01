@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        template: [counter, erc20]
+        template: [counter, erc20, vault]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

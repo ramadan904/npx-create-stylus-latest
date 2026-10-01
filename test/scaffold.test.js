@@ -52,3 +52,12 @@ test("scaffold refuses a non-empty directory and unknown templates", () => {
   assert.throws(() => scaffold({ targetDir: tmp(), name: "a", template: "nope", versions }), /Unknown template/);
   assert.equal(fs.readFileSync(path.join(dir, "keep.txt"), "utf8"), "x");
 });
+
+test("every registered template ships a contract and a README", () => {
+  const root = path.join(path.dirname(new URL(import.meta.url).pathname), "..", "templates");
+  for (const name of Object.keys(TEMPLATES)) {
+    for (const f of ["Cargo.toml", "src/lib.rs", "README.md"]) {
+      assert.ok(fs.existsSync(path.join(root, name, f)), `templates/${name}/${f} is missing`);
+    }
+  }
+});
