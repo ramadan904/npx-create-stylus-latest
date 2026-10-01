@@ -86,6 +86,8 @@ jobs:
         with:
           node-version: 22
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
       - uses: actions/cache/restore@v4
         id: cargo-stylus
         with:
