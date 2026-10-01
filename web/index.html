@@ -45,6 +45,15 @@
   .live.err { color: var(--warn); }
   .card a { color: var(--accent); font-size: 14px; text-decoration: none; }
   .card a:hover { text-decoration: underline; }
+  .wallet { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 16px; }
+  button.btn { font: inherit; font-size: 14px; cursor: pointer; color: var(--text); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 9px 14px; }
+  button.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.btn:disabled { opacity: .55; cursor: wait; }
+  .acct { font: 13px ui-monospace, Menlo, Consolas, monospace; color: var(--muted); }
+  .msg { font-size: 13px; color: var(--muted); margin-top: 8px; min-height: 1.2em; word-break: break-word; }
+  .msg.ok { color: var(--ok); } .msg.bad { color: var(--warn); }
+  .actions { margin-top: 10px; }
   ol.steps { padding-left: 20px; margin: 0; } ol.steps li { margin: 8px 0; }
   .note { color: var(--muted); font-size: 13.5px; }
   footer { border-top: 1px solid var(--line); padding: 22px 0 40px; color: var(--muted); font-size: 13.5px; }
@@ -70,7 +79,13 @@ node bin/create-stylus-latest.js my-app -t counter --with-client</pre>
 
   <section>
     <h2>Live on Arbitrum Sepolia</h2>
-    <p class="sub">Three contracts scaffolded by this tool and deployed with its own scripts. The values below are read from the chain in your browser right now.</p>
+    <p class="sub">Three contracts scaffolded by this tool and deployed with its own scripts. The values below are read from the chain in your browser right now. Connect a wallet to send a real transaction yourself.</p>
+    <div class="wallet">
+      <button class="btn primary" id="connect">Connect wallet</button>
+      <span class="acct" id="acct"></span>
+    </div>
+    <p class="note" id="walletmsg">You need a little free Arbitrum Sepolia test ETH. Faucets are listed on the
+      <a href="https://arbitrum-singapore.hackquest.io/buildathons/Arbitrum-Open-House-Singapore-Online-Buildathon" style="color:var(--accent)">Buildathon page</a>. Test network only; no real funds.</p>
     <div class="grid" id="contracts"></div>
   </section>
 
@@ -102,24 +117,38 @@ node bin/create-stylus-latest.js my-app -t counter --with-client</pre>
 
 <script>
 const RPC = "https://sepolia-rollup.arbitrum.io/rpc";
-const SCAN = "https://sepolia.arbiscan.io/address/";
+const SCAN = "https://sepolia.arbiscan.io/";
+const CHAIN_HEX = "0x66eee"; // 421614, Arbitrum Sepolia
 
 // 4-byte selectors (keccak of the signature).
 const SEL = {
-  number: "0x8381f58a", name: "0x06fdde03", symbol: "0x95d89b41", decimals: "0x313ce567",
-  totalSupply: "0x18160ddd", asset: "0x38d52e0f", totalDeposits: "0x7d882097",
+  number: "0x8381f58a", increment: "0xd09de08a", name: "0x06fdde03", symbol: "0x95d89b41",
+  decimals: "0x313ce567", totalSupply: "0x18160ddd", balanceOf: "0x70a08231",
+  asset: "0x38d52e0f", totalDeposits: "0x7d882097",
 };
+const pad32 = (hexAddr) => hexAddr.toLowerCase().replace(/^0x/, "").padStart(64, "0");
+
+let account = null;
+// Where reads go: the public RPC by default; after a transaction we read through the wallet at the
+// confirming block, so a lagging RPC node cannot hand back stale state.
+const ctx = { block: "latest", wallet: false };
 
 const CONTRACTS = [
   { title: "Counter", blurb: "Minimal storage contract.", address: "0x41218640903eab654a555371d51d1c4fcfb28580",
+    action: { label: "Increment (sends a transaction)", data: SEL.increment },
     read: async (to) => [["Current number", (await uint(to, SEL.number)).toString()]] },
   { title: "ERC-20 token", blurb: "Token with events and custom errors.", address: "0x45a81630ec980e8517e032d5c069a24011dedba5",
-    read: async (to) => {
+    read: async (to, who) => {
       const name = str(await call(to, SEL.name));
       if (!name) return [["Status", "Deployed, not initialized yet"]];
       const dec = Number(await uint(to, SEL.decimals));
-      return [["Name", name], ["Symbol", str(await call(to, SEL.symbol))],
+      const rows = [["Name", name], ["Symbol", str(await call(to, SEL.symbol))],
         ["Total supply", units(await uint(to, SEL.totalSupply), dec)]];
+      if (who) {
+        try { rows.push(["Your balance", units(await uint(to, SEL.balanceOf + pad32(who)), dec)]); }
+        catch (_) { rows.push(["Your balance", "unavailable"]); }   // one failed lookup must not blank the card
+      }
+      return rows;
     } },
   { title: "Vault", blurb: "Deposit and withdraw any ERC-20.", address: "0xcd542511830dbaec42f753f3b96ed8c8c66dc953",
     read: async (to) => {
@@ -130,15 +159,18 @@ const CONTRACTS = [
 ];
 
 async function call(to, data) {
+  if (ctx.wallet && window.ethereum) {
+    return window.ethereum.request({ method: "eth_call", params: [{ to, data }, ctx.block] });
+  }
   const res = await fetch(RPC, { method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call", params: [{ to, data }, "latest"] }) });
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call", params: [{ to, data }, ctx.block] }) });
   const json = await res.json();
   if (json.error) throw new Error(json.error.message);
   return json.result;
 }
 const uint = async (to, sel) => BigInt(await call(to, sel));
 const addr = (hex) => "0x" + hex.slice(-40);
-const short = (a) => a.slice(0, 8) + "…" + a.slice(-6);
+const short = (a) => a.slice(0, 8) + "\u2026" + a.slice(-6);
 function str(hex) {            // ABI-encoded string: offset, length, bytes
   const b = hex.slice(2);
   const len = parseInt(b.slice(64, 128), 16);
@@ -158,24 +190,95 @@ function el(tag, props = {}, text) {
   if (text !== undefined) e.textContent = text;
   return e;
 }
+const setMsg = (node, text, kind = "") => { node.className = "msg " + kind; node.replaceChildren(document.createTextNode(text)); };
 
-async function render(c) {
-  const card = el("div", { className: "card" });
-  card.append(el("h3", {}, c.title), el("p", {}, c.blurb), el("div", { className: "addr" }, c.address));
-  const dl = el("dl"), status = el("span", { className: "live" }, "READING…");
-  card.append(dl);
-  const row = el("div"); row.append(status, document.createTextNode(" "));
-  row.append(el("a", { href: SCAN + c.address, target: "_blank", rel: "noopener" }, "Open on Arbiscan →"));
-  card.append(row);
-  document.getElementById("contracts").append(card);
+// ---- cards -----------------------------------------------------------------
+async function refresh(c, override) {
+  const saved = { ...ctx }; Object.assign(ctx, override || { block: "latest", wallet: false });
   try {
-    for (const [k, v] of await c.read(c.address)) { dl.append(el("dt", {}, k), el("dd", {}, v)); }
-    status.textContent = "● LIVE";
+    const rows = await c.read(c.address, account);
+    c.dl.replaceChildren(...rows.flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, v)]));
+    c.status.textContent = "\u25CF LIVE"; c.status.className = "live";
   } catch (err) {
-    status.textContent = "COULD NOT READ (see Arbiscan)"; status.className = "live err";
-  }
+    c.status.textContent = "COULD NOT READ (see Arbiscan)"; c.status.className = "live err";
+  } finally { Object.assign(ctx, saved); }
 }
-CONTRACTS.forEach(render);
+
+function build(c) {
+  const card = el("div", { className: "card" });
+  c.dl = el("dl"); c.status = el("span", { className: "live" }, "READING\u2026"); c.msg = el("div", { className: "msg" });
+  card.append(el("h3", {}, c.title), el("p", {}, c.blurb), el("div", { className: "addr" }, c.address), c.dl);
+  const row = el("div"); row.append(c.status, document.createTextNode(" "),
+    el("a", { href: SCAN + "address/" + c.address, target: "_blank", rel: "noopener" }, "Open on Arbiscan \u2192"));
+  card.append(row);
+  if (c.action) {
+    c.button = el("button", { className: "btn primary" }, c.action.label);
+    c.button.addEventListener("click", () => act(c));
+    const box = el("div", { className: "actions" }); box.append(c.button); card.append(box);
+  }
+  card.append(c.msg);
+  document.getElementById("contracts").append(card);
+  refresh(c);
+}
+
+// ---- wallet ----------------------------------------------------------------
+async function connect() {
+  if (!window.ethereum) throw new Error("No browser wallet found. Install MetaMask or another wallet, then reload.");
+  const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+  account = accounts[0];
+  try {
+    await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: CHAIN_HEX }] });
+  } catch (e) {
+    if (e.code !== 4902) throw e;           // 4902: the wallet does not know this chain yet
+    await window.ethereum.request({ method: "wallet_addEthereumChain", params: [{
+      chainId: CHAIN_HEX, chainName: "Arbitrum Sepolia", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+      rpcUrls: [RPC], blockExplorerUrls: ["https://sepolia.arbiscan.io"] }] });
+  }
+  document.getElementById("acct").textContent = short(account);
+  document.getElementById("connect").textContent = "Connected";
+  CONTRACTS.forEach((c) => refresh(c));
+}
+
+function explain(err) {
+  if (err && err.code === 4001) return "Cancelled in your wallet.";
+  const m = (err && (err.shortMessage || err.message)) || String(err);
+  return /insufficient funds/i.test(m) ? "Not enough Arbitrum Sepolia ETH in this wallet. Use a faucet, then try again." : m;
+}
+
+async function act(c) {
+  c.button.disabled = true;
+  try {
+    if (!account) await connect();
+    setMsg(c.msg, "Confirm the transaction in your wallet\u2026");
+    const hash = await window.ethereum.request({ method: "eth_sendTransaction", params: [{ from: account, to: c.address, data: c.action.data }] });
+    const link = el("a", { href: SCAN + "tx/" + hash, target: "_blank", rel: "noopener" }, "view transaction");
+    c.msg.className = "msg"; c.msg.replaceChildren(document.createTextNode("Sent, waiting for confirmation: "), link);
+    const receipt = await waitReceipt(hash);
+    if (receipt.status !== "0x1") throw new Error("The transaction reverted on-chain.");
+    await refresh(c, { block: receipt.blockNumber, wallet: true });   // read at the confirming block
+    c.msg.className = "msg ok"; c.msg.replaceChildren(document.createTextNode("Confirmed in block " + parseInt(receipt.blockNumber, 16) + ". "), link);
+  } catch (err) {
+    setMsg(c.msg, explain(err), "bad");
+  } finally { c.button.disabled = false; }
+}
+
+async function waitReceipt(hash) {
+  for (let i = 0; i < 60; i++) {
+    const r = await window.ethereum.request({ method: "eth_getTransactionReceipt", params: [hash] });
+    if (r) return r;
+    await new Promise((ok) => setTimeout(ok, 1500));
+  }
+  throw new Error("Still pending after 90 seconds. Check the transaction link.");
+}
+
+document.getElementById("connect").addEventListener("click", async () => {
+  try { await connect(); } catch (err) { document.getElementById("walletmsg").textContent = explain(err); }
+});
+if (window.ethereum && window.ethereum.on) {
+  window.ethereum.on("accountsChanged", (a) => { account = a[0] || null; document.getElementById("acct").textContent = account ? short(account) : ""; CONTRACTS.forEach((c) => refresh(c)); });
+  window.ethereum.on("chainChanged", () => location.reload());
+}
+CONTRACTS.forEach(build);
 </script>
 </body>
 </html>
