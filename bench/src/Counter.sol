@@ -17,4 +17,14 @@ contract Counter {
     function addNumber(uint256 value) external {
         number += value;
     }
+
+    /// 64-bit LCG iterated n times; the twin of `work` in bench/stylus-lib.rs.
+    function work(uint64 n) external pure returns (uint64 acc) {
+        acc = 1;
+        unchecked {
+            for (uint64 i = 0; i < n; i++) {
+                acc = acc * 6364136223846793005 + 1442695040888963407;
+            }
+        }
+    }
 }

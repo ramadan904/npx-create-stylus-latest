@@ -32,7 +32,9 @@ jobs:
       - if: steps.cargo-stylus.outputs.cache-hit != 'true'
         run: cargo install --locked cargo-stylus
       - uses: foundry-rs/foundry-toolchain@v1
-      - run: node bin/create-stylus-latest.js "$APP" -t counter -y --no-git
+      - run: |
+          node bin/create-stylus-latest.js "$APP" -t counter -y --no-git
+          cp bench/stylus-lib.rs "$APP/src/lib.rs"
       - name: Create a throwaway key
         run: |
           key=0x$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')
@@ -61,36 +63,7 @@ jobs:
           echo "SOL_DEPLOY_GAS=$(cast receipt "$(echo "$out" | jq -r .transactionHash)" gasUsed --rpc-url http://127.0.0.1:8547)" >> "$GITHUB_ENV"
       - name: Measure
         run: |
-          rpc=http://127.0.0.1:8547
-          gas() { # address signature [args...] -> gasUsed of a confirmed tx
-            local to=$1 sig=$2; shift 2
-            cast send "$to" "$sig" "$@" --rpc-url $rpc --private-key "$BENCH_KEY" --json | jq -r '.gasUsed' | xargs printf '%d\n'
-          }
-          measure() { # label address
-            local label=$1 to=$2
-            local first=$(gas "$to" 'increment()')
-            local rest=()
-            for _ in 1 2 3 4 5; do rest+=("$(gas "$to" 'increment()')"); done
-            local add=$(gas "$to" 'addNumber(uint256)' 7)
-            local set=$(gas "$to" 'setNumber(uint256)' 100)
-            local final=$(cast call "$to" 'number()(uint256)' --rpc-url $rpc)
-            local size=$(( ($(cast code "$to" --rpc-url $rpc | wc -c) - 3) / 2 ))
-            echo "$label|$first|${rest[*]}|$add|$set|$final|$size"
-          }
-          s=$(measure Stylus "$STYLUS_ADDR")
-          v=$(measure Solidity "$SOL_ADDR")
-          {
-            echo "### Counter gas on a local Nitro dev node"
-            echo
-            echo "| | increment (first, 0→1) | increment (steady, 5 calls) | addNumber | setNumber | final number | on-chain code bytes |"
-            echo "|---|---|---|---|---|---|---|"
-            for row in "$s" "$v"; do
-              IFS='|' read -r l f r a st fin sz <<<"$row"
-              echo "| $l | $f | $r | $a | $st | $fin | $sz |"
-            done
-            echo
-            echo "Solidity deployment gas: $SOL_DEPLOY_GAS. Stylus deployment includes activation, so it is not compared here."
-          } | tee bench.md >> "$GITHUB_STEP_SUMMARY"
+          ./bench/measure.sh | tee bench.md >> "$GITHUB_STEP_SUMMARY"
           echo "::notice title=gas benchmark::$(tr '\n' '|' < bench.md)"
       - uses: actions/upload-artifact@v4
         with:
