@@ -2,6 +2,9 @@ name: Benchmark
 
 on:
   workflow_dispatch:
+  # Also runs when the benchmark itself changes, so it can be exercised from a branch before it reaches main.
+  push:
+    paths: ['bench/**', '.github/workflows/benchmark.yml']
 
 concurrency:
   group: benchmark-${{ github.ref }}
