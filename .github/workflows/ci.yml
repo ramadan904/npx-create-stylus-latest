@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        template: [counter, erc20, vault]
+        template: [counter, erc20, vault, escrow]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
