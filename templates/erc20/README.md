@@ -7,8 +7,9 @@ A Stylus (Rust) ERC-20 token scaffolded with `create-stylus-latest` against `sty
 `Token` implements `name`, `symbol`, `decimals`, `totalSupply`, `balanceOf`, `allowance`, `transfer`, `approve`
 and `transferFrom`, with `Transfer`/`Approval` events and custom errors.
 
-Stylus contracts have no constructor, so call `init(name, symbol, supply)` once after deploying. It mints the
-supply to the caller and reverts with `AlreadyInitialized` on any later call.
+The token is configured by a **constructor** that runs atomically at deploy time, so nobody can initialize it before
+you. It takes `(name, symbol, supply, owner)` and mints `supply` to `owner`. Pass `owner` explicitly: `msg_sender`
+inside a Stylus constructor is the deployer helper contract, not you.
 
 ## Develop
 
@@ -27,20 +28,10 @@ cp .env.example .env                # add a funded testnet PRIVATE_KEY
 ./scripts/deploy.sh
 ```
 
-Then initialize it, for example with Foundry's `cast`:
+Deploy with constructor arguments (everything after `--` goes to the constructor):
 
 ```bash
-cast send <ADDRESS> "init(string,string,uint256)" "My Token" "MTK" 1000000000000000000000000 \
-  --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+./scripts/deploy.sh -- "My Token" MTK 1000000000000000000000000 0xYourAddress
 ```
 
-## Validate without a testnet
-
-Public RPC endpoints may refuse the activation check (we saw `stylus activations not allowed for this request` from
-the public Arbitrum Sepolia RPC). A local Nitro dev node accepts it and needs Docker:
-
-```bash
-./scripts/devnode.sh
-RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh --check-only
-docker rm -f stylus-devnode   # when done
-```
+That mints 1,000,000 tokens (18 decimals) to your address. Then read it with the client (`--with-client`) or any tool.

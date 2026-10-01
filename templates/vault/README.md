@@ -7,7 +7,7 @@ against `stylus-sdk` {{stylus_sdk_version}}.
 
 `Vault` tracks a per-account deposit of one ERC-20 chosen at setup:
 
-- `init(asset)` sets the token once (Stylus has no constructor, so call it right after deploying)
+- a **constructor** `(asset)` sets the token atomically at deploy time, so nobody can race you to set a different one
 - `deposit(amount)` pulls tokens with `transferFrom`, so the caller must `approve` the vault first
 - `withdraw(amount)` sends the caller's tokens back
 - `asset()`, `totalDeposits()`, `depositOf(account)` for reads
@@ -32,21 +32,15 @@ cp .env.example .env                # add a funded testnet PRIVATE_KEY
 ./scripts/deploy.sh
 ```
 
-Then point it at a token and use it, for example with Foundry's `cast`:
+Deploy it pointed at a token (the constructor argument goes after `--`):
 
 ```bash
-cast send <VAULT> "init(address)" <TOKEN> --rpc-url $RPC_URL --private-key $PRIVATE_KEY
-cast send <TOKEN> "approve(address,uint256)" <VAULT> 1000000 --rpc-url $RPC_URL --private-key $PRIVATE_KEY
-cast send <VAULT> "deposit(uint256)" 1000000 --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+./scripts/deploy.sh -- 0xTokenAddress
 ```
 
-## Validate without a testnet
-
-Public RPC endpoints may refuse the activation check (we saw `stylus activations not allowed for this request` from
-the public Arbitrum Sepolia RPC). A local Nitro dev node accepts it and needs Docker:
+Then use it, for example with Foundry's `cast`:
 
 ```bash
-./scripts/devnode.sh
-RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh --check-only
-docker rm -f stylus-devnode   # when done
+cast send <TOKEN> "approve(address,uint256)" <VAULT> 1000000 --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+cast send <VAULT> "deposit(uint256)" 1000000 --rpc-url $RPC_URL --private-key $PRIVATE_KEY
 ```

@@ -125,3 +125,21 @@ for (const template of Object.keys(TEMPLATES)) {
     for (const fn of abiFns) assert.ok(contractFns.has(fn), `client ABI lists ${fn}() which the contract does not define`);
   });
 }
+
+test("erc20 and vault initialize through a constructor, not a callable init()", () => {
+  for (const template of ["erc20", "vault"]) {
+    const dir = tmp();
+    scaffold({ targetDir: dir, name: "my-app", template, versions });
+    const lib = fs.readFileSync(path.join(dir, "src/lib.rs"), "utf8");
+    assert.match(lib, /#\[constructor\]/, `${template} must use #[constructor]`);
+    assert.doesNotMatch(lib, /pub fn init\(/, `${template} must not expose a front-runnable init()`);
+  }
+});
+
+test("deploy.sh forwards constructor arguments after --", () => {
+  const dir = tmp();
+  scaffold({ targetDir: dir, name: "my-app", template: "erc20", versions });
+  const deploy = fs.readFileSync(path.join(dir, "scripts/deploy.sh"), "utf8");
+  assert.match(deploy, /--constructor-args/);
+  assert.match(deploy, /--\) shift; ctor=\("\$@"\); break/);
+});

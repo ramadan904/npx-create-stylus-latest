@@ -15,20 +15,17 @@ sol! {
 
     error InsufficientBalance(address from, uint256 have, uint256 want);
     error InsufficientAllowance(address owner, address spender, uint256 have, uint256 want);
-    error AlreadyInitialized();
 }
 
 #[derive(SolidityError)]
 pub enum Erc20Error {
     InsufficientBalance(InsufficientBalance),
     InsufficientAllowance(InsufficientAllowance),
-    AlreadyInitialized(AlreadyInitialized),
 }
 
 sol_storage! {
     #[entrypoint]
     pub struct Token {
-        bool initialized;
         string name;
         string symbol;
         uint256 total_supply;
@@ -39,17 +36,21 @@ sol_storage! {
 
 #[public]
 impl Token {
-    /// One-shot constructor: sets metadata and mints `supply` to the caller.
-    /// Stylus contracts have no Solidity-style constructor, so call this right after deploy.
-    pub fn init(&mut self, name: String, symbol: String, supply: U256) -> Result<(), Erc20Error> {
-        if self.initialized.get() {
-            return Err(Erc20Error::AlreadyInitialized(AlreadyInitialized {}));
-        }
-        self.initialized.set(true);
+    /// Runs once, atomically, when the contract is deployed (cargo-stylus sends it through the
+    /// StylusDeployer, so there is no window in which someone else can initialize it first).
+    /// The SDK reverts any second call. Pass the recipient explicitly: `msg_sender` here would be the
+    /// deployer contract, not you.
+    #[constructor]
+    pub fn constructor(
+        &mut self,
+        name: String,
+        symbol: String,
+        supply: U256,
+        owner: Address,
+    ) -> Result<(), Vec<u8>> {
         self.name.set_str(name);
         self.symbol.set_str(symbol);
-        let sender = self.vm().msg_sender();
-        self.mint(sender, supply);
+        self.mint(owner, supply);
         Ok(())
     }
 
@@ -150,18 +151,18 @@ mod tests {
         let vm = TestVM::default();
         vm.set_sender(ALICE);
         let mut token = Token::from(&vm);
-        let minted = token.init("Buildathon".into(), "BUIDL".into(), U256::from(1_000u64));
-        assert!(minted.is_ok());
+        let built = token.constructor("Buildathon".into(), "BUIDL".into(), U256::from(1_000u64), ALICE);
+        assert!(built.is_ok());
         (vm, token)
     }
 
     #[test]
-    fn init_mints_to_deployer_once() {
-        let (_vm, mut token) = deployed();
+    fn constructor_sets_metadata_and_mints_to_the_named_owner() {
+        let (_vm, token) = deployed();
         assert_eq!(token.balance_of(ALICE), U256::from(1_000u64));
         assert_eq!(token.total_supply(), U256::from(1_000u64));
+        assert_eq!(token.name(), "Buildathon");
         assert_eq!(token.symbol(), "BUIDL");
-        assert!(token.init("x".into(), "y".into(), U256::ZERO).is_err());
     }
 
     #[test]

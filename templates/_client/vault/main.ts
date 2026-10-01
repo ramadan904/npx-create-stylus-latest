@@ -3,7 +3,6 @@ import { connect, run } from "./client.js";
 
 // Keep in sync with the contract: run `../scripts/export-abi.sh` to see the interface.
 const abi = parseAbi([
-  "function init(address asset)",
   "function asset() view returns (address)",
   "function totalDeposits() view returns (uint256)",
   "function depositOf(address account) view returns (uint256)",

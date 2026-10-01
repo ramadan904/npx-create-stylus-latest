@@ -1,7 +1,20 @@
 #!/usr/bin/env bash
-# Validate and deploy this Stylus contract. Usage: ./scripts/deploy.sh [--check-only]
+# Validate and deploy this Stylus contract.
+# Usage: ./scripts/deploy.sh [--check-only] [-- <constructor args>...]
+# Contracts with a constructor (erc20, vault) take their arguments after `--`, e.g.
+#   ./scripts/deploy.sh -- "My Token" MTK 1000000000000000000000000 0xYourAddress
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+check_only=0
+ctor=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --check-only) check_only=1; shift ;;
+    --) shift; ctor=("$@"); break ;;
+    *) echo "Unknown argument: $1 (constructor arguments go after --)" >&2; exit 2 ;;
+  esac
+done
 
 caller_rpc="${RPC_URL:-}"   # an RPC_URL set on the command line wins over .env
 if [ -f .env ]; then set -a; . ./.env; set +a; fi
@@ -20,7 +33,7 @@ command -v cargo-stylus >/dev/null 2>&1 || {
 echo "==> Checking contract against $RPC_URL"
 cargo stylus check --endpoint "$RPC_URL"
 
-if [ "${1:-}" = "--check-only" ]; then exit 0; fi
+if [ "$check_only" = 1 ]; then exit 0; fi
 : "${PRIVATE_KEY:?Set PRIVATE_KEY in .env to deploy}"
 
 # Hand the key over via a private temp file so it never shows up in `ps`.
@@ -38,5 +51,9 @@ printf '%s' "${PRIVATE_KEY#0x}" > "$keyfile"
 fee_args=()
 if [ -n "${MAX_FEE_GWEI:-}" ]; then fee_args+=(--max-fee-per-gas-gwei "$MAX_FEE_GWEI"); fi
 
+ctor_args=()
+if [ ${#ctor[@]} -gt 0 ]; then ctor_args=(--constructor-args "${ctor[@]}"); fi
+
 echo "==> Deploying"
-cargo stylus deploy --no-verify --endpoint "$RPC_URL" --private-key-path "$keyfile" ${fee_args[@]+"${fee_args[@]}"}
+cargo stylus deploy --no-verify --endpoint "$RPC_URL" --private-key-path "$keyfile" \
+  ${fee_args[@]+"${fee_args[@]}"} ${ctor_args[@]+"${ctor_args[@]}"}
