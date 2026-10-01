@@ -2,7 +2,13 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   cli:
@@ -15,9 +21,11 @@ jobs:
       - run: npm test
 
   templates:
-    # Scaffold every template with live crates.io versions, then build and test the result.
+    # Scaffold every template with live crates.io versions, then build, test and
+    # validate the result against a local Nitro dev node.
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         template: [counter, erc20, vault]
     steps:
@@ -26,13 +34,19 @@ jobs:
         with:
           node-version: 22
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         id: cargo-stylus
         with:
           path: ~/.cargo/bin/cargo-stylus
           key: cargo-stylus-${{ runner.os }}-v1
       - if: steps.cargo-stylus.outputs.cache-hit != 'true'
         run: cargo install --locked cargo-stylus
+      # Save right after installing so a later failure does not throw away the 4-minute build.
+      - if: steps.cargo-stylus.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cargo/bin/cargo-stylus
+          key: cargo-stylus-${{ runner.os }}-v1
       - run: node bin/create-stylus-latest.js "${{ runner.temp }}/app" -t ${{ matrix.template }} -y --no-git --with-client
       - run: npm install && npm run typecheck
         working-directory: ${{ runner.temp }}/app/client
@@ -40,6 +54,12 @@ jobs:
         working-directory: ${{ runner.temp }}/app
       - run: cargo build --release --target wasm32-unknown-unknown --lib
         working-directory: ${{ runner.temp }}/app
-      # Real on-chain validation: catches missing Stylus.toml, size limits and activation errors.
-      - run: cargo stylus check --endpoint https://sepolia-rollup.arbitrum.io/rpc
+      - run: ./scripts/devnode.sh
         working-directory: ${{ runner.temp }}/app
+      # Catches missing Stylus.toml, size limits and activation errors.
+      - run: ./scripts/deploy.sh --check-only
+        working-directory: ${{ runner.temp }}/app
+        env:
+          RPC_URL: http://127.0.0.1:8547
+      - if: failure()
+        run: docker logs --tail 60 stylus-devnode || true

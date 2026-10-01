@@ -25,3 +25,14 @@ cp .env.example .env                # add a funded testnet PRIVATE_KEY
 ```
 
 Call it from any Solidity or ethers/viem client using the ABI from `export-abi.sh`.
+
+## Validate without a testnet
+
+Public RPC endpoints may refuse the activation check (we saw `stylus activations not allowed for this request` from
+the public Arbitrum Sepolia RPC). A local Nitro dev node accepts it and needs Docker:
+
+```bash
+./scripts/devnode.sh
+RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh --check-only
+docker rm -f stylus-devnode   # when done
+```

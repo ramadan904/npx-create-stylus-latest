@@ -17,7 +17,7 @@ mismatched pair fails to compile. At scaffold time this CLI reads the [crates.io
 picks the newest stable `stylus-sdk`, and pins the exact `alloy-primitives` / `alloy-sol-types` version that release
 requires. If you are offline it falls back to a bundled known-good pair (`--offline` forces this).
 
-Every template is built, tested and run through `cargo stylus check` in CI against live crates.io versions, so a broken release shows up as a red
+Every template is built, tested and validated with `cargo stylus check` against a local Nitro dev node in CI, using live crates.io versions, so a broken release shows up as a red
 build here rather than in your project.
 
 ## Templates

@@ -66,7 +66,7 @@ test("shipped shell scripts parse and deploy.sh needs no .env to validate", asyn
   const { spawnSync } = await import("node:child_process");
   const dir = tmp();
   scaffold({ targetDir: dir, name: "my-app", template: "counter", versions });
-  for (const script of ["deploy.sh", "export-abi.sh"]) {
+  for (const script of ["deploy.sh", "export-abi.sh", "devnode.sh"]) {
     const r = spawnSync("bash", ["-n", path.join(dir, "scripts", script)], { encoding: "utf8" });
     assert.equal(r.status, 0, `${script}: ${r.stderr}`);
   }

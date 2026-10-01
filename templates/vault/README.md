@@ -39,3 +39,14 @@ cast send <VAULT> "init(address)" <TOKEN> --rpc-url $RPC_URL --private-key $PRIV
 cast send <TOKEN> "approve(address,uint256)" <VAULT> 1000000 --rpc-url $RPC_URL --private-key $PRIVATE_KEY
 cast send <VAULT> "deposit(uint256)" 1000000 --rpc-url $RPC_URL --private-key $PRIVATE_KEY
 ```
+
+## Validate without a testnet
+
+Public RPC endpoints may refuse the activation check (we saw `stylus activations not allowed for this request` from
+the public Arbitrum Sepolia RPC). A local Nitro dev node accepts it and needs Docker:
+
+```bash
+./scripts/devnode.sh
+RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh --check-only
+docker rm -f stylus-devnode   # when done
+```

@@ -3,7 +3,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+caller_rpc="${RPC_URL:-}"   # an RPC_URL set on the command line wins over .env
 if [ -f .env ]; then set -a; . ./.env; set +a; fi
+[ -z "$caller_rpc" ] || RPC_URL="$caller_rpc"
 # Defaults to Arbitrum Sepolia so `--check-only` works on a fresh project.
 RPC_URL="${RPC_URL:-https://sepolia-rollup.arbitrum.io/rpc}"
 
