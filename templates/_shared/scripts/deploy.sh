@@ -29,5 +29,8 @@ trap 'rm -f "$keyfile"' EXIT
 chmod 600 "$keyfile"
 printf '%s' "${PRIVATE_KEY#0x}" > "$keyfile"
 
+# --no-verify skips cargo-stylus's default Docker "reproducible build". That mode re-runs the command
+# inside a container that cannot read the key file above, and it needs Docker installed. The trade-off is
+# that the deployment cannot be checked later with `cargo stylus verify`; drop the flag if you need that.
 echo "==> Deploying"
-cargo stylus deploy --endpoint "$RPC_URL" --private-key-path "$keyfile"
+cargo stylus deploy --no-verify --endpoint "$RPC_URL" --private-key-path "$keyfile"

@@ -73,6 +73,7 @@ test("shipped shell scripts parse and deploy.sh needs no .env to validate", asyn
   const deploy = fs.readFileSync(path.join(dir, "scripts/deploy.sh"), "utf8");
   assert.match(deploy, /RPC_URL="\$\{RPC_URL:-https:\/\/sepolia-rollup\.arbitrum\.io\/rpc\}"/);
   assert.doesNotMatch(deploy, /RPC_URL:\?/);
+  assert.match(deploy, /cargo stylus deploy --no-verify/, "deploy must not require Docker or hide the key file from it");
   assert.match(deploy, /cargo generate-lockfile/, "deploy.sh must create Cargo.lock for cargo-stylus --locked builds");
 });
 
