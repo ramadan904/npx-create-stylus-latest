@@ -1,0 +1,97 @@
+name: Benchmark
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: benchmark-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP: ${{ github.workspace }}/../bench-app
+
+jobs:
+  gas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: actions/cache/restore@v4
+        id: cargo-stylus
+        with:
+          path: ~/.cargo/bin/cargo-stylus
+          key: cargo-stylus-${{ runner.os }}-v1
+      - if: steps.cargo-stylus.outputs.cache-hit != 'true'
+        run: cargo install --locked cargo-stylus
+      - uses: foundry-rs/foundry-toolchain@v1
+      - run: node bin/create-stylus-latest.js "$APP" -t counter -y --no-git
+      - name: Create a throwaway key
+        run: |
+          key=0x$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')
+          echo "::add-mask::$key"
+          addr=$(cast wallet address --private-key "$key")
+          echo "BENCH_KEY=$key" >> "$GITHUB_ENV"
+          echo "BENCH_ADDR=$addr" >> "$GITHUB_ENV"
+      - name: Start a dev node that funds that key
+        working-directory: ${{ env.APP }}
+        run: FUND_ADDRESS="$BENCH_ADDR" ./scripts/devnode.sh
+      - name: Deploy the Stylus counter
+        working-directory: ${{ env.APP }}
+        run: |
+          printf 'RPC_URL=http://127.0.0.1:8547\nCHAIN_ID=412346\nPRIVATE_KEY=%s\n' "$BENCH_KEY" > .env
+          ./scripts/deploy.sh 2>&1 | tee deploy.log
+          addr=$(sed 's/\x1b\[[0-9;]*m//g' deploy.log | grep -iE 'deployed code at address' | grep -oE '0x[0-9a-fA-F]{40}' | head -1)
+          test -n "$addr"
+          echo "STYLUS_ADDR=$addr" >> "$GITHUB_ENV"
+      - name: Deploy the Solidity counter
+        run: |
+          forge build --root bench
+          out=$(forge create src/Counter.sol:Counter --root bench \
+            --rpc-url http://127.0.0.1:8547 --private-key "$BENCH_KEY" --broadcast --json)
+          echo "$out"
+          echo "SOL_ADDR=$(echo "$out" | jq -r .deployedTo)" >> "$GITHUB_ENV"
+          echo "SOL_DEPLOY_GAS=$(cast receipt "$(echo "$out" | jq -r .transactionHash)" gasUsed --rpc-url http://127.0.0.1:8547)" >> "$GITHUB_ENV"
+      - name: Measure
+        run: |
+          rpc=http://127.0.0.1:8547
+          gas() { # address signature [args...] -> gasUsed of a confirmed tx
+            local to=$1 sig=$2; shift 2
+            cast send "$to" "$sig" "$@" --rpc-url $rpc --private-key "$BENCH_KEY" --json | jq -r '.gasUsed' | xargs printf '%d\n'
+          }
+          measure() { # label address
+            local label=$1 to=$2
+            local first=$(gas "$to" 'increment()')
+            local rest=()
+            for _ in 1 2 3 4 5; do rest+=("$(gas "$to" 'increment()')"); done
+            local add=$(gas "$to" 'addNumber(uint256)' 7)
+            local set=$(gas "$to" 'setNumber(uint256)' 100)
+            local final=$(cast call "$to" 'number()(uint256)' --rpc-url $rpc)
+            local size=$(( ($(cast code "$to" --rpc-url $rpc | wc -c) - 3) / 2 ))
+            echo "$label|$first|${rest[*]}|$add|$set|$final|$size"
+          }
+          s=$(measure Stylus "$STYLUS_ADDR")
+          v=$(measure Solidity "$SOL_ADDR")
+          {
+            echo "### Counter gas on a local Nitro dev node"
+            echo
+            echo "| | increment (first, 0→1) | increment (steady, 5 calls) | addNumber | setNumber | final number | on-chain code bytes |"
+            echo "|---|---|---|---|---|---|---|"
+            for row in "$s" "$v"; do
+              IFS='|' read -r l f r a st fin sz <<<"$row"
+              echo "| $l | $f | $r | $a | $st | $fin | $sz |"
+            done
+            echo
+            echo "Solidity deployment gas: $SOL_DEPLOY_GAS. Stylus deployment includes activation, so it is not compared here."
+          } | tee bench.md >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=gas benchmark::$(tr '\n' '|' < bench.md)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench
+          path: bench.md
+      - if: failure()
+        run: docker logs --tail 80 stylus-devnode || true
