@@ -1,0 +1,29 @@
+{
+  "name": "create-stylus-latest",
+  "version": "0.1.0",
+  "description": "Scaffold an Arbitrum Stylus (Rust) smart contract project pinned to the latest stylus-sdk.",
+  "type": "module",
+  "bin": {
+    "create-stylus-latest": "bin/create-stylus-latest.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "templates"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "keywords": [
+    "arbitrum",
+    "stylus",
+    "rust",
+    "scaffold",
+    "create",
+    "web3"
+  ],
+  "license": "MIT"
+}

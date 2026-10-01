@@ -1,0 +1,185 @@
+// Only run this as a WASM contract if the export-abi feature is not set.
+#![cfg_attr(not(any(test, feature = "export-abi")), no_main)]
+extern crate alloc;
+
+use alloc::{string::String, vec::Vec};
+use stylus_sdk::{
+    alloy_primitives::{Address, U256},
+    alloy_sol_types::sol,
+    prelude::*,
+};
+
+sol! {
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+
+    error InsufficientBalance(address from, uint256 have, uint256 want);
+    error InsufficientAllowance(address owner, address spender, uint256 have, uint256 want);
+    error AlreadyInitialized();
+}
+
+#[derive(SolidityError)]
+pub enum Erc20Error {
+    InsufficientBalance(InsufficientBalance),
+    InsufficientAllowance(InsufficientAllowance),
+    AlreadyInitialized(AlreadyInitialized),
+}
+
+sol_storage! {
+    #[entrypoint]
+    pub struct Token {
+        bool initialized;
+        string name;
+        string symbol;
+        uint256 total_supply;
+        mapping(address => uint256) balances;
+        mapping(address => mapping(address => uint256)) allowances;
+    }
+}
+
+#[public]
+impl Token {
+    /// One-shot constructor: sets metadata and mints `supply` to the caller.
+    /// Stylus contracts have no Solidity-style constructor, so call this right after deploy.
+    pub fn init(&mut self, name: String, symbol: String, supply: U256) -> Result<(), Erc20Error> {
+        if self.initialized.get() {
+            return Err(Erc20Error::AlreadyInitialized(AlreadyInitialized {}));
+        }
+        self.initialized.set(true);
+        self.name.set_str(name);
+        self.symbol.set_str(symbol);
+        let sender = self.vm().msg_sender();
+        self.mint(sender, supply);
+        Ok(())
+    }
+
+    pub fn name(&self) -> String {
+        self.name.get_string()
+    }
+
+    pub fn symbol(&self) -> String {
+        self.symbol.get_string()
+    }
+
+    pub fn decimals(&self) -> u8 {
+        18
+    }
+
+    pub fn total_supply(&self) -> U256 {
+        self.total_supply.get()
+    }
+
+    pub fn balance_of(&self, owner: Address) -> U256 {
+        self.balances.get(owner)
+    }
+
+    pub fn allowance(&self, owner: Address, spender: Address) -> U256 {
+        self.allowances.getter(owner).get(spender)
+    }
+
+    pub fn transfer(&mut self, to: Address, value: U256) -> Result<bool, Erc20Error> {
+        let from = self.vm().msg_sender();
+        self.move_tokens(from, to, value)?;
+        Ok(true)
+    }
+
+    pub fn approve(&mut self, spender: Address, value: U256) -> bool {
+        let owner = self.vm().msg_sender();
+        self.allowances.setter(owner).insert(spender, value);
+        self.vm().log(Approval { owner, spender, value });
+        true
+    }
+
+    pub fn transfer_from(
+        &mut self,
+        from: Address,
+        to: Address,
+        value: U256,
+    ) -> Result<bool, Erc20Error> {
+        let spender = self.vm().msg_sender();
+        let have = self.allowances.getter(from).get(spender);
+        if have < value {
+            return Err(Erc20Error::InsufficientAllowance(InsufficientAllowance {
+                owner: from,
+                spender,
+                have,
+                want: value,
+            }));
+        }
+        self.allowances.setter(from).insert(spender, have - value);
+        self.move_tokens(from, to, value)?;
+        Ok(true)
+    }
+}
+
+// Internal helpers (not exposed in the ABI).
+impl Token {
+    fn mint(&mut self, to: Address, value: U256) {
+        let balance = self.balances.get(to);
+        self.balances.setter(to).set(balance + value);
+        self.total_supply.set(self.total_supply.get() + value);
+        self.vm().log(Transfer { from: Address::ZERO, to, value });
+    }
+
+    fn move_tokens(&mut self, from: Address, to: Address, value: U256) -> Result<(), Erc20Error> {
+        let have = self.balances.get(from);
+        if have < value {
+            return Err(Erc20Error::InsufficientBalance(InsufficientBalance {
+                from,
+                have,
+                want: value,
+            }));
+        }
+        self.balances.setter(from).set(have - value);
+        let to_balance = self.balances.get(to);
+        self.balances.setter(to).set(to_balance + value);
+        self.vm().log(Transfer { from, to, value });
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use stylus_sdk::{alloy_primitives::address, testing::*};
+
+    const ALICE: Address = address!("0xA11CE00000000000000000000000000000000001");
+    const BOB: Address = address!("0xB0B0000000000000000000000000000000000002");
+
+    fn deployed() -> (TestVM, Token) {
+        let vm = TestVM::default();
+        vm.set_sender(ALICE);
+        let mut token = Token::from(&vm);
+        let minted = token.init("Buildathon".into(), "BUIDL".into(), U256::from(1_000u64));
+        assert!(minted.is_ok());
+        (vm, token)
+    }
+
+    #[test]
+    fn init_mints_to_deployer_once() {
+        let (_vm, mut token) = deployed();
+        assert_eq!(token.balance_of(ALICE), U256::from(1_000u64));
+        assert_eq!(token.total_supply(), U256::from(1_000u64));
+        assert_eq!(token.symbol(), "BUIDL");
+        assert!(token.init("x".into(), "y".into(), U256::ZERO).is_err());
+    }
+
+    #[test]
+    fn transfer_moves_balance_and_rejects_overdraft() {
+        let (_vm, mut token) = deployed();
+        assert!(token.transfer(BOB, U256::from(400u64)).is_ok());
+        assert_eq!(token.balance_of(BOB), U256::from(400u64));
+        assert_eq!(token.balance_of(ALICE), U256::from(600u64));
+        assert!(token.transfer(BOB, U256::from(601u64)).is_err());
+    }
+
+    #[test]
+    fn transfer_from_spends_allowance() {
+        let (vm, mut token) = deployed();
+        token.approve(BOB, U256::from(100u64));
+        vm.set_sender(BOB);
+        assert!(token.transfer_from(ALICE, BOB, U256::from(60u64)).is_ok());
+        assert_eq!(token.allowance(ALICE, BOB), U256::from(40u64));
+        assert!(token.transfer_from(ALICE, BOB, U256::from(41u64)).is_err());
+    }
+}

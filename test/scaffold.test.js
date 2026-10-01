@@ -1,0 +1,54 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { test } from "node:test";
+import { toCrateName, validateName } from "../src/names.js";
+import { render, scaffold } from "../src/scaffold.js";
+import { TEMPLATES } from "../src/templates.js";
+
+const versions = { stylusSdk: "9.8.7", alloy: "6.5.4" };
+const tmp = () => path.join(fs.mkdtempSync(path.join(os.tmpdir(), "csl-")), "proj");
+
+test("validateName accepts cargo-safe names and rejects the rest", () => {
+  assert.equal(validateName("my-app_2"), null);
+  for (const bad of ["", "My-App", "2fast", "has space", "std", "a".repeat(65)]) {
+    assert.ok(validateName(bad), `expected "${bad}" to be rejected`);
+  }
+  assert.equal(toCrateName("my-app"), "my_app");
+});
+
+test("render substitutes known keys and rejects unknown ones", () => {
+  assert.equal(render("{{a}}-{{a}}", { a: "x" }), "x-x");
+  assert.throws(() => render("{{nope}}", {}), /Unknown template placeholder/);
+});
+
+for (const template of Object.keys(TEMPLATES)) {
+  test(`scaffold(${template}) writes a complete, fully-rendered project`, () => {
+    const dir = tmp();
+    const files = scaffold({ targetDir: dir, name: "my-app", template, versions });
+
+    for (const f of ["Cargo.toml", "src/lib.rs", "src/main.rs", "README.md", ".gitignore", ".env.example", "scripts/deploy.sh"]) {
+      assert.ok(files.includes(f), `missing ${f}`);
+    }
+    const cargo = fs.readFileSync(path.join(dir, "Cargo.toml"), "utf8");
+    assert.match(cargo, /name = "my-app"/);
+    assert.match(cargo, /stylus-sdk = "9\.8\.7"/);
+    assert.match(cargo, /alloy-primitives = "6\.5\.4"/);
+    assert.match(fs.readFileSync(path.join(dir, "src/main.rs"), "utf8"), /my_app::print_from_args/);
+
+    for (const f of files) {
+      assert.ok(!/\{\{\w+\}\}/.test(fs.readFileSync(path.join(dir, f), "utf8")), `unrendered placeholder in ${f}`);
+    }
+    assert.ok(fs.statSync(path.join(dir, "scripts/deploy.sh")).mode & 0o111, "deploy.sh must be executable");
+  });
+}
+
+test("scaffold refuses a non-empty directory and unknown templates", () => {
+  const dir = tmp();
+  fs.mkdirSync(dir);
+  fs.writeFileSync(path.join(dir, "keep.txt"), "x");
+  assert.throws(() => scaffold({ targetDir: dir, name: "a", template: "counter", versions }), /not empty/);
+  assert.throws(() => scaffold({ targetDir: tmp(), name: "a", template: "nope", versions }), /Unknown template/);
+  assert.equal(fs.readFileSync(path.join(dir, "keep.txt"), "utf8"), "x");
+});
