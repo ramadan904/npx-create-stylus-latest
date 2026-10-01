@@ -113,6 +113,11 @@ jobs:
       - name: Start a dev node that funds that key
         working-directory: ${{ env.APP }}
         run: FUND_ADDRESS="$E2E_ADDR" ./scripts/devnode.sh
+      - name: Doctor accepts the dev node and the public Arbitrum Sepolia endpoint
+        run: |
+          node bin/create-stylus-latest.js doctor --rpc http://127.0.0.1:8547
+          # Informational: shows what the heuristic reports for a public endpoint; not a gate.
+          node bin/create-stylus-latest.js doctor --rpc https://sepolia-rollup.arbitrum.io/rpc || true
       - name: Deploy
         working-directory: ${{ env.APP }}
         run: |

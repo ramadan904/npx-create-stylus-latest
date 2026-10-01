@@ -59,8 +59,21 @@ the contract does not define.
     --no-git           Do not run git init
     --with-client      Also generate a TypeScript (viem) client in client/
     --offline          Use bundled known-good versions instead of querying crates.io
+    --rpc <url>        With `doctor`: probe this endpoint (default: $RPC_URL)
 -l, --list             List templates
 ```
+
+### `doctor`
+
+```bash
+npx create-stylus-latest doctor --rpc "$RPC_URL"
+```
+
+Checks Node, `cargo`, the wasm target and `cargo-stylus` (against the newest `stylus-sdk`), then asks the RPC whether it
+is an Arbitrum chain with Stylus enabled (it reads the `ArbSys` and `ArbWasm` system contracts; nothing is sent or
+spent). Exits non-zero if something required is missing. Only the RPC host is printed, never the path, so API keys stay
+out of logs. It also warns when an endpoint rejects `eth_call` state overrides, a heuristic for the public-RPC
+activation refusal; that warning is advisory.
 
 The CLI checks for `cargo`, the `wasm32-unknown-unknown` target and `cargo-stylus`, and prints the install command for
 anything missing. It never installs anything for you.

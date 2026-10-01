@@ -1,7 +1,7 @@
 import path from "node:path";
 import readline from "node:readline/promises";
 import { parseArgs } from "node:util";
-import { checkToolchain, gitInit } from "./doctor.js";
+import { checkToolchain, gitInit, runDoctor } from "./doctor.js";
 import { validateName } from "./names.js";
 import { scaffold } from "./scaffold.js";
 import { DEFAULT_TEMPLATE, TEMPLATES } from "./templates.js";
@@ -14,6 +14,7 @@ Scaffold an Arbitrum Stylus (Rust) project pinned to the latest stylus-sdk.
 
 Usage
   npx create-stylus-latest [project-name | path] [options]
+  npx create-stylus-latest doctor [--rpc <url>]    Check your toolchain, and optionally that an RPC can run Stylus
 
 Options
   -t, --template <name>  ${Object.keys(TEMPLATES).join(" | ")} (default: ${DEFAULT_TEMPLATE})
@@ -21,6 +22,7 @@ Options
       --no-git           Do not run git init
       --with-client      Also generate a TypeScript (viem) client in client/
       --offline          Do not query crates.io; use the bundled known-good versions
+      --rpc <url>        With "doctor": probe this endpoint (default: $RPC_URL). Only the host is printed
   -l, --list             List templates
   -v, --version          Print version
   -h, --help             Show this help
@@ -45,6 +47,7 @@ export async function main(argv) {
       yes: { type: "boolean", short: "y", default: false },
       "no-git": { type: "boolean", default: false },
       offline: { type: "boolean", default: false },
+      rpc: { type: "string" },
       "with-client": { type: "boolean", default: false },
       list: { type: "boolean", short: "l", default: false },
       version: { type: "boolean", short: "v", default: false },
@@ -56,6 +59,11 @@ export async function main(argv) {
   if (values.version) return console.log(VERSION);
   if (values.list) {
     for (const [name, desc] of Object.entries(TEMPLATES)) console.log(`${name.padEnd(10)}${desc}`);
+    return;
+  }
+
+  if (positionals[0] === "doctor") {
+    process.exitCode = await runDoctor({ rpc: values.rpc ?? process.env.RPC_URL, offline: values.offline });
     return;
   }
 
