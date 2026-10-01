@@ -14,6 +14,9 @@ command -v cargo-stylus >/dev/null 2>&1 || {
   exit 1
 }
 
+# cargo-stylus builds with --locked, which fails on a fresh project that has no Cargo.lock yet.
+[ -f Cargo.lock ] || cargo generate-lockfile
+
 echo "==> Checking contract against $RPC_URL"
 cargo stylus check --endpoint "$RPC_URL"
 
