@@ -143,3 +143,44 @@ test("deploy.sh forwards constructor arguments after --", () => {
   assert.match(deploy, /--constructor-args/);
   assert.match(deploy, /--\) shift; ctor=\("\$@"\); break/);
 });
+
+test("deploy.sh turns known cargo-stylus failures into plain-English hints and keeps the exit code", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const dir = tmp();
+  scaffold({ targetDir: dir, name: "my-app", template: "counter", versions });
+  fs.writeFileSync(path.join(dir, "Cargo.lock"), "");
+
+  const bin = path.join(dir, "fakebin");
+  fs.mkdirSync(bin);
+  const fake = (message, code) => {
+    const body = `#!/usr/bin/env bash\nif [ "$1" = stylus ]; then echo '${message}'; exit ${code}; fi\n`;
+    for (const name of ["cargo", "cargo-stylus"]) {
+      fs.writeFileSync(path.join(bin, name), body, { mode: 0o755 });
+    }
+  };
+  const run = () =>
+    spawnSync("bash", [path.join(dir, "scripts/deploy.sh")], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, PRIVATE_KEY: "0xabc", RPC_URL: "http://example.invalid" },
+    });
+
+  const cases = [
+    ["error code -32000: stylus activations not allowed for this request", /Hint: this RPC refuses Stylus activation/],
+    ["rpc error: max fee per gas less than block base fee", /Hint: the gas cap lost a race/],
+    ["rpc error: insufficient funds for gas * price + value", /Hint: the deploy wallet has too little ETH/],
+  ];
+  for (const [message, expected] of cases) {
+    fake(message, 1);
+    const r = run();
+    assert.equal(r.status, 1, "exit code must be preserved");
+    assert.match(r.stderr, expected);
+  }
+
+  fake("some error nobody has seen before", 1);
+  const unknown = run();
+  assert.equal(unknown.status, 1);
+  assert.doesNotMatch(unknown.stderr, /Hint:/);
+
+  fake("all good", 0);
+  assert.equal(run().status, 0);
+});
