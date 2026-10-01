@@ -12,6 +12,7 @@ stylus-sdk = "{{stylus_sdk_version}}"
 
 [dev-dependencies]
 stylus-sdk = { version = "{{stylus_sdk_version}}", features = ["stylus-test"] }
+proptest = "1"
 
 [features]
 default = ["mini-alloc"]

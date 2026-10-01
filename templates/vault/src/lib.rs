@@ -100,7 +100,10 @@ impl Vault {
         let account = self.vm().msg_sender();
         let have = self.deposits.get(account);
         if have < amount {
-            return Err(VaultError::InsufficientDeposit(InsufficientDeposit { have, want: amount }));
+            return Err(VaultError::InsufficientDeposit(InsufficientDeposit {
+                have,
+                want: amount,
+            }));
         }
 
         self.deposits.setter(account).set(have - amount);
@@ -122,11 +125,7 @@ impl Vault {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use stylus_sdk::{
-        alloy_primitives::address,
-        alloy_sol_types::SolCall,
-        testing::*,
-    };
+    use stylus_sdk::{alloy_primitives::address, alloy_sol_types::SolCall, testing::*};
 
     sol! {
         function transfer(address to, uint256 value) external returns (bool);
@@ -161,7 +160,11 @@ mod tests {
     fn deposit_pulls_tokens_and_credits_the_caller() {
         let (vm, mut vault) = deployed();
         let amount = U256::from(250u64);
-        let pull = transferFromCall { from: ALICE, to: vm.contract_address(), value: amount };
+        let pull = transferFromCall {
+            from: ALICE,
+            to: vm.contract_address(),
+            value: amount,
+        };
         vm.mock_call(TOKEN, pull.abi_encode(), U256::ZERO, Ok(yes()));
 
         assert!(vault.deposit(amount).is_ok());
@@ -173,7 +176,11 @@ mod tests {
     fn failed_token_transfer_reverts_the_deposit() {
         let (vm, mut vault) = deployed();
         let amount = U256::from(5u64);
-        let pull = transferFromCall { from: ALICE, to: vm.contract_address(), value: amount };
+        let pull = transferFromCall {
+            from: ALICE,
+            to: vm.contract_address(),
+            value: amount,
+        };
         vm.mock_call(TOKEN, pull.abi_encode(), U256::ZERO, Err(Vec::new()));
 
         assert!(vault.deposit(amount).is_err());
@@ -182,16 +189,102 @@ mod tests {
     #[test]
     fn withdraw_returns_tokens_and_cannot_overdraw() {
         let (vm, mut vault) = deployed();
-        let pull = transferFromCall { from: ALICE, to: vm.contract_address(), value: U256::from(100u64) };
+        let pull = transferFromCall {
+            from: ALICE,
+            to: vm.contract_address(),
+            value: U256::from(100u64),
+        };
         vm.mock_call(TOKEN, pull.abi_encode(), U256::ZERO, Ok(yes()));
         assert!(vault.deposit(U256::from(100u64)).is_ok());
 
-        let send = transferCall { to: ALICE, value: U256::from(40u64) };
+        let send = transferCall {
+            to: ALICE,
+            value: U256::from(40u64),
+        };
         vm.mock_call(TOKEN, send.abi_encode(), U256::ZERO, Ok(yes()));
         assert!(vault.withdraw(U256::from(40u64)).is_ok());
         assert_eq!(vault.deposit_of(ALICE), U256::from(60u64));
 
         assert!(vault.withdraw(U256::from(61u64)).is_err());
         assert!(vault.withdraw(U256::ZERO).is_err());
+    }
+}
+
+/// Model-based property test: after any sequence of deposits and withdrawals, the vault must agree
+/// with a simple reference model, and a failed call must change nothing.
+#[cfg(test)]
+mod properties {
+    use super::*;
+    use proptest::prelude::*;
+    use stylus_sdk::{alloy_primitives::address, alloy_sol_types::SolCall, testing::*};
+
+    sol! {
+        function transfer(address to, uint256 value) external returns (bool);
+        function transferFrom(address from, address to, uint256 value) external returns (bool);
+    }
+
+    const TOKEN: Address = address!("0x7007000000000000000000000000000000000001");
+    const ACTORS: [Address; 3] = [
+        address!("0xA11CE00000000000000000000000000000000001"),
+        address!("0xB0B0000000000000000000000000000000000002"),
+        address!("0xCA40100000000000000000000000000000000003"),
+    ];
+
+    #[derive(Debug, Clone)]
+    enum Op {
+        Deposit { who: usize, amount: u64 },
+        Withdraw { who: usize, amount: u64 },
+    }
+
+    fn op() -> impl Strategy<Value = Op> {
+        let who = 0..ACTORS.len();
+        let amount = 0u64..1_000; // includes zero, which must be rejected
+        prop_oneof![
+            (who.clone(), amount.clone()).prop_map(|(who, amount)| Op::Deposit { who, amount }),
+            (who, amount).prop_map(|(who, amount)| Op::Withdraw { who, amount }),
+        ]
+    }
+
+    fn yes() -> Vec<u8> {
+        U256::from(1).to_be_bytes_vec()
+    }
+
+    proptest! {
+        #[test]
+        fn vault_matches_a_reference_model(ops in prop::collection::vec(op(), 0..60)) {
+            let vm = TestVM::default();
+            let mut vault = Vault::from(&vm);
+            prop_assert!(vault.constructor(TOKEN).is_ok());
+
+            let mut model = [0u64; ACTORS.len()];
+            for op in ops {
+                match op {
+                    Op::Deposit { who, amount } => {
+                        vm.set_sender(ACTORS[who]);
+                        let pull = transferFromCall {
+                            from: ACTORS[who],
+                            to: vm.contract_address(),
+                            value: U256::from(amount),
+                        };
+                        vm.mock_call(TOKEN, pull.abi_encode(), U256::ZERO, Ok(yes()));
+                        let ok = vault.deposit(U256::from(amount)).is_ok();
+                        prop_assert_eq!(ok, amount > 0, "only a zero deposit may be rejected");
+                        if ok { model[who] += amount; }
+                    }
+                    Op::Withdraw { who, amount } => {
+                        vm.set_sender(ACTORS[who]);
+                        let send = transferCall { to: ACTORS[who], value: U256::from(amount) };
+                        vm.mock_call(TOKEN, send.abi_encode(), U256::ZERO, Ok(yes()));
+                        let ok = vault.withdraw(U256::from(amount)).is_ok();
+                        prop_assert_eq!(ok, amount > 0 && amount <= model[who], "withdraw succeeds only within the deposit");
+                        if ok { model[who] -= amount; }
+                    }
+                }
+                for (i, actor) in ACTORS.iter().enumerate() {
+                    prop_assert_eq!(vault.deposit_of(*actor), U256::from(model[i]));
+                }
+                prop_assert_eq!(vault.total_deposits(), U256::from(model.iter().sum::<u64>()));
+            }
+        }
     }
 }

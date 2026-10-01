@@ -78,6 +78,34 @@ contract exists on that chain).
 
 No block explorer link is given for this chain; the public deploy runs above show each address and the on-chain read-back.
 
+### Gas benchmark: Stylus vs Solidity (measured in CI)
+
+A `Benchmark` workflow deploys the Stylus counter and a Solidity twin to the same local Nitro node and sends both the
+same transactions (run: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36935538361). Execution gas
+(`gasUsed - gasUsedForL1`, from the raw receipts):
+
+| | Stylus | Solidity |
+|---|---|---|
+| `increment`, steady state | 55,199 | 26,461 |
+| `work(20000)`, a pure compute loop | 58,800 | 1,821,893 |
+
+Both returned the same compute result, which the script enforces. The honest summary: Stylus costs about 2x more on a
+storage-only call and is about 31x cheaper on compute, so it is a fit for compute-heavy logic and not a free win
+everywhere. The Stylus contract was not cache-bid. Details and caveats: `bench/README.md`.
+
+### Property-based tests that found a real bug
+
+The ERC-20 and vault templates carry proptest suites (random operation sequences checked against a reference model and
+supply-conservation invariants). They found that `transfer_from` reduced the allowance before discovering an
+overdraft, leaving partial state after a failed call; it now validates everything first. CI runs rustfmt and clippy with
+warnings as errors on every generated project.
+
+### `doctor`
+
+`npx create-stylus-latest doctor --rpc <url>` checks the toolchain and asks the RPC (with free read-only calls) whether
+it is an Arbitrum chain with Stylus enabled; CI exercises it against the dev node and the public Arbitrum Sepolia
+endpoint (which reports Stylus enabled, ArbWasm version 3). It prints only the RPC host, so API keys stay out of logs.
+
 ## Tech
 
 Stylus (Rust, `stylus-sdk` 0.10.x, Solidity-ABI compatible), Node 18+ zero-dependency CLI, TypeScript/viem client,

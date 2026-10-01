@@ -19,7 +19,7 @@ on:
       template:
         description: Template to scaffold and deploy
         type: choice
-        options: [counter, erc20, vault]
+        options: [counter, erc20, vault, escrow]
         default: counter
       rpc_url:
         description: RPC endpoint (ignored if the RPC_URL secret is set)
@@ -31,7 +31,7 @@ on:
         description: Gas price cap in gwei (you pay the actual base fee, not the cap)
         default: "0.5"
       constructor_args:
-        description: 'Constructor arguments, shell-quoted. {{deployer}} becomes the address of the deploy key. erc20: "Buildathon Token" BUIDL 1000000000000000000000000 {{deployer}}  vault: <token address>'
+        description: 'Constructor arguments, shell-quoted. {{deployer}} becomes the address of the deploy key. erc20: "Buildathon Token" BUIDL 1000000000000000000000000 {{deployer}}  vault or escrow: <token address>'
         default: ""
 
 permissions:

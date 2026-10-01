@@ -20,6 +20,17 @@ jobs:
           node-version: 22
       - run: npm test
 
+  probe:
+    # Informational: what `doctor` reports for the public Arbitrum Sepolia endpoint (never a gate; the dev-node probe
+    # in the e2e job is the one that gates).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node bin/create-stylus-latest.js doctor --offline --rpc https://sepolia-rollup.arbitrum.io/rpc || true
+
   templates:
     # Scaffold every template with live crates.io versions, then build, test and
     # validate the result against a local Nitro dev node.
@@ -27,13 +38,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        template: [counter, erc20, vault]
+        template: [counter, erc20, vault, escrow]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
       - uses: actions/cache/restore@v4
         id: cargo-stylus
         with:
@@ -50,6 +63,11 @@ jobs:
       - run: node bin/create-stylus-latest.js "${{ runner.temp }}/app" -t ${{ matrix.template }} -y --no-git --with-client
       - run: npm install && npm run typecheck
         working-directory: ${{ runner.temp }}/app/client
+      # The generated project pins Rust 1.91.0 (for cargo-stylus), so lint with the stable toolchain.
+      - run: cargo +stable fmt --check
+        working-directory: ${{ runner.temp }}/app
+      - run: cargo +stable clippy --all-targets -- -D warnings
+        working-directory: ${{ runner.temp }}/app
       - run: cargo test --lib
         working-directory: ${{ runner.temp }}/app
       - run: cargo build --release --target wasm32-unknown-unknown --lib
@@ -79,6 +97,8 @@ jobs:
         with:
           node-version: 22
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
       - uses: actions/cache/restore@v4
         id: cargo-stylus
         with:
@@ -106,6 +126,13 @@ jobs:
       - name: Start a dev node that funds that key
         working-directory: ${{ env.APP }}
         run: FUND_ADDRESS="$E2E_ADDR" ./scripts/devnode.sh
+      - name: Doctor accepts the dev node and the public Arbitrum Sepolia endpoint
+        run: |
+          node bin/create-stylus-latest.js doctor --rpc http://127.0.0.1:8547
+          # Informational: shows what the heuristic reports for a public endpoint; not a gate.
+          node bin/create-stylus-latest.js doctor --rpc https://sepolia-rollup.arbitrum.io/rpc > public-probe.txt 2>&1 || true
+          cat public-probe.txt
+          echo "::notice title=doctor vs public Arbitrum Sepolia RPC::$(tr '\n' '|' < public-probe.txt)"
       - name: Deploy
         working-directory: ${{ env.APP }}
         run: |

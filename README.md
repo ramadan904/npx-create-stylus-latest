@@ -27,6 +27,7 @@ build here rather than in your project.
 | `counter` | Minimal storage contract with unit tests. Best first step. |
 | `erc20` | ERC-20 token with events, custom Solidity errors and tests. |
 | `vault` | Stablecoin vault for any ERC-20 (USDC, USDG): deposits and withdrawals through cross-contract calls, with mocked-token tests. |
+| `escrow` | Stablecoin escrow for payments between parties or agents: buyer-funded deals, release by buyer or arbiter, refund by seller or arbiter, and a buyer-side refund after a deadline. Unit tests plus a model-based property test. |
 
 ## What you get in the generated project
 
@@ -54,13 +55,26 @@ the contract does not define.
 ## Options
 
 ```
--t, --template <name>  counter | erc20 | vault (default: counter)
+-t, --template <name>  counter | erc20 | vault | escrow (default: counter)
 -y, --yes              Skip prompts and use defaults
     --no-git           Do not run git init
     --with-client      Also generate a TypeScript (viem) client in client/
     --offline          Use bundled known-good versions instead of querying crates.io
+    --rpc <url>        With `doctor`: probe this endpoint (default: $RPC_URL)
 -l, --list             List templates
 ```
+
+### `doctor`
+
+```bash
+npx create-stylus-latest doctor --rpc "$RPC_URL"
+```
+
+Checks Node, `cargo`, the wasm target and `cargo-stylus` (against the newest `stylus-sdk`), then asks the RPC whether it
+is an Arbitrum chain with Stylus enabled (it reads the `ArbSys` and `ArbWasm` system contracts; nothing is sent or
+spent). Exits non-zero if something required is missing. Only the RPC host is printed, never the path, so API keys stay
+out of logs. For public `arbitrum.io` endpoints it adds an advisory note: during our own deploy the public Sepolia RPC refused
+cargo-stylus's activation check, which `doctor` cannot detect ahead of time (a provider RPC or the dev node worked).
 
 The CLI checks for `cargo`, the `wasm32-unknown-unknown` target and `cargo-stylus`, and prints the install command for
 anything missing. It never installs anything for you.

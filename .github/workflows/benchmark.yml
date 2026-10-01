@@ -1,0 +1,73 @@
+name: Benchmark
+
+on:
+  workflow_dispatch:
+  # Also runs when the benchmark itself changes, so it can be exercised from a branch before it reaches main.
+  push:
+    paths: ['bench/**', '.github/workflows/benchmark.yml']
+
+concurrency:
+  group: benchmark-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP: ${{ github.workspace }}/../bench-app
+
+jobs:
+  gas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: actions/cache/restore@v4
+        id: cargo-stylus
+        with:
+          path: ~/.cargo/bin/cargo-stylus
+          key: cargo-stylus-${{ runner.os }}-v1
+      - if: steps.cargo-stylus.outputs.cache-hit != 'true'
+        run: cargo install --locked cargo-stylus
+      - uses: foundry-rs/foundry-toolchain@v1
+      - run: |
+          node bin/create-stylus-latest.js "$APP" -t counter -y --no-git
+          cp bench/stylus-lib.rs "$APP/src/lib.rs"
+      - name: Create a throwaway key
+        run: |
+          key=0x$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')
+          echo "::add-mask::$key"
+          addr=$(cast wallet address --private-key "$key")
+          echo "BENCH_KEY=$key" >> "$GITHUB_ENV"
+          echo "BENCH_ADDR=$addr" >> "$GITHUB_ENV"
+      - name: Start a dev node that funds that key
+        working-directory: ${{ env.APP }}
+        run: FUND_ADDRESS="$BENCH_ADDR" ./scripts/devnode.sh
+      - name: Deploy the Stylus counter
+        working-directory: ${{ env.APP }}
+        run: |
+          printf 'RPC_URL=http://127.0.0.1:8547\nCHAIN_ID=412346\nPRIVATE_KEY=%s\n' "$BENCH_KEY" > .env
+          ./scripts/deploy.sh 2>&1 | tee deploy.log
+          addr=$(sed 's/\x1b\[[0-9;]*m//g' deploy.log | grep -iE 'deployed code at address' | grep -oE '0x[0-9a-fA-F]{40}' | head -1)
+          test -n "$addr"
+          echo "STYLUS_ADDR=$addr" >> "$GITHUB_ENV"
+      - name: Deploy the Solidity counter
+        run: |
+          forge build --root bench
+          out=$(forge create src/Counter.sol:Counter --root bench \
+            --rpc-url http://127.0.0.1:8547 --private-key "$BENCH_KEY" --broadcast --json)
+          echo "$out"
+          echo "SOL_ADDR=$(echo "$out" | jq -r .deployedTo)" >> "$GITHUB_ENV"
+          echo "SOL_DEPLOY_GAS=$(cast receipt "$(echo "$out" | jq -r .transactionHash)" gasUsed --rpc-url http://127.0.0.1:8547)" >> "$GITHUB_ENV"
+      - name: Measure
+        run: |
+          ./bench/measure.sh | tee bench.md >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=gas benchmark::$(tr '\n' '|' < bench.md)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench
+          path: bench.md
+      - if: failure()
+        run: docker logs --tail 80 stylus-devnode || true
