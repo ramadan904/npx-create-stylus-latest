@@ -20,6 +20,17 @@ jobs:
           node-version: 22
       - run: npm test
 
+  probe:
+    # Informational: what `doctor` reports for the public Arbitrum Sepolia endpoint (never a gate; the dev-node probe
+    # in the e2e job is the one that gates).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node bin/create-stylus-latest.js doctor --offline --rpc https://sepolia-rollup.arbitrum.io/rpc || true
+
   templates:
     # Scaffold every template with live crates.io versions, then build, test and
     # validate the result against a local Nitro dev node.
