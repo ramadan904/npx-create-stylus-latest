@@ -60,6 +60,24 @@ One command produces a working project and a deploy path that has already been r
     (`0xcd542511830dbaec42f753f3b96ed8c8c66dc953`) used a callable `init()` that anyone could have called first.
     They remain on the testnet but are not the recommended design, which is why the templates changed.
 
+### Robinhood Chain testnet (chain id 46630)
+
+The same three templates were then deployed to Robinhood Chain testnet with the same `deploy.sh` and workflow. A
+free `check_only` run first confirmed the network accepts Stylus (activation fee estimate returned), and the chain id
+was read from the RPC rather than assumed. The constructor deploys work there too (the Stylus deployer helper
+contract exists on that chain).
+
+- Counter: `0x41218640903eab654a555371d51d1c4fcfb28580` (the same string as the Arbitrum Sepolia counter because the
+  same wallet made its first deployment on both chains; they are separate contracts). A live `increment()` through
+  the generated client confirmed in block 127297404. Run: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36926997366
+- ERC-20: `0xe1f6ff1f3efb2fb92846f97a2e4e017b311245b9`, deployed with `("Buildathon Token", "BUIDL", 1,000,000e18,
+  deployer)`; the client read back the name, symbol, supply and a deployer balance equal to the full supply. Run:
+  https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36927685784
+- Vault: `0x141ea9d975236de4cb3720115c04440008066de1`, constructed with the ERC-20 above; the client read back
+  `asset()` equal to that token and zero deposits. Run: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36928180867
+
+No block explorer link is given for this chain; the public deploy runs above show each address and the on-chain read-back.
+
 ## Tech
 
 Stylus (Rust, `stylus-sdk` 0.10.x, Solidity-ABI compatible), Node 18+ zero-dependency CLI, TypeScript/viem client,
