@@ -78,6 +78,12 @@ The workflow also has a **network** choice (`arbitrum-sepolia` or `robinhood-tes
 validates the contract against the network without deploying or spending gas. The chain id is read from the RPC, and
 the run stops if it contradicts the `chain_id` input.
 
+## Robinhood Chain testnet
+
+Robinhood Chain testnet (chain id 46630) accepts Stylus contracts, including constructor deploys. The deploy workflow's
+**network** input can target it: add a repository secret `ROBINHOOD_RPC_URL` (an Alchemy URL for the testnet, never the
+mainnet one), run with `check_only` first to validate for free, then deploy. The chain id is read from the RPC.
+
 ## Develop
 
 ```bash

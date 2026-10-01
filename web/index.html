@@ -90,6 +90,25 @@ node bin/create-stylus-latest.js my-app -t counter --with-client</pre>
   </section>
 
   <section>
+    <h2>Also live on Robinhood Chain testnet</h2>
+    <p class="sub">The same three templates, deployed with the same scripts to Robinhood Chain testnet (chain id 46630). This section is static: the only RPC endpoint we have contains a private API key, so the page cannot read this chain live. Each card links to the public deploy run, which shows the address, the activation and the contract being read back.</p>
+    <div class="grid">
+      <div class="card"><h3>Counter</h3><p>Same address as the Arbitrum Sepolia counter because the same wallet made its first deployment on both chains. They are two separate contracts.</p>
+        <div class="addr">0x41218640903eab654a555371d51d1c4fcfb28580</div>
+        <p class="note" style="margin:10px 0 0">increment() confirmed in block 127297404.</p>
+        <div style="margin-top:8px"><a href="https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36926997366" target="_blank" rel="noopener" style="color:var(--accent);font-size:14px;text-decoration:none">Deploy run →</a></div></div>
+      <div class="card"><h3>ERC-20 token</h3><p>Set up by a constructor; the supply was minted to the deployer in the deployment itself.</p>
+        <div class="addr">0xe1f6ff1f3efb2fb92846f97a2e4e017b311245b9</div>
+        <p class="note" style="margin:10px 0 0">Buildathon Token (BUIDL), 1,000,000 supply.</p>
+        <div style="margin-top:8px"><a href="https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36927685784" target="_blank" rel="noopener" style="color:var(--accent);font-size:14px;text-decoration:none">Deploy run →</a></div></div>
+      <div class="card"><h3>Vault</h3><p>Constructed with the Robinhood ERC-20 as its asset.</p>
+        <div class="addr">0x141ea9d975236de4cb3720115c04440008066de1</div>
+        <p class="note" style="margin:10px 0 0">asset() reads back as the ERC-20; deposits 0.</p>
+        <div style="margin-top:8px"><a href="https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36928180867" target="_blank" rel="noopener" style="color:var(--accent);font-size:14px;text-decoration:none">Deploy run →</a></div></div>
+    </div>
+  </section>
+
+  <section>
     <h2>What you get</h2>
     <div class="grid four">
       <div class="card"><h3>Always current</h3><p>Reads the crates.io index at scaffold time and pins the newest stable SDK with the exact alloy version it needs. Works offline with a known-good fallback.</p></div>
@@ -150,7 +169,7 @@ const CONTRACTS = [
       }
       return rows;
     } },
-  { title: "Vault", blurb: "Constructor-bound to the token on the left.", address: "0xddcf208635bfdce4379a2535f228473310995915",
+  { title: "Vault", blurb: "Constructor-bound to the ERC-20 shown here.", address: "0xddcf208635bfdce4379a2535f228473310995915",
     read: async (to) => {
       const asset = addr(await call(to, SEL.asset));
       return [["Asset", /^0x0+$/.test(asset) ? "Not set yet" : short(asset)],
