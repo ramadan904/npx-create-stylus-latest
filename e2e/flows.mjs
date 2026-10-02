@@ -63,8 +63,12 @@ function same(actual, expected, label) {
 const sleep = (s) => new Promise((r) => setTimeout(r, s * 1000));
 const nowChain = async () => Number((await pub.getBlock()).timestamp);
 
+// Gas is set explicitly so the node does not call eth_estimateGas first. Estimation simulates against the latest block's
+// timestamp, so it cannot see time-dependent behaviour: a stream that started earning since the last block looks empty
+// and the call "reverts" before it is ever sent. A sent transaction executes in a fresh block with the real time.
+const GAS = 3_000_000n;
 async function send(account, address, abi, functionName, args = []) {
-  const hash = await wallet(account).writeContract({ address, abi, functionName, args });
+  const hash = await wallet(account).writeContract({ address, abi, functionName, args, gas: GAS });
   const receipt = await pub.waitForTransactionReceipt({ hash });
   if (receipt.status !== "success") throw new Error(`${functionName} reverted (tx ${hash})`);
   const block = await pub.getBlock({ blockNumber: receipt.blockNumber });
@@ -110,6 +114,7 @@ async function main() {
   same(await bal(seller.address), 0n, "recipient has nothing before the stream starts");
 
   await sleep(start1 + 18 - (await nowChain()));
+  console.log(`  (wall clock ${Math.floor(Date.now() / 1000)}, latest block ${await nowChain()}, stream ${start1}..${stop1})`);
   const w = await send(stranger, STREAM, streamAbi, "withdraw", [s1]); // a stranger triggers the payout
   const e1 = earnedAt(1_000n, start1, stop1, w.time);
   check(e1 > 0n && e1 < 1_000n, `mid-stream payout is partial (${e1} of 1000 at t=${w.time - start1}s)`);
