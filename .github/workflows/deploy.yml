@@ -33,6 +33,12 @@ on:
       constructor_args:
         description: 'Constructor arguments, shell-quoted. {{deployer}} becomes the address of the deploy key. erc20: "Buildathon Token" BUIDL 1000000000000000000000000 {{deployer}}  vault, escrow or stream: <token address>  faucet: <token address> <amount per drip> <cooldown seconds>'
         default: ""
+      fund_token:
+        description: "Optional: after deploying, send the new contract this ERC-20 from the deploy key (e.g. stock a faucet)"
+        default: ""
+      fund_amount:
+        description: "Amount of fund_token to send, in base units (needed with fund_token)"
+        default: ""
 
 permissions:
   contents: read
@@ -139,3 +145,31 @@ jobs:
         if: ${{ !inputs.check_only }}
         working-directory: ${{ env.APP }}/client
         run: npm start
+      # Stocks a freshly deployed contract (e.g. a faucet) with tokens the deploy key holds. Runs only when asked.
+      - name: Fund the new contract
+        if: ${{ !inputs.check_only && inputs.fund_token != '' }}
+        working-directory: ${{ env.APP }}/client
+        env:
+          FUND_TOKEN: ${{ inputs.fund_token }}
+          FUND_AMOUNT: ${{ inputs.fund_amount }}
+        run: |
+          set -a; . ../.env; set +a
+          node --input-type=module <<'JS'
+          import { createPublicClient, createWalletClient, defineChain, http, isAddress, parseAbi } from "viem";
+          import { privateKeyToAccount } from "viem/accounts";
+          const { FUND_TOKEN: token, FUND_AMOUNT: amountText, CONTRACT_ADDRESS: to, RPC_URL: rpc, CHAIN_ID } = process.env;
+          if (!isAddress(token)) throw new Error("fund_token is not an address");
+          if (!/^\d+$/.test(amountText ?? "")) throw new Error("fund_amount must be a whole number of base units");
+          const chain = defineChain({ id: Number(CHAIN_ID), name: "target", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: { default: { http: [rpc] } } });
+          const key = process.env.PRIVATE_KEY.startsWith("0x") ? process.env.PRIVATE_KEY : `0x${process.env.PRIVATE_KEY}`;
+          const account = privateKeyToAccount(key);
+          const pub = createPublicClient({ chain, transport: http(rpc) });
+          const wallet = createWalletClient({ account, chain, transport: http(rpc) });
+          const abi = parseAbi(["function transfer(address to, uint256 value) returns (bool)", "function balanceOf(address) view returns (uint256)"]);
+          const amount = BigInt(amountText);
+          const hash = await wallet.writeContract({ address: token, abi, functionName: "transfer", args: [to, amount] });
+          const receipt = await pub.waitForTransactionReceipt({ hash });
+          if (receipt.status !== "success") throw new Error(`the transfer reverted (tx ${hash})`);
+          const held = await pub.readContract({ address: token, abi, functionName: "balanceOf", args: [to], blockNumber: receipt.blockNumber });
+          console.log(`sent ${amount} of ${token} to ${to} in block ${receipt.blockNumber} (tx ${hash}); it now holds ${held}`);
+          JS

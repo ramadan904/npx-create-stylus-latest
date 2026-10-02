@@ -20,6 +20,22 @@ jobs:
           node-version: 22
       - run: npm test
 
+  web:
+    # The playground page: its generated selector table is current, and it works in a real browser (no script errors,
+    # phone layout, calldata identical to viem's, contract errors decoded into sentences).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+        working-directory: e2e
+      - run: node gen-web-abi.mjs --check
+        working-directory: e2e
+      - run: node web-check.mjs
+        working-directory: e2e
+
   package:
     # The package as npm would ship it: pack the tarball, run it with npx in an empty directory, scaffold every template.
     runs-on: ubuntu-latest

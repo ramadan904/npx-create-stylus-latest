@@ -56,6 +56,18 @@
   .actions { margin-top: 10px; }
   ol.steps { padding-left: 20px; margin: 0; } ol.steps li { margin: 8px 0; }
   .note { color: var(--muted); font-size: 13.5px; }
+  .pg .grid { grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); }
+  .pg label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  .pg input { width: 100%; font: 14px ui-monospace, Menlo, Consolas, monospace; color: var(--text); background: var(--code);
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-width: 0; }
+  .pg .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .pg .row input { flex: 1 1 90px; width: auto; }
+  .pg .view { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+  .bar { height: 8px; background: var(--code); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; margin: 6px 0 10px; }
+  .bar > span { display: block; height: 100%; width: 0; background: var(--ok); transition: width .9s linear; }
+  .big { font-size: 22px; font-weight: 650; margin: 2px 0 8px; }
+  ol.activity { margin: 8px 0 0; padding-left: 20px; font-size: 13.5px; color: var(--muted); }
+  ol.activity a { color: var(--accent); }
   footer { border-top: 1px solid var(--line); padding: 22px 0 40px; color: var(--muted); font-size: 13.5px; }
   footer a { color: var(--accent); text-decoration: none; }
 </style>
@@ -89,6 +101,82 @@ node bin/create-stylus-latest.js my-app -t counter --with-client</pre>
     <div class="grid" id="contracts"></div>
   </section>
 
+  <section class="pg" id="playground">
+    <h2>Playground: move real (test) money</h2>
+    <p class="sub">The stream, escrow and vault templates above, live on Arbitrum Sepolia and usable from here with your own wallet.
+      Get test BUIDL from the faucet, then open a payment stream and watch it pay out second by second, lock funds in an escrow and
+      release or reclaim them, or park them in the vault. Every button is one real transaction; the page approves exactly the amount
+      needed, never more. Test network only.</p>
+    <div class="grid">
+      <div class="card">
+        <h3>1. Get test tokens</h3>
+        <p>A rate-limited faucet (the <code>faucet</code> template): one drip per address per cooldown.</p>
+        <dl><dt>Your balance</dt><dd id="pg-balance">connect a wallet</dd><dt>In the faucet</dt><dd id="pg-faucet-held">–</dd></dl>
+        <button class="btn primary" id="pg-drip">Get BUIDL</button>
+        <div class="note" id="pg-faucet-next" style="margin-top:8px"></div>
+        <div class="msg" id="pg-faucet-msg"></div>
+      </div>
+
+      <div class="card">
+        <h3>2. Stream a payment</h3>
+        <p>Locks the amount and pays the recipient continuously until the end.</p>
+        <label for="pg-stream-to">Recipient</label><input id="pg-stream-to" autocomplete="off" spellcheck="false">
+        <div class="row"><input id="pg-stream-amount" value="10" aria-label="Amount in BUIDL"><input id="pg-stream-seconds" value="120" aria-label="Duration in seconds"></div>
+        <p class="note" style="margin:4px 0 0">Amount in BUIDL · duration in seconds</p>
+        <div class="row"><button class="btn primary" id="pg-stream-create">Create stream</button></div>
+        <div class="view" id="pg-stream-view" hidden>
+          <div class="bar"><span id="pg-stream-bar"></span></div>
+          <dl id="pg-stream-facts"></dl>
+          <div class="row"><button class="btn" id="pg-stream-withdraw">Withdraw for recipient</button><button class="btn" id="pg-stream-cancel">Cancel</button></div>
+          <p class="note" id="pg-stream-rule"></p>
+        </div>
+        <div class="row"><input id="pg-stream-id" placeholder="stream id" aria-label="Stream id"><button class="btn" id="pg-stream-load">Look up</button></div>
+        <div class="msg" id="pg-stream-msg"></div>
+      </div>
+
+      <div class="card">
+        <h3>3. Escrow a deal</h3>
+        <p>Locks the amount for a seller; you release it, or take it back after the deadline.</p>
+        <label for="pg-deal-seller">Seller</label><input id="pg-deal-seller" autocomplete="off" spellcheck="false">
+        <div class="row"><input id="pg-deal-amount" value="10" aria-label="Amount in BUIDL"><input id="pg-deal-minutes" value="2" aria-label="Deadline in minutes"></div>
+        <p class="note" style="margin:4px 0 0">Amount in BUIDL · deadline in minutes</p>
+        <div class="row"><button class="btn primary" id="pg-deal-create">Fund escrow</button></div>
+        <div class="view" id="pg-deal-view" hidden>
+          <dl id="pg-deal-facts"></dl>
+          <div class="row"><button class="btn" id="pg-deal-release">Release to seller</button><button class="btn" id="pg-deal-refund">Refund</button></div>
+          <p class="note" id="pg-deal-rule"></p>
+        </div>
+        <div class="row"><input id="pg-deal-id" placeholder="deal id" aria-label="Deal id"><button class="btn" id="pg-deal-load">Look up</button></div>
+        <div class="msg" id="pg-deal-msg"></div>
+      </div>
+
+      <div class="card">
+        <h3>4. Deposit into the vault</h3>
+        <p>Deposit and withdraw your own balance; the vault holds the tokens.</p>
+        <dl id="pg-vault-facts"></dl>
+        <label for="pg-vault-amount">Amount in BUIDL</label><input id="pg-vault-amount" value="5">
+        <div class="row"><button class="btn primary" id="pg-vault-deposit">Deposit</button><button class="btn" id="pg-vault-withdraw">Withdraw</button></div>
+        <div class="msg" id="pg-vault-msg"></div>
+      </div>
+    </div>
+    <h3 style="margin:22px 0 0;font-size:16px">Your activity</h3>
+    <ol class="activity" id="pg-activity"><li id="pg-activity-empty">Transactions you send from this page appear here, with links to Arbiscan.</li></ol>
+  </section>
+
+  <section id="deploy-your-own">
+    <h2>Deploy your own</h2>
+    <p class="sub">Every contract above came out of one command. Scaffold the same thing, try it on a free local node, then deploy it.</p>
+    <pre>git clone https://github.com/ramadan904/npx-create-stylus-latest && cd npx-create-stylus-latest
+node bin/create-stylus-latest.js ../my-stream -t stream --with-client
+cd ../my-stream && cargo test               # unit + property tests
+cp .env.example .env && ./scripts/devnode.sh  # local Nitro node, funded key, Stylus deployer
+RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh -- 0xYourTokenAddress</pre>
+    <div class="btns">
+      <a class="btn primary" href="https://github.com/ramadan904/npx-create-stylus-latest#readme">Get started</a>
+      <a class="btn" href="https://github.com/ramadan904/npx-create-stylus-latest/blob/main/RELEASING.md">npm release status</a>
+    </div>
+  </section>
+
   <section>
     <h2>Also live on Robinhood Chain testnet</h2>
     <p class="sub">The same three templates, deployed with the same scripts to Robinhood Chain testnet (chain id 46630). This section is static: the only RPC endpoint we have contains a private API key, so the page cannot read this chain live. Each card links to the public deploy run, which shows the address, the activation and the contract being read back.</p>
@@ -112,7 +200,8 @@ node bin/create-stylus-latest.js my-app -t counter --with-client</pre>
     <h2>What you get</h2>
     <div class="grid four">
       <div class="card"><h3>Always current</h3><p>Reads the crates.io index at scaffold time and pins the newest stable SDK with the exact alloy version it needs. Works offline with a known-good fallback.</p></div>
-      <div class="card"><h3>Three templates</h3><p><code>counter</code>, <code>erc20</code> and <code>vault</code> (a stablecoin vault using cross-contract calls), each with unit tests.</p></div>
+      <div class="card"><h3>Six templates</h3><p><code>counter</code>, <code>erc20</code>, <code>vault</code>, <code>escrow</code>, <code>stream</code> and <code>faucet</code>, each with unit tests and a model-based property test that checks every token movement.</p></div>
+      <div class="card"><h3>Agent-native</h3><p>Stream and escrow ship a JSON tool interface an AI agent can call, with spending limits enforced before signing and the contract's own error names in every failure.</p></div>
       <div class="card"><h3>Deploy that works</h3><p><code>deploy.sh</code> handles the lockfile, RPC override, gas cap and key hand-off. <code>devnode.sh</code> starts a local Nitro node for free validation.</p></div>
       <div class="card"><h3>Typed client</h3><p><code>--with-client</code> adds a viem script that fails loudly on reverted transactions.</p></div>
     </div>
@@ -299,5 +388,7 @@ if (window.ethereum && window.ethereum.on) {
 }
 CONTRACTS.forEach(build);
 </script>
+<script src="abi.js"></script>
+<script src="playground.js"></script>
 </body>
 </html>
