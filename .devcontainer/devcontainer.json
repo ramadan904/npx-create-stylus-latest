@@ -15,7 +15,7 @@
       "extensions": ["rust-lang.rust-analyzer", "tamasfe.even-better-toml"]
     },
     "codespaces": {
-      "openFiles": ["README.md"]
+      "openFiles": [".devcontainer/WELCOME.md"]
     }
   },
   "hostRequirements": { "cpus": 4 }

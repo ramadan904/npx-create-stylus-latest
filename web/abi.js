@@ -4,7 +4,9 @@ const ABI = {
     "token": {
       "balanceOf": "0x70a08231",
       "allowance": "0xdd62ed3e",
-      "approve": "0x095ea7b3"
+      "approve": "0x095ea7b3",
+      "decimals": "0x313ce567",
+      "symbol": "0x95d89b41"
     },
     "faucet": {
       "drip": "0x9f678cca",
@@ -17,7 +19,12 @@ const ABI = {
       "withdraw": "0x2e1a7d4d",
       "cancel": "0x40e58ee5",
       "stream": "0x2d94d8b5",
-      "streamCount": "0x89d0e119"
+      "streamCount": "0x89d0e119",
+      "token": "0xfc0c546a",
+      "streamed": "0x83496021",
+      "withdrawable": "0xf11988e0",
+      "previewCancel": "0x21575e57",
+      "claimable": "0x402914f5"
     },
     "escrow": {
       "create": "0xa5d048d3",
@@ -35,7 +42,10 @@ const ABI = {
   },
   "topics": {
     "StreamCreated": "0x8d3a4d9a98c71920c13665fb97f1a612978391e661f9a17fa5390f60e7424d5c",
-    "DealCreated": "0x584834bba667bf1cd5aa00cfe8042067a3d6b5da7b1a555dc640e003ea7328df"
+    "DealCreated": "0x584834bba667bf1cd5aa00cfe8042067a3d6b5da7b1a555dc640e003ea7328df",
+    "Withdrawn": "0xcf7d23a3cbe4e8b36ff82fd1b05b1b17373dc7804b4ebbd6e2356716ef202372",
+    "Cancelled": "0x85880e29de5e2bae8d4c8c1ff6f504e15a1ad0b94b8102feb034e4390ce26a75",
+    "PaymentHeld": "0xb337b49a0a0417e3c488bc7b1cb858e1eaabaa2f20420846aaec104fa6330855"
   },
   "errors": {
     "0x045c4b02": {
@@ -204,5 +214,20 @@ const ABI = {
       "types": [],
       "names": []
     }
+  },
+  "agentHints": {
+    "NotAuthorized": "This account is not allowed to do this right now. Check the permission or status intent to see who can.",
+    "NothingToWithdraw": "Nothing has been earned since the last withdrawal. Try again later.",
+    "InsufficientDeposit": "The account has less than that in the vault. Check get_vault, or withdraw with all: true.",
+    "ZeroAmount": "The amount must be greater than zero.",
+    "NothingToClaim": "Nothing is held for this account. Check with claim_held_payment and checkOnly, or get_stream's heldForClaim.",
+    "NotActive": "This stream was already cancelled.",
+    "NotFunded": "This deal was already released or refunded.",
+    "NoSuchStream": "No stream has this id.",
+    "NoSuchDeal": "No deal has this id.",
+    "StartInPast": "The start time had already passed when the transaction ran. Use a larger startInSeconds.",
+    "DeadlineInPast": "The deadline had already passed when the transaction ran. Use a larger deadlineSeconds.",
+    "TokenTransferFailed": "The token transfer failed: check the agent's balance and allowance.",
+    "OutOfGas": "The transaction used all its gas. Nothing changed on-chain. Retry it, or set a higher GAS_LIMIT."
   }
 };

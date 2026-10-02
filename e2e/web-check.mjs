@@ -1,7 +1,8 @@
 import { chromium } from "playwright-core";
 import { createServer } from "node:http";
 import { existsSync, readFileSync } from "node:fs";
-import { encodeFunctionData, parseAbi, encodeErrorResult, parseUnits } from "viem";
+import { encodeFunctionData, parseAbi, encodeErrorResult, parseUnits, formatUnits, getAddress } from "viem";
+import { randomBytes } from "node:crypto";
 
 // Serves web/ locally and checks the playground in a real browser: no script errors, phone layout, and the pure logic
 // that is easy to get wrong without a library (amount parsing, calldata, revert decoding, the earning curve), compared
@@ -124,6 +125,76 @@ check(await still.locator("#agent-log .astep.bad").count() === demo.steps.filter
 check(!(await still.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)), "no horizontal scroll at phone width with the replay shown");
 check(errors.filter((e) => !/Failed to fetch|net::|ERR_|fetch/i.test(e)).length === 0, "still no script errors", JSON.stringify(errors));
 }
+
+// 8. the live agent demo: ready to run, and its hand-written helpers agree with viem, which the agent itself uses.
+// (Running it needs a chain: e2e/agent-live.mjs does that in the e2e-flows job and compares the results with the agent CLI's.)
+check(await page.locator('a.btn[href="#agent-live"]').count() === 1, "the hero links to the live agent demo");
+check(await page.locator("#al-run").isEnabled(), "the agent demo button is enabled");
+check(await page.locator("#al-to").inputValue() === "0x000000000000000000000000000000000000dEaD", "the agent demo prefills a non-self recipient");
+const addrs = ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead", "0xffffffffffffffffffffffffffffffffffffffff",
+  ...Array.from({ length: 40 }, () => "0x" + randomBytes(20).toString("hex"))];
+const sums = await page.evaluate((list) => list.map((a) => __agentLive.helpers.checksum(a)), addrs);
+check(sums.every((c, i) => c === getAddress(addrs[i])), `EIP-55 checksums match viem's getAddress (${addrs.length} addresses)`, JSON.stringify(sums.filter((c, i) => c !== getAddress(addrs[i]))));
+const amounts = [[0n, 18], [1n, 18], [10n ** 18n, 18], [1500000000000000000n, 18], [123456789n, 6], [100n, 0], [-25n, 1]];
+const formatted = await page.evaluate((list) => list.map(([v, d]) => __agentLive.helpers.formatUnits(BigInt(v), d)), amounts.map(([v, d]) => [v.toString(), d]));
+check(formatted.every((f, i) => f === formatUnits(...amounts[i])), "formatUnits matches viem", JSON.stringify(formatted));
+for (const [t, d] of [["10", 18], ["2.5", 6], ["0.000001", 6], ["7", 0]]) {
+  const got = await page.evaluate(([x, n]) => __agentLive.helpers.tokensToUnits("amountTokens", x, n).toString(), [t, d]);
+  check(got === parseUnits(t, d).toString(), `tokensToUnits("${t}", ${d})`, got);
+}
+check(await page.evaluate(() => { try { __agentLive.helpers.tokensToUnits("amountTokens", "1.0000001", 6); return false; } catch (e) { return e.code === "InvalidInput"; } }),
+  "tokensToUnits refuses more decimals than the token has, with the agent's error code");
+await page.locator("#al-run").click();
+await page.waitForTimeout(300);
+check(/No browser wallet/.test(await page.locator("#al-status").textContent()), "without a wallet the demo says what is missing");
+
+// 10. one name per @keyframes: a second definition silently replaces the first (and once set the playground spinning)
+const frames = [...readFileSync(web + "index.html", "utf8").matchAll(/@keyframes ([\w-]+)/g)].map((m) => m[1]);
+check(frames.length === new Set(frames).size, "every @keyframes name is defined once", JSON.stringify(frames.filter((f, i) => frames.indexOf(f) !== i)));
+
+// 11. playground feedback (pg-polish.js): it reacts to what the page renders, so drive those renders and look.
+const fb = await page.evaluate(async () => {
+  const tick = () => new Promise((r) => setTimeout(r, 60));
+  const msg = document.getElementById("pg-faucet-msg"), card = msg.closest(".card");
+  const out = {};
+  setMsg(msg, "Confirm in your wallet…"); await tick();
+  out.busy = card.classList.contains("busy");
+  setMsg(msg, "Received test BUIDL.", "ok"); await tick();
+  out.won = card.classList.contains("won") && !card.classList.contains("busy") && !card.querySelector(".spin");
+  setMsg(msg, "Cancelled in your wallet.", "bad"); await tick();
+  out.shake = card.classList.contains("shake");
+  const list = document.getElementById("pg-activity");
+  const li = Object.assign(document.createElement("li"), { textContent: "Faucet drip: sent " });
+  list.prepend(li); await tick();
+  out.sent = li.dataset.state;
+  li.textContent = "Faucet drip: confirmed "; await tick();
+  out.confirmed = li.dataset.state;
+  document.getElementById("acct").textContent = "0x1234ab…cd5678"; await tick();
+  out.ident = !!document.querySelector(".ident") && !!document.querySelector(".netpill");
+  return out;
+});
+check(fb.busy, "a card glows while its transaction waits on the wallet");
+check(fb.won, "it flashes on success, and the busy glow and spinner clear");
+check(fb.shake, "it shakes on an error");
+check(fb.sent === "sent" && fb.confirmed === "confirmed", "the activity timeline marks each transaction's state", JSON.stringify(fb));
+check(fb.ident, "a connected account gets an identicon and its network");
+check(!(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)), "still no horizontal scroll at phone width");
+
+// 12. the demo video at the top: present, with its poster, and a sane length and size (read from the MP4 header, since the
+// test browser may lack an H.264 decoder).
+const mp4 = readFileSync(web + "demo.mp4");
+const mvhd = mp4.indexOf("mvhd");
+const v1 = mp4[mvhd + 4] === 1;
+const timescale = v1 ? mp4.readUInt32BE(mvhd + 24) : mp4.readUInt32BE(mvhd + 16);
+const duration = v1 ? Number(mp4.readBigUInt64BE(mvhd + 28)) : mp4.readUInt32BE(mvhd + 20);
+const secs = duration / timescale;
+check(mvhd > 0 && secs >= 60 && secs <= 90, `the demo video is 60-90 s long (${secs.toFixed(1)} s)`);
+check(mp4.length < 8e6, `the demo video is small enough to load fast (${(mp4.length / 1e6).toFixed(2)} MB)`);
+check(mp4.indexOf("moov") < mp4.indexOf("mdat"), "the demo video starts playing before it has fully downloaded (moov before mdat)");
+check(existsSync(web + "demo-poster.jpg"), "the demo video has a poster image");
+const vid = await page.evaluate(() => { const v = document.getElementById("demo-video"); return v && { src: v.getAttribute("src"), poster: v.getAttribute("poster"), muted: v.muted, controls: v.controls, top: v.getBoundingClientRect().top + scrollY }; });
+check(vid && vid.src === "demo.mp4" && vid.poster === "demo-poster.jpg" && vid.muted && vid.controls, "the video element is muted, has controls, and points at the files");
+check(vid && vid.top < (await page.evaluate(() => document.getElementById("agent-live").getBoundingClientRect().top + scrollY)), "the video sits above the agent demo, at the top");
 
 await browser.close(); server.close();
 console.log(fail ? `\n${fail} FAILED` : "\nall page checks passed");

@@ -2,7 +2,59 @@
 
 **Arbitrum Open House Singapore Online Buildathon**
 
-**Live site and playground:** https://npx-create-stylus-latest-web-mocha.vercel.app/
+| | |
+|---|---|
+| **Live site** | https://npx-create-stylus-latest-web-mocha.vercel.app/ (a 69-second demo video at the top, the playground, and a live AI-agent demo you run with your wallet) |
+| **npm** | https://www.npmjs.com/package/create-stylus-latest: `npx create-stylus-latest my-app`. Published from CI with provenance ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37043469397)) |
+| **Latest CI** | All 13 jobs green: [main](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37056631397), and [with the live agent demo](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37059195125) (29/29 browser checks against the agent CLI). [All runs](https://github.com/ramadan904/npx-create-stylus-latest/actions/workflows/ci.yml) |
+| **Zero install** | [Open in Codespaces](https://codespaces.new/ramadan904/npx-create-stylus-latest?quickstart=1), then `.devcontainer/quickstart.sh`: a Stylus contract deployed and called on a local Arbitrum chain in 105 s, measured inside that container in CI ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37061245097)) |
+| **Source** | https://github.com/ramadan904/npx-create-stylus-latest |
+
+## Why we win
+
+Each claim links to its proof, with the limit after it.
+
+**1. Smart contract quality: five money contracts checked against a reference model, all six run on real nodes.**
+- `counter`, `erc20`, `vault`, `escrow`, `stream` and `faucet` use custom Solidity errors, checks-effects-interactions,
+  and `#[constructor]` initialization where they have state to set, so nobody can front-run an `init`.
+- The five that move tokens have unit tests plus a property test that checks every token movement against a reference
+  model (the stream: 15 tests). The tests are tested: deliberately broken contracts fail them. They also found a real
+  bug: a failed `transfer_from` left partial state behind (see below).
+- Every template is formatted, linted, tested, built to WASM and deployed to a Nitro dev node on every change. The
+  cross-contract money flows run against a real ERC-20 in CI.
+- The stream survives a token that blocks an address: a refused payout is held for `claim`, so a blocked recipient
+  cannot strand the sender's refund.
+- *Limit:* not audited.
+
+**2. Product-market fit: the user is every new Stylus builder, and the hard first hour is gone.**
+- One command (`npx create-stylus-latest`) gives a project pinned to the newest compatible `stylus-sdk` and `alloy`,
+  with deploy scripts that have been run on Arbitrum Sepolia.
+- A one-click Codespace deploys and calls a contract on a local Arbitrum chain in 105 s, with no wallet, faucet or install.
+- Presets go straight to production stablecoins: `--usdg --network arbitrum-one|robinhood` wires Paxos USDG, with
+  addresses checked on-chain in CI. Robinhood Chain and its testnet are first-class networks.
+- *Limit:* published on 2026-10-02, so no adoption data yet.
+
+**3. Innovation: contracts and tooling built for AI agents, proven rather than promised.**
+- `--with-client` adds a JSON tool interface: schemas an LLM can be handed, results using the contract's own error
+  names, whole-token amounts converted with the token's decimals, and operator spending limits enforced before signing.
+- The contracts answer "what would happen" before an agent commits (`previewCancel`, `canRelease`, `canRefund`), using
+  the same logic as the real call.
+- 98 agent checks run the CLI against real contracts on every change.
+- On the site, a visitor's own wallet runs the agent's `open_stream` → `withdraw_from_stream` → `cancel_stream` on
+  Arbitrum Sepolia. CI holds that page to the CLI: same fields, and byte-for-byte the same JSON for the same calls.
+- *Limit:* the agent is the interface plus scripted intents; there is no hosted LLM.
+
+**4. Real problem solving: every fix came from running the real tools, and CI keeps it fixed.**
+Each of these broke a real deploy, and each is now handled by the generated scripts and covered by CI:
+- `cargo stylus deploy` defaulting to a Docker build that cannot read the key;
+- the public Arbitrum Sepolia RPC refusing the activation check;
+- a gas cap that lost a race with the base fee;
+- a bare dev node that cannot deploy constructor contracts;
+- a test VM that hides wrong token amounts.
+
+The gas comparison is measured, not claimed, and reported honestly: Stylus pays about 2× on plain storage calls and
+about 31× less on compute ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36935538361)).
+*Limit:* fixes were found on one team's deploys; more pitfalls will surface with more users.
 
 ## One line
 
@@ -210,31 +262,20 @@ These are templates and a scaffolder, not audited products. Read this before put
 Stylus (Rust, `stylus-sdk` 0.10.x, Solidity-ABI compatible), Node 18+ zero-dependency CLI, TypeScript/viem client,
 GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain testnet.
 
-## Why we win, criterion by criterion
-
-- **Smart contract quality.** Six contracts with custom Solidity errors, checks-effects-interactions ordering, and constructor
-  initialization (nobody can front-run a public `init`). Each ships unit tests plus a model-based property test that checks
-  every token movement against a reference model, and the tests are themselves tested: deliberately breaking the contracts
-  fails them. The money flows run against a real ERC-20 in CI (40 checks). Limit: unaudited (see the security model above).
-- **Product-market fit.** The users are Stylus builders, and the pain is real and measured: we hit every deploy pitfall on a real
-  network and the scripts now handle them (Docker default, RPC refusal, gas-cap race, constructor deploys on a local node). The
-  agent-native contracts target the Promising Products track: an agent can open a stream or an escrow deal, and ask the
-  contract what is allowed before it sends. Limit: no adoption measured yet; the npm package was published on 2026-10-02.
-- **Innovation.** The newest compatible SDK is resolved at scaffold time; "does it deploy" is a CI test, not a README promise;
-  money contracts that expose a preview/permission view sharing their own logic so an agent cannot be surprised; and a test
-  design that proves token amounts are right when the framework's mocks cannot.
-- **Real problem solving.** Problems found by running the real tooling, each fixed and covered by CI: a Docker default that
-  cannot read a key, a public RPC that refuses activation checks, a base-fee race, a bare dev node that cannot deploy
-  constructor contracts, and a test VM that hides wrong amounts. A reviewer can re-run all of it from `.github/workflows/ci.yml`.
-
 ## Live evidence index
 
 - On npm: https://www.npmjs.com/package/create-stylus-latest (`npx create-stylus-latest my-app`). Version 0.1.0 was published by the tag-triggered workflow after
   `npm test` and the packed-tarball smoke test, with a provenance statement: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37043469397
 
-- Latest all-green CI run (all 13 jobs: real-token flows, the agent CLIs, a real local deploy of every template, the npm
-  package smoke test, the playground in a real browser, and the USDG addresses and network RPCs checked on-chain):
-  https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37021498649
+- Latest all-green CI (13 jobs: real-token flows, the agent CLIs, a real local deploy of every template, the npm package
+  smoke test, the site in a real browser, the live agent demo against the agent CLI, and the USDG addresses and network
+  RPCs checked on-chain): https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37059195125 (main:
+  https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37056631397)
+- The Codespace, built and used in CI: the published package scaffolds, tests and builds inside it, and the one-command
+  quickstart deploys and calls a contract on a local Nitro node in 105 s:
+  https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37061245097
+- The demo video at the top of the site is generated from a real run (`e2e/video/chain.sh` + `e2e/video/record.mjs`):
+  real `npx` and `cargo test` output, and real transactions to contracts the tool deployed on a local Nitro node.
 - USDG on-chain verification (Arbitrum One and Robinhood Chain: contract present, symbol USDG, name "Global Dollar",
   6 decimals; all four RPC chain ids): https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37006932863/job/110837305641
 - Real-token end-to-end flows (40 checks): https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36989741978
@@ -255,8 +296,9 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
 ## Try it
 
 ```bash
-git clone https://github.com/ramadan904/npx-create-stylus-latest
-cd npx-create-stylus-latest
-node bin/create-stylus-latest.js my-app -t counter --with-client
+npx create-stylus-latest my-app -t stream --with-client
 cd my-app && cargo test
 ```
+
+Or with nothing installed: [open the Codespace](https://codespaces.new/ramadan904/npx-create-stylus-latest?quickstart=1) and run
+`.devcontainer/quickstart.sh`.
