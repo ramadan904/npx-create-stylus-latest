@@ -14,6 +14,15 @@ Published on npm as [`create-stylus-latest`](https://www.npmjs.com/package/creat
 commit and workflow that built it ([publish run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37043469397)). New versions publish automatically from a version tag
 (see [RELEASING.md](RELEASING.md)).
 
+### Try it without installing anything
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/ramadan904/npx-create-stylus-latest?quickstart=1)
+
+A browser workspace with everything already set up: the Rust toolchain the templates pin (with the WASM target),
+`cargo-stylus`, Node for `npx`, and Docker for the local Nitro dev node. Run `npx create-stylus-latest my-app`, then
+`cargo test` and `./scripts/devnode.sh` as in the project's README. The first start takes a few minutes; the
+environment (`.devcontainer/`) is built and used in CI by the `Dev container` workflow.
+
 ## Why "latest"
 
 Stylus templates go stale quickly: SDK APIs and the `alloy` version they depend on change between releases, and a
