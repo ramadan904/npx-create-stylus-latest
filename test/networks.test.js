@@ -28,6 +28,20 @@ test("every network has a positive chain id, an rpc and a usable USDG entry", ()
   assert.throws(() => resolveNetwork("nope"), /Unknown network "nope"/);
 });
 
+test("the oracle template gets Chainlink's ETH / USD feed where one is preset, and an empty line elsewhere", () => {
+  for (const [name, n] of Object.entries(NETWORKS)) {
+    const dir = tmp();
+    scaffold({ targetDir: dir, name: "my-app", template: "oracle", versions, network: name });
+    const text = env(dir);
+    assert.equal(line(text, "FEED_ADDRESS"), n.ethUsdFeed ?? "", name);
+    assert.match(text, /deploy\.sh -- env:FEED_ADDRESS 8 90000/, name);
+    if (n.ethUsdFeed) assert.match(n.ethUsdFeed, /^0x[0-9a-fA-F]{40}$/, name);
+  }
+  const dir = tmp();
+  scaffold({ targetDir: dir, name: "my-app", template: "counter", versions, network: "arbitrum-one" });
+  assert.equal(line(env(dir), "FEED_ADDRESS"), undefined, "only the oracle template gets a feed line");
+});
+
 test("the default .env.example targets Arbitrum Sepolia and has no token line", () => {
   const dir = tmp();
   scaffold({ targetDir: dir, name: "my-app", template: "counter", versions });

@@ -1,10 +1,17 @@
 // Checks src/networks.js against the chains themselves, so no address in the CLI rests on someone's memory:
 //   - each public RPC answers with the chain id the table claims;
-//   - each USDG address is correctly checksummed, holds a contract, and that contract reports symbol USDG and 6 decimals.
+//   - each USDG address is correctly checksummed, holds a contract, and that contract reports symbol USDG and 6 decimals;
+//   - each Chainlink ETH / USD feed is checksummed and reports description "ETH / USD", 8 decimals, and a positive answer
+//     updated within the last day.
 // Run in CI (the `networks` job). Exits non-zero on any mismatch. The local dev node is skipped.
 import { createPublicClient, defineChain, getAddress, http, parseAbi } from "viem";
-import { NETWORKS, USDG_DECIMALS } from "../src/networks.js";
+import { FEED_DECIMALS, NETWORKS, USDG_DECIMALS } from "../src/networks.js";
 
+const aggregator = parseAbi([
+  "function description() view returns (string)",
+  "function decimals() view returns (uint8)",
+  "function latestRoundData() view returns (uint80, int256, uint256, uint256, uint80)",
+]);
 const erc20 = parseAbi(["function symbol() view returns (string)", "function decimals() view returns (uint8)", "function name() view returns (string)"]);
 let failures = 0;
 let checks = 0;
@@ -36,6 +43,24 @@ for (const [name, n] of Object.entries(NETWORKS)) {
   } catch (err) {
     fail(err.message);
     continue;
+  }
+  if (n.ethUsdFeed) {
+    getAddress(n.ethUsdFeed) === n.ethUsdFeed ? ok(`ETH / USD feed ${n.ethUsdFeed} has a valid EIP-55 checksum`) : fail(`feed ${n.ethUsdFeed} checksum is wrong`);
+    try {
+      const [description, decimals, round] = await retry(
+        () => Promise.all(["description", "decimals", "latestRoundData"].map((functionName) => client.readContract({ address: n.ethUsdFeed, abi: aggregator, functionName }))),
+        "feed data",
+      );
+      description === "ETH / USD" ? ok(`description() is "ETH / USD"`) : fail(`description() is "${description}", expected "ETH / USD"`);
+      decimals === FEED_DECIMALS ? ok(`decimals() is ${decimals}`) : fail(`decimals() is ${decimals}, expected ${FEED_DECIMALS}`);
+      const [, answer, , updatedAt] = round;
+      const age = Math.floor(Date.now() / 1000) - Number(updatedAt);
+      answer > 0n && age <= 86_400
+        ? ok(`latest answer ${Number(answer) / 10 ** decimals} USD, updated ${age} s ago`)
+        : fail(`latest answer ${answer} updated ${age} s ago: not a live feed`);
+    } catch (err) {
+      fail(err.message);
+    }
   }
   if (!n.usdg) {
     console.log("  --  no USDG listed (Paxos publishes none here)");

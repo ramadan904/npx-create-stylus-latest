@@ -130,8 +130,8 @@ for (const template of Object.keys(TEMPLATES)) {
   });
 }
 
-test("erc20, erc721, vault, escrow, stream and faucet initialize through a constructor, not a callable init()", () => {
-  for (const template of ["erc20", "erc721", "vault", "escrow", "stream", "faucet"]) {
+test("erc20, erc721, vault, escrow, stream, oracle and faucet initialize through a constructor, not a callable init()", () => {
+  for (const template of ["erc20", "erc721", "vault", "escrow", "stream", "oracle", "faucet"]) {
     const dir = tmp();
     scaffold({ targetDir: dir, name: "my-app", template, versions });
     const lib = fs.readFileSync(path.join(dir, "src/lib.rs"), "utf8");
@@ -189,8 +189,8 @@ test("deploy.sh turns known cargo-stylus failures into plain-English hints and k
   assert.equal(run().status, 0);
 });
 
-test("erc20, erc721, vault, escrow, stream and faucet ship property-based tests", () => {
-  for (const template of ["erc20", "erc721", "vault", "escrow", "stream", "faucet"]) {
+test("erc20, erc721, vault, escrow, stream, oracle and faucet ship property-based tests", () => {
+  for (const template of ["erc20", "erc721", "vault", "escrow", "stream", "oracle", "faucet"]) {
     const dir = tmp();
     scaffold({ targetDir: dir, name: "my-app", template, versions });
     assert.match(fs.readFileSync(path.join(dir, "Cargo.toml"), "utf8"), /proptest = /, `${template} needs proptest`);

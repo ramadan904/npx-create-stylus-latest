@@ -89,6 +89,19 @@ const ABI = {
         "tokenId"
       ]
     },
+    "0x19ab2d28": {
+      "name": "StalePrice",
+      "types": [
+        "uint256",
+        "uint256",
+        "uint256"
+      ],
+      "names": [
+        "updatedAt",
+        "now",
+        "maxAge"
+      ]
+    },
     "0x1f2a2005": {
       "name": "ZeroAmount",
       "types": [],
@@ -105,6 +118,11 @@ const ABI = {
         "want"
       ]
     },
+    "0x35278d12": {
+      "name": "Overflow",
+      "types": [],
+      "names": []
+    },
     "0x35b2186b": {
       "name": "NoSuchStream",
       "types": [
@@ -114,6 +132,11 @@ const ABI = {
         "id"
       ]
     },
+    "0x35be3ac8": {
+      "name": "InvalidConfig",
+      "types": [],
+      "names": []
+    },
     "0x361c31f2": {
       "name": "NotMinter",
       "types": [
@@ -121,6 +144,15 @@ const ABI = {
       ],
       "names": [
         "caller"
+      ]
+    },
+    "0x38ee04a7": {
+      "name": "InvalidPrice",
+      "types": [
+        "int256"
+      ],
+      "names": [
+        "answer"
       ]
     },
     "0x4a894b4b": {
@@ -151,6 +183,11 @@ const ABI = {
         "start",
         "now"
       ]
+    },
+    "0x5f9e667d": {
+      "name": "FeedUnavailable",
+      "types": [],
+      "names": []
     },
     "0x64283d7b": {
       "name": "ERC721IncorrectOwner",
@@ -214,6 +251,11 @@ const ABI = {
       "names": [
         "owner"
       ]
+    },
+    "0x8ad52bdd": {
+      "name": "IncompleteRound",
+      "types": [],
+      "names": []
     },
     "0x91beda24": {
       "name": "InsufficientAllowance",

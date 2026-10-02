@@ -46,7 +46,7 @@ Not to be confused with `npx create-stylus` (Scaffold-Stylus): a different tool,
 | | `cargo stylus new` | [Scaffold-Stylus](https://github.com/Arb-Stylus/scaffold-stylus) (`npx create-stylus`) | **create-stylus-latest** |
 | --- | --- | --- | --- |
 | Focus | The official minimal starter | A full-stack dApp: Next.js frontend, wallet connect, contract hot reload | The contract and its path to a live deploy: payments and AI agents |
-| Contracts | A counter | A sample contract; ERC-20, ERC-721 and Chainlink extensions | Seven templates: counter, ERC-20, ERC-721, vault, escrow, stream, faucet |
+| Contracts | A counter | A sample contract; ERC-20, ERC-721 and Chainlink extensions | Eight templates: counter, ERC-20, ERC-721, vault, escrow, stream, Chainlink oracle, faucet |
 | Tests | Example tests | `yarn stylus:test` | Unit tests plus reference-model property tests; every template deployed to a Nitro node in CI |
 | AI agents | – | – | JSON tool interface with operator spending limits, checked against real contracts in CI |
 | Stablecoins and chains | – | Arbitrum Sepolia, mainnet, Orbit | Paxos USDG presets checked on-chain; Arbitrum One, Robinhood Chain and their testnets |
@@ -65,6 +65,7 @@ agent has to drive it. They combine: the contracts here are plain Stylus project
 | `vault` | Stablecoin vault for any ERC-20 (USDC, USDG): deposits and withdrawals through cross-contract calls, with mocked-token tests. |
 | `escrow` | Stablecoin escrow for payments between parties or agents: buyer-funded deals, release by buyer or arbiter, refund by seller or arbiter, and a buyer-side refund after a deadline. Unit tests plus a model-based property test. |
 | `stream` | Stablecoin payment streams (payroll, vesting, agent subscriptions): linear per-second payouts, keeper-friendly `withdraw`, and `cancel` that splits earned from remaining. Unit tests plus a model-based property test that tracks every token movement. |
+| `oracle` | Reads a Chainlink price feed safely: refuses stale, zero, negative or incomplete prices with named errors, and values amounts in USD with both decimals handled. `--network` presets Chainlink's ETH / USD feed (checked on-chain in CI). Unit tests plus a model-based property test. |
 | `faucet` | Rate-limited ERC-20 faucet for testnets and demos: anyone can `drip` once per cooldown, and `availableAt(who)` says when. Lets visitors try your dApp without asking you for tokens. Unit tests plus a model-based property test. |
 
 ## What you get in the generated project
@@ -122,7 +123,7 @@ the contract does not define.
 ## Options
 
 ```
--t, --template <name>  counter | erc20 | erc721 | vault | escrow | stream | faucet (default: counter)
+-t, --template <name>  counter | erc20 | erc721 | vault | escrow | stream | oracle | faucet (default: counter)
 -y, --yes              Skip prompts and use defaults
     --no-git           Do not run git init
     --with-client      Also generate a TypeScript (viem) client in client/

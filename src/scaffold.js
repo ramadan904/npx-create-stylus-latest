@@ -51,7 +51,7 @@ export function scaffold({ targetDir, name, template, versions, withClient = fal
     crate_name: toCrateName(name),
     stylus_sdk_version: versions.stylusSdk,
     alloy_version: versions.alloy,
-    network_env: envBlock(net, { usdg }),
+    network_env: envBlock(net, { usdg, feed: template === "oracle" }),
   };
   const written = [];
   written.root = targetDir;
