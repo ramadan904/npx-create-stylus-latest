@@ -1,0 +1,22 @@
+{
+  // One click to a ready Stylus workspace: Rust (the toolchain the templates pin, with the wasm target), cargo-stylus,
+  // Node for npx and the clients, and Docker for ./scripts/devnode.sh. Built in CI by .github/workflows/devcontainer.yml.
+  "name": "create-stylus-latest",
+  "image": "mcr.microsoft.com/devcontainers/rust:1-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "forwardPorts": [8547],
+  "portsAttributes": { "8547": { "label": "Nitro dev node RPC", "onAutoForward": "silent" } },
+  "customizations": {
+    "vscode": {
+      "extensions": ["rust-lang.rust-analyzer", "tamasfe.even-better-toml"]
+    },
+    "codespaces": {
+      "openFiles": ["README.md"]
+    }
+  },
+  "hostRequirements": { "cpus": 4 }
+}

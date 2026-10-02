@@ -1,0 +1,33 @@
+name: Dev container
+
+# Builds the Codespaces / dev container environment from .devcontainer/ exactly as a user's Codespace would (including
+# its setup script), then proves the tools work inside it: the published package runs with npx, a scaffolded project
+# passes its tests, and the contract builds to WASM. Runs when the container definition changes, or by hand.
+on:
+  push:
+    paths: [".devcontainer/**", ".github/workflows/devcontainer.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-use:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: devcontainers/ci@v0.3
+        with:
+          imageName: ghcr.io/ramadan904/npx-create-stylus-latest-devcontainer
+          push: never
+          runCmd: |
+            set -euo pipefail
+            echo "== tools"; cargo --version; cargo stylus --version; node --version; docker --version
+            rustup target list --installed | grep -x wasm32-unknown-unknown
+            echo "== the published package, the way a visitor runs it"
+            cd /tmp && npx --yes create-stylus-latest demo -t counter -y --no-git
+            cd demo && cargo test --lib
+            cargo build --release --target wasm32-unknown-unknown --lib
+            ls -l target/wasm32-unknown-unknown/release/*.wasm
+            echo "DEV CONTAINER OK"
