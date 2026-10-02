@@ -151,6 +151,11 @@ const ABI = {
         "want"
       ]
     },
+    "0x969bf728": {
+      "name": "NothingToClaim",
+      "types": [],
+      "names": []
+    },
     "0xbf8157f3": {
       "name": "BadTimeRange",
       "types": [

@@ -11,7 +11,7 @@ const PG = {
   stream: "0xa97f7f79dd79b6c72c8daa452f68baf1ca7bade5",
   escrow: "0x5c3766164e3a2d4abb61f605879c18234b36a60e",
   vault: "0xddcf208635bfdce4379a2535f228473310995915",
-  faucet: null, // set once the faucet is deployed and funded; until then the page says how to get tokens
+  faucet: "0x05bdd4d122896a638f7ff41ed58c7d90a84142d8", // the faucet template: 100 BUIDL per drip, hourly
 };
 const DECIMALS = 18;
 const SYMBOL = "BUIDL";

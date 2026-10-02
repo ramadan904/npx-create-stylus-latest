@@ -18,6 +18,9 @@ or an agent paying another agent for ongoing work, in USDC or Paxos USDG.
 - `cancel(id)` is for the sender or the recipient: the recipient receives what is earned and not yet withdrawn, and the
   sender gets the rest back. Cancelling before `start` refunds everything. A cancelled stream is final
 - `stream(id)`, `withdrawable(id)`, `streamCount()`, `token()` for reads. State is `1` active, `2` cancelled
+- if the token refuses one of `cancel`'s two payments (USDC, for example, can block an address), that share is held for its
+  owner instead of reverting the whole cancel: `claimable(who)` shows it and `claim()` pays it once the token allows. Without
+  this, a blocked recipient could stop the sender from ever recovering the unvested remainder
 
 State is updated before the external token call, `create` rejects deposits whose `amount * duration` would overflow, and a
 failed or false-returning transfer reverts the whole call.

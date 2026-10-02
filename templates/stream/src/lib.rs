@@ -19,6 +19,8 @@ sol! {
     event StreamCreated(uint256 indexed id, address indexed sender, address indexed recipient, uint256 amount, uint256 start, uint256 stop);
     event Withdrawn(uint256 indexed id, address indexed recipient, uint256 amount);
     event Cancelled(uint256 indexed id, uint256 toRecipient, uint256 toSender);
+    event PaymentHeld(address indexed to, uint256 amount);
+    event Claimed(address indexed to, uint256 amount);
 
     error ZeroAddress();
     error ZeroAmount();
@@ -30,6 +32,7 @@ sol! {
     error NotActive(uint256 id);
     error NotAuthorized();
     error NothingToWithdraw(uint256 id);
+    error NothingToClaim();
     error TokenTransferFailed();
 }
 
@@ -45,6 +48,7 @@ pub enum StreamError {
     NotActive(NotActive),
     NotAuthorized(NotAuthorized),
     NothingToWithdraw(NothingToWithdraw),
+    NothingToClaim(NothingToClaim),
     TokenTransferFailed(TokenTransferFailed),
 }
 
@@ -76,6 +80,7 @@ sol_storage! {
         mapping(uint256 => uint256) stops;
         mapping(uint256 => uint256) withdrawn;
         mapping(uint256 => uint8) states;
+        mapping(address => uint256) owed;
     }
 }
 
@@ -141,6 +146,25 @@ impl Stream {
         }
         let (_, to_recipient, to_sender) = self.cancel_split(id);
         (to_recipient, to_sender)
+    }
+
+    /// Tokens held for `who` because the token refused to pay them during a `cancel` (see `cancel`); `claim` pays them.
+    pub fn claimable(&self, who: Address) -> U256 {
+        self.owed.get(who)
+    }
+
+    /// Pay the caller everything held for them. If the token still refuses (the caller is still blocked), the call reverts
+    /// and the amount stays held, so it can be claimed later.
+    pub fn claim(&mut self) -> Result<U256, StreamError> {
+        let who = self.vm().msg_sender();
+        let amount = self.owed.get(who);
+        if amount.is_zero() {
+            return Err(StreamError::NothingToClaim(NothingToClaim {}));
+        }
+        self.owed.setter(who).set(U256::ZERO);
+        self.push(who, amount)?;
+        self.vm().log(Claimed { to: who, amount });
+        Ok(amount)
     }
 
     /// The caller (sender) locks `amount` of the token, to be paid to `recipient` linearly between `start` and
@@ -219,6 +243,10 @@ impl Stream {
 
     /// Stop the stream. The recipient receives what has been earned and not yet withdrawn, the sender gets the rest
     /// of the deposit back. Allowed for the sender or the recipient.
+    ///
+    /// If the token refuses one of the two payments (USDC, for example, can block an address), that party's share is
+    /// held in the contract for them to `claim` later, and the cancel still completes. Without this, a blocked recipient
+    /// would make every cancel revert and strand the sender's unvested remainder.
     pub fn cancel(&mut self, id: U256) -> Result<(), StreamError> {
         self.require_active(id)?;
         let caller = self.vm().msg_sender();
@@ -231,12 +259,8 @@ impl Stream {
         // After this, `streamed` reports exactly what the recipient received over the stream's life.
         self.withdrawn.setter(id).set(earned);
         self.set_state(id, CANCELLED);
-        if !to_recipient.is_zero() {
-            self.push(recipient, to_recipient)?;
-        }
-        if !to_sender.is_zero() {
-            self.push(sender, to_sender)?;
-        }
+        self.pay_or_hold(recipient, to_recipient);
+        self.pay_or_hold(sender, to_sender);
         self.vm().log(Cancelled {
             id,
             toRecipient: to_recipient,
@@ -304,22 +328,33 @@ impl Stream {
         }
     }
 
+    /// Pays `to`, or, if the token refuses, holds the amount for `to` to `claim` later. A refused transfer reverts only
+    /// inside the token, so this contract's own state is unaffected and the caller carries on.
+    fn pay_or_hold(&mut self, to: Address, amount: U256) {
+        if amount.is_zero() || self.push(to, amount).is_ok() {
+            return;
+        }
+        let total = self.owed.get(to) + amount;
+        self.owed.setter(to).set(total);
+        self.vm().log(PaymentHeld { to, amount });
+    }
+
     fn push(&mut self, to: Address, amount: U256) -> Result<(), StreamError> {
-        #[cfg(test)]
-        MOVES.with(|m| {
-            let this = self.vm().contract_address();
-            m.borrow_mut().push((this, to, amount));
-        });
         let token = IERC20::new(self.token.get());
         let call = Call::new_mutating(self);
         let ok = token
             .transfer(self.vm(), call, to, amount)
             .map_err(|_| StreamError::TokenTransferFailed(TokenTransferFailed {}))?;
-        if ok {
-            Ok(())
-        } else {
-            Err(StreamError::TokenTransferFailed(TokenTransferFailed {}))
+        if !ok {
+            return Err(StreamError::TokenTransferFailed(TokenTransferFailed {}));
         }
+        // Recorded only once the transfer succeeded, because a refused payout is now handled rather than reverted.
+        #[cfg(test)]
+        MOVES.with(|m| {
+            let this = self.vm().contract_address();
+            m.borrow_mut().push((this, to, amount));
+        });
+        Ok(())
     }
 }
 
@@ -593,6 +628,70 @@ mod tests {
         );
     }
 
+    fn mock_refuse(vm: &TestVM, to: Address, amount: u64) {
+        let call = transferCall {
+            to,
+            value: U256::from(amount),
+        };
+        vm.mock_call(TOKEN, call.abi_encode(), U256::ZERO, Err(Vec::new()));
+    }
+
+    #[test]
+    fn a_refused_payout_is_held_and_the_cancel_still_refunds_the_sender() {
+        let (vm, mut stream) = funded();
+        let id = U256::from(1);
+        vm.set_block_timestamp(1_400);
+        // The token refuses to pay the recipient (say USDC has blocked that address). Refusals are registered first:
+        // the test VM hands every call the data of the last mock registered.
+        mock_refuse(&vm, PAYEE, 400);
+        mock_push(&vm, PAYER, 600);
+        vm.set_sender(PAYER);
+        assert!(
+            stream.cancel(id).is_ok(),
+            "the cancel must not be held hostage by the recipient"
+        );
+        assert_eq!(
+            take_moves(),
+            vec![paid(&vm, PAYER, 600)],
+            "only the sender's refund moved"
+        );
+        assert_eq!(
+            stream.claimable(PAYEE),
+            U256::from(400u64),
+            "the recipient's share is held for them"
+        );
+        assert_eq!(stream.stream(id).6, CANCELLED);
+
+        // Later the recipient is unblocked and claims it.
+        mock_push(&vm, PAYEE, 400);
+        vm.set_sender(PAYEE);
+        assert!(matches!(stream.claim(), Ok(amount) if amount == U256::from(400u64)));
+        assert_eq!(take_moves(), vec![paid(&vm, PAYEE, 400)]);
+        assert_eq!(stream.claimable(PAYEE), U256::ZERO);
+        assert!(stream.claim().is_err(), "nothing left to claim");
+    }
+
+    #[test]
+    fn a_refused_sender_refund_is_held_too() {
+        let (vm, mut stream) = funded();
+        vm.set_block_timestamp(1_400);
+        mock_refuse(&vm, PAYER, 600);
+        mock_push(&vm, PAYEE, 400);
+        vm.set_sender(PAYEE);
+        assert!(stream.cancel(U256::from(1)).is_ok());
+        assert_eq!(take_moves(), vec![paid(&vm, PAYEE, 400)]);
+        assert_eq!(stream.claimable(PAYER), U256::from(600u64));
+        assert_eq!(stream.claimable(PAYEE), U256::ZERO);
+    }
+
+    #[test]
+    fn claiming_with_nothing_held_is_refused() {
+        let (vm, mut stream) = funded();
+        vm.set_sender(STRANGER);
+        assert!(stream.claim().is_err());
+        assert!(take_moves().is_empty());
+    }
+
     #[test]
     fn cancelling_before_the_start_refunds_everything_to_the_sender() {
         let (vm, mut stream) = funded();
@@ -668,6 +767,12 @@ mod properties {
             who: usize,
             id: u64,
         },
+        Claim {
+            who: usize,
+        },
+        Unblock {
+            who: usize,
+        },
         Advance {
             secs: u64,
         },
@@ -686,7 +791,9 @@ mod properties {
                 }
             ),
             (a.clone(), 0u64..5).prop_map(|(who, id)| Op::Withdraw { who, id }),
-            (a, 0u64..5).prop_map(|(who, id)| Op::Cancel { who, id }),
+            (a.clone(), 0u64..5).prop_map(|(who, id)| Op::Cancel { who, id }),
+            a.clone().prop_map(|who| Op::Claim { who }),
+            a.prop_map(|who| Op::Unblock { who }),
             (0u64..120).prop_map(|secs| Op::Advance { secs }),
         ]
     }
@@ -701,6 +808,14 @@ mod properties {
             value: U256::from(amount),
         };
         vm.mock_call(TOKEN, call.abi_encode(), U256::ZERO, Ok(yes()));
+    }
+
+    fn mock_refuse(vm: &TestVM, to: Address, amount: u64) {
+        let call = transferCall {
+            to,
+            value: U256::from(amount),
+        };
+        vm.mock_call(TOKEN, call.abi_encode(), U256::ZERO, Err(Vec::new()));
     }
 
     #[derive(Clone, Debug)]
@@ -730,7 +845,10 @@ mod properties {
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(64))]
         #[test]
-        fn stream_matches_a_reference_model(ops in prop::collection::vec(op(), 0..50)) {
+        fn stream_matches_a_reference_model(
+            initially_blocked in prop::array::uniform3(any::<bool>()),
+            ops in prop::collection::vec(op(), 0..50),
+        ) {
             let vm = TestVM::default();
             let mut now = 100u64;
             vm.set_block_timestamp(now);
@@ -741,6 +859,9 @@ mod properties {
             let mut last_streamed: Vec<u64> = Vec::new();
             let this = vm.contract_address();
             let mut held: i128 = 0; // tokens the contract holds, from the recorded movements
+            // Addresses the token refuses to pay (a blocklist), and what the contract holds for each of them.
+            let mut blocked = initially_blocked;
+            let mut owed = [0u64; 3];
 
             for op in ops {
                 match op {
@@ -774,6 +895,9 @@ mod properties {
                             if m.cancelled { 0 } else { m.earned(now) - m.withdrawn }
                         }).unwrap_or(0);
                         if let Some(i) = idx {
+                            // A withdrawal to a blocked recipient reverts on-chain and rolls back; the test VM does not
+                            // roll back storage, so that case is left to the dev node flows.
+                            if due > 0 && blocked[model[i].recipient] { continue; }
                             mock_push(&vm, ACTORS[model[i].recipient], due);
                         }
                         let result = stream.withdraw(U256::from(id));
@@ -799,11 +923,13 @@ mod properties {
                         if let Some(i) = idx {
                             let m = &model[i];
                             let earned = m.earned(now);
-                            if earned > m.withdrawn {
-                                mock_push(&vm, ACTORS[m.recipient], earned - m.withdrawn);
+                            // Refusals are registered first: the test VM hands every call the data of the last mock.
+                            let payouts = [(m.recipient, earned - m.withdrawn), (m.sender, m.deposit - earned)];
+                            for (party, amount) in payouts {
+                                if amount > 0 && blocked[party] { mock_refuse(&vm, ACTORS[party], amount); }
                             }
-                            if m.deposit > earned {
-                                mock_push(&vm, ACTORS[m.sender], m.deposit - earned);
+                            for (party, amount) in payouts {
+                                if amount > 0 && !blocked[party] { mock_push(&vm, ACTORS[party], amount); }
                             }
                         }
                         let model_split = idx.map(|i| {
@@ -821,13 +947,16 @@ mod properties {
                         if let (true, Some(i)) = (ok, idx) {
                             let m = &model[i];
                             let earned = m.earned(now);
-                            if earned > m.withdrawn {
-                                expected_moves.push((this, ACTORS[m.recipient], U256::from(earned - m.withdrawn)));
+                            // Each side is paid, or, if the token refuses, the amount is held for them to claim.
+                            for (party, amount) in [(m.recipient, earned - m.withdrawn), (m.sender, m.deposit - earned)] {
+                                if amount == 0 { continue; }
+                                if blocked[party] {
+                                    owed[party] += amount;
+                                } else {
+                                    expected_moves.push((this, ACTORS[party], U256::from(amount)));
+                                    held -= amount as i128;
+                                }
                             }
-                            if m.deposit > earned {
-                                expected_moves.push((this, ACTORS[m.sender], U256::from(m.deposit - earned)));
-                            }
-                            held -= (m.deposit - m.withdrawn) as i128;
                         }
                         prop_assert_eq!(take_moves(), expected_moves);
                         if ok {
@@ -836,12 +965,29 @@ mod properties {
                             m.cancelled = true;
                         }
                     }
+                    Op::Unblock { who } => blocked[who] = false,
+                    Op::Claim { who } => {
+                        // A claim by a still-blocked address reverts on-chain and rolls back; not modelled in the test VM.
+                        if blocked[who] && owed[who] > 0 { continue; }
+                        vm.set_sender(ACTORS[who]);
+                        mock_push(&vm, ACTORS[who], owed[who]);
+                        let result = stream.claim();
+                        prop_assert_eq!(result.is_ok(), owed[who] > 0, "claim succeeds exactly when something is held");
+                        let expected_moves = if owed[who] > 0 { vec![(this, ACTORS[who], U256::from(owed[who]))] } else { vec![] };
+                        prop_assert_eq!(take_moves(), expected_moves);
+                        held -= owed[who] as i128;
+                        owed[who] = 0;
+                    }
                 }
 
                 prop_assert_eq!(stream.stream_count(), U256::from(model.len() as u64));
-                // Conservation from real token flow: the contract holds exactly the unpaid part of live streams.
-                let owed: u64 = model.iter().filter(|m| !m.cancelled).map(|m| m.deposit - m.withdrawn).sum();
-                prop_assert_eq!(held, owed as i128);
+                // Conservation from real token flow: the contract holds exactly the unpaid part of live streams plus what it
+                // holds for addresses the token refused to pay.
+                let unpaid: u64 = model.iter().filter(|m| !m.cancelled).map(|m| m.deposit - m.withdrawn).sum();
+                prop_assert_eq!(held, (unpaid + owed.iter().sum::<u64>()) as i128);
+                for (i, actor) in ACTORS.iter().enumerate() {
+                    prop_assert_eq!(stream.claimable(*actor), U256::from(owed[i]));
+                }
                 for (i, m) in model.iter().enumerate() {
                     let id = U256::from(i as u64 + 1);
                     let streamed = stream.streamed(id);

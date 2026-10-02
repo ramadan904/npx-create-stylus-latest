@@ -73,6 +73,11 @@ One command produces a working project and a deploy path that has already been r
     above; the client read back `token()` equal to it and zero streams. Only construction and reads were exercised
     on-chain; stream vesting, withdraw and cancel are covered by the unit and property tests, not by a live stream.
     Run: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36984521709
+  - Faucet: `0x05bdd4d122896a638f7ff41ed58c7d90a84142d8`
+    (https://sepolia.arbiscan.io/address/0x05bdd4d122896a638f7ff41ed58c7d90a84142d8), the `faucet` template constructed with
+    the token above, 100 BUIDL per drip and a one-hour cooldown, then stocked with 500,000 BUIDL in the same run (block
+    314972034); the client read back the configuration. It is what lets anyone use the playground. Run:
+    https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37002745266
   - Superseded: an earlier ERC-20 (`0x45a81630ec980e8517e032d5c069a24011dedba5`) and vault
     (`0xcd542511830dbaec42f753f3b96ed8c8c66dc953`) used a callable `init()` that anyone could have called first.
     They remain on the testnet but are not the recommended design, which is why the templates changed.
@@ -159,9 +164,11 @@ These are templates and a scaffolder, not audited products. Read this before put
 - **Order of operations.** State is updated before any external token call (checks-effects-interactions), and a failed or
   false-returning transfer reverts the whole call. We have not reviewed behaviour against a malicious or reentrant token.
 - **Tokens we do not support.** Fee-on-transfer and rebasing tokens would break the accounting.
-- **Blacklisting can strand funds in `stream`.** `cancel` pays the recipient first, then the sender. If the token blacklists the
-  recipient (USDC can), every `cancel` reverts and the sender's unvested remainder cannot be recovered. `escrow` is safer here
-  because the deadline refund and the arbiter pay the buyer, not the seller. A pull-payment design would fix `stream`.
+- **Blocked addresses (fixed in the `stream` template).** A token that blocks an address (USDC can) used to make every
+  `stream.cancel` revert, stranding the sender's unvested remainder. Now a refused payout is held for that party to `claim()`
+  later and the cancel completes; unit and property tests cover it and breaking it fails them. The `stream` deployed on Arbitrum
+  Sepolia predates this fix. `withdraw` to a blocked recipient still reverts (nothing is lost; the stream keeps running), and
+  `escrow` was never affected because its deadline refund and the arbiter pay the buyer.
 - **Time.** Deadlines and stream schedules use the block timestamp, which a sequencer can skew slightly. Fine for
   minutes-to-days schedules, not for second-exact settlement.
 - **Trust in the arbiter.** Where one is set, it can settle a dispute either way. Pass the zero address for none.
@@ -202,8 +209,9 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
 - Latest all-green CI run (all 10 jobs: real-token flows, the agent CLIs, a real local deploy of every template, the npm
   package smoke test): https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36998181283
 - Real-token end-to-end flows (40 checks): https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36989741978
-- Arbitrum Sepolia: escrow `0x5c3766164e3a2d4abb61f605879c18234b36a60e`, stream `0xa97f7f79dd79b6c72c8daa452f68baf1ca7bade5`
-  (details in the Evidence section above).
+- Arbitrum Sepolia: escrow `0x5c3766164e3a2d4abb61f605879c18234b36a60e`, stream `0xa97f7f79dd79b6c72c8daa452f68baf1ca7bade5`,
+  faucet `0x05bdd4d122896a638f7ff41ed58c7d90a84142d8` holding 500,000 BUIDL (details in the Evidence section above).
+- The playground (`web/`): take BUIDL from the faucet, then stream, escrow or use the vault from your own wallet.
 
 ## Roadmap
 
