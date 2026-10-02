@@ -90,8 +90,7 @@ One command produces a working project and a deploy path that has already been r
     `claimable`; run https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37020525139) and escrow
     `0x91336c54f5df938fdd1ac36d0ce08bc1f6e327bb` (https://sepolia.arbiscan.io/address/0x91336c54f5df938fdd1ac36d0ce08bc1f6e327bb;
     with `canRelease` / `canRefund`; run https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37024243460).
-    In both, the client read back `token()` equal to BUIDL and zero streams / deals. The playground still points at the
-    earlier pair above.
+    In both, the client read back `token()` equal to BUIDL and zero streams / deals. The playground uses this pair.
   - Faucet: `0x05bdd4d122896a638f7ff41ed58c7d90a84142d8`
     (https://sepolia.arbiscan.io/address/0x05bdd4d122896a638f7ff41ed58c7d90a84142d8), the `faucet` template constructed with
     the token above, 100 BUIDL per drip and a one-hour cooldown, then stocked with 500,000 BUIDL in the same run (block
@@ -205,7 +204,6 @@ These are templates and a scaffolder, not audited products. Read this before put
 - **No testnet USDG on Arbitrum or Robinhood.** Paxos publishes testnet USDG only on Ethereum Sepolia, Ink Sepolia and X
   Layer testnet, so a testnet build uses a stand-in token; the mainnet USDG addresses are real money behind the
   `MAINNET=1` guard.
-- **Not yet on npm.** The package is publish-ready (see `RELEASING.md`) but has not been published.
 
 ## Tech
 
@@ -221,7 +219,7 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
 - **Product-market fit.** The users are Stylus builders, and the pain is real and measured: we hit every deploy pitfall on a real
   network and the scripts now handle them (Docker default, RPC refusal, gas-cap race, constructor deploys on a local node). The
   agent-native contracts target the Promising Products track: an agent can open a stream or an escrow deal, and ask the
-  contract what is allowed before it sends. Limit: no adoption measured yet and the npm package is not published.
+  contract what is allowed before it sends. Limit: no adoption measured yet; the npm package was published on 2026-10-02.
 - **Innovation.** The newest compatible SDK is resolved at scaffold time; "does it deploy" is a CI test, not a README promise;
   money contracts that expose a preview/permission view sharing their own logic so an agent cannot be surprised; and a test
   design that proves token amounts are right when the framework's mocks cannot.
@@ -231,6 +229,9 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
 
 ## Live evidence index
 
+- On npm: https://www.npmjs.com/package/create-stylus-latest (`npx create-stylus-latest my-app`). Version 0.1.0 was published by the tag-triggered workflow after
+  `npm test` and the packed-tarball smoke test, with a provenance statement: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37043469397
+
 - Latest all-green CI run (all 13 jobs: real-token flows, the agent CLIs, a real local deploy of every template, the npm
   package smoke test, the playground in a real browser, and the USDG addresses and network RPCs checked on-chain):
   https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37021498649
@@ -238,20 +239,18 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
   6 decimals; all four RPC chain ids): https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37006932863/job/110837305641
 - Real-token end-to-end flows (40 checks): https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36989741978
 - Arbitrum Sepolia, current versions: stream `0x8f318a966bbc75bca53d9251e86ae8b97d578712`, escrow
-  `0x91336c54f5df938fdd1ac36d0ce08bc1f6e327bb`. Earlier versions (used by the playground): escrow
-  `0x5c3766164e3a2d4abb61f605879c18234b36a60e`, stream `0xa97f7f79dd79b6c72c8daa452f68baf1ca7bade5`,
-  faucet `0x05bdd4d122896a638f7ff41ed58c7d90a84142d8` holding 500,000 BUIDL (details in the Evidence section above).
+  `0x91336c54f5df938fdd1ac36d0ce08bc1f6e327bb`, both used by the playground; faucet
+  `0x05bdd4d122896a638f7ff41ed58c7d90a84142d8` holding 500,000 BUIDL. Earlier versions: escrow
+  `0x5c3766164e3a2d4abb61f605879c18234b36a60e`, stream `0xa97f7f79dd79b6c72c8daa452f68baf1ca7bade5` (details in the
+  Evidence section above).
 - The playground (https://npx-create-stylus-latest-web-mocha.vercel.app/, source in `web/`): take BUIDL from the faucet, then stream, escrow or use the vault from your
   own wallet on Arbitrum Sepolia.
 
 ## Roadmap
 
-1. Publish to npm so `npx create-stylus-latest` works anywhere. The package, a smoke test of the packed tarball (every template, run
-   with `npx` from an empty directory) and an automated publish-on-tag workflow with provenance are in place
-   (`RELEASING.md`); the first release needs an npm token added as the `NPM_TOKEN` secret and a version tag pushed.
-2. A Foundry interop template (Solidity test calling a Stylus contract).
-3. `cargo stylus verify` support with a Docker-friendly key path.
-4. Testnet USDG presets, as soon as Paxos lists USDG on Arbitrum Sepolia or Robinhood Chain testnet.
+1. A Foundry interop template (Solidity test calling a Stylus contract).
+2. `cargo stylus verify` support with a Docker-friendly key path.
+3. Testnet USDG presets, as soon as Paxos lists USDG on Arbitrum Sepolia or Robinhood Chain testnet.
 
 ## Try it
 

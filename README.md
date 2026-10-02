@@ -10,14 +10,9 @@ npx create-stylus-latest my-app            # prompts for a template
 npx create-stylus-latest my-token -t erc20 # skip the prompt
 ```
 
-> **Status:** the package is publish-ready and publishes automatically when a version tag is pushed (see
-> [RELEASING.md](RELEASING.md)), but it has **not been published to npm yet**, so `npx create-stylus-latest` will return a 404 until
-> the first release. Until then run it from a clone:
->
-> ```bash
-> git clone https://github.com/ramadan904/npx-create-stylus-latest && cd npx-create-stylus-latest
-> node bin/create-stylus-latest.js ../my-app -t escrow
-> ```
+Published on npm as [`create-stylus-latest`](https://www.npmjs.com/package/create-stylus-latest), with a provenance statement linking the package to the
+commit and workflow that built it ([publish run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37043469397)). New versions publish automatically from a version tag
+(see [RELEASING.md](RELEASING.md)).
 
 ## Why "latest"
 
