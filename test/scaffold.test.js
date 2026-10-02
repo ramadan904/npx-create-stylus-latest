@@ -120,14 +120,16 @@ for (const template of Object.keys(TEMPLATES)) {
     const lib = fs.readFileSync(path.join(dir, "src/lib.rs"), "utf8");
     const contractFns = new Set([...lib.matchAll(/pub fn (\w+)/g)].map((m) => m[1].replace(/_(\w)/g, (_, c) => c.toUpperCase())));
     const main = fs.readFileSync(path.join(dir, "client/src/main.ts"), "utf8");
-    const abiFns = [...main.matchAll(/"function (\w+)\(/g)].map((m) => m[1]);
+    // Only the contract's own ABI (`const abi = parseAbi([...])`); a client may also call the token through another ABI.
+    const contractAbi = main.match(/const abi = parseAbi\(\[([\s\S]*?)\]\);/)?.[1] ?? "";
+    const abiFns = [...contractAbi.matchAll(/"function (\w+)\(/g)].map((m) => m[1]);
     assert.ok(abiFns.length > 0);
     for (const fn of abiFns) assert.ok(contractFns.has(fn), `client ABI lists ${fn}() which the contract does not define`);
   });
 }
 
-test("erc20, vault, escrow and stream initialize through a constructor, not a callable init()", () => {
-  for (const template of ["erc20", "vault", "escrow", "stream"]) {
+test("erc20, vault, escrow, stream and faucet initialize through a constructor, not a callable init()", () => {
+  for (const template of ["erc20", "vault", "escrow", "stream", "faucet"]) {
     const dir = tmp();
     scaffold({ targetDir: dir, name: "my-app", template, versions });
     const lib = fs.readFileSync(path.join(dir, "src/lib.rs"), "utf8");
@@ -185,8 +187,8 @@ test("deploy.sh turns known cargo-stylus failures into plain-English hints and k
   assert.equal(run().status, 0);
 });
 
-test("erc20, vault, escrow and stream ship property-based tests", () => {
-  for (const template of ["erc20", "vault", "escrow", "stream"]) {
+test("erc20, vault, escrow, stream and faucet ship property-based tests", () => {
+  for (const template of ["erc20", "vault", "escrow", "stream", "faucet"]) {
     const dir = tmp();
     scaffold({ targetDir: dir, name: "my-app", template, versions });
     assert.match(fs.readFileSync(path.join(dir, "Cargo.toml"), "utf8"), /proptest = /, `${template} needs proptest`);

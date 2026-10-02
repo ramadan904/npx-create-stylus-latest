@@ -2,7 +2,7 @@
 // escrow templates moving it. The contracts' unit tests mock the token; this proves the real cross-contract calls
 // (approve -> transferFrom -> transfer) work, balances end up exactly where the rules say, and reverts are atomic.
 //
-// Env: RPC_URL, CHAIN_ID, E2E_KEY (funded deployer, also the buyer/sender), TOKEN, STREAM, ESCROW.
+// Env: RPC_URL, CHAIN_ID, E2E_KEY (funded deployer, also the buyer/sender), TOKEN, STREAM, ESCROW, FAUCET.
 import { createPublicClient, createWalletClient, defineChain, http, parseAbi, parseEther } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
@@ -21,12 +21,18 @@ const chain = defineChain({
 const TOKEN = need("TOKEN");
 const STREAM = need("STREAM");
 const ESCROW = need("ESCROW");
+const FAUCET = need("FAUCET");
 const ZERO = "0x0000000000000000000000000000000000000000";
 
 const tokenAbi = parseAbi([
   "function balanceOf(address) view returns (uint256)",
   "function approve(address spender, uint256 value) returns (bool)",
   "function allowance(address owner, address spender) view returns (uint256)",
+  "function transfer(address to, uint256 value) returns (bool)",
+]);
+const faucetAbi = parseAbi([
+  "function drip() returns (uint256)",
+  "function availableAt(address who) view returns (uint256)",
 ]);
 const streamAbi = parseAbi([
   "function streamCount() view returns (uint256)",
@@ -198,6 +204,34 @@ async function main() {
   same(await bal(ESCROW), 0n, "escrow ends empty");
   same(await bal(deployer.address), b0 - 750n, "buyer is down exactly the two released deals");
   same(await read(ESCROW, escrowAbi, "dealCount"), 4n, "four deals were created");
+
+  // ----------------------------------------------------------------- faucet
+  console.log("\nfaucet: funded by a transfer, one drip per cooldown, refuses when dry");
+  const visitor = privateKeyToAccount(generatePrivateKey());
+  await pub.waitForTransactionReceipt({ hash: await wallet(deployer).sendTransaction({ to: visitor.address, value: parseEther("0.05") }) });
+  await send(deployer, TOKEN, tokenAbi, "transfer", [FAUCET, 250n]);
+  same(await bal(FAUCET), 250n, "the faucet holds what it was sent");
+
+  const first = await send(visitor, FAUCET, faucetAbi, "drip");
+  same(await bal(visitor.address), 100n, "a drip pays the caller exactly the amount");
+  same(await bal(FAUCET), 150n, "and leaves the rest in the faucet");
+  same(await read(FAUCET, faucetAbi, "availableAt", [visitor.address]), BigInt(first.time + 30), "availableAt is the drip time plus the cooldown");
+  await expectRevert("a second drip inside the cooldown", () => send(visitor, FAUCET, faucetAbi, "drip"));
+  same(await bal(visitor.address), 100n, "the refused drip paid nothing");
+
+  await send(stranger, FAUCET, faucetAbi, "drip"); // another address is not held back by the visitor's cooldown
+  same(await bal(FAUCET), 50n, "a different address can drip at the same time");
+
+  const dry = privateKeyToAccount(generatePrivateKey());
+  await pub.waitForTransactionReceipt({ hash: await wallet(deployer).sendTransaction({ to: dry.address, value: parseEther("0.05") }) });
+  await expectRevert("a drip from a faucet holding less than the amount", () => send(dry, FAUCET, faucetAbi, "drip"));
+  same(await read(FAUCET, faucetAbi, "availableAt", [dry.address]), 0n, "the failed drip was rolled back, so it did not use up the cooldown");
+  same(await bal(FAUCET), 50n, "and moved nothing");
+
+  await send(deployer, TOKEN, tokenAbi, "transfer", [FAUCET, 100n]);
+  await sleep(first.time + 32 - (await nowChain()));
+  await send(visitor, FAUCET, faucetAbi, "drip");
+  same(await bal(visitor.address), 200n, "once the cooldown is over the same address can drip again");
 
   console.log(`\nE2E FLOWS PASSED (${checks} checks)`);
 }

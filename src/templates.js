@@ -4,6 +4,7 @@ export const TEMPLATES = {
   vault: "Stablecoin vault (USDC/USDG): deposit/withdraw via cross-contract ERC-20 calls",
   escrow: "Stablecoin escrow with optional arbiter and a buyer-side timeout refund (agent-to-agent payments)",
   stream: "Stablecoin payment streams: linear per-second payouts with withdraw and cancel (payroll, agent subscriptions)",
+  faucet: "Rate-limited ERC-20 faucet for testnets and demos (anyone can drip once per cooldown)",
 };
 
 export const DEFAULT_TEMPLATE = "counter";

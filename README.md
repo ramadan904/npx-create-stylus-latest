@@ -38,6 +38,7 @@ build here rather than in your project.
 | `vault` | Stablecoin vault for any ERC-20 (USDC, USDG): deposits and withdrawals through cross-contract calls, with mocked-token tests. |
 | `escrow` | Stablecoin escrow for payments between parties or agents: buyer-funded deals, release by buyer or arbiter, refund by seller or arbiter, and a buyer-side refund after a deadline. Unit tests plus a model-based property test. |
 | `stream` | Stablecoin payment streams (payroll, vesting, agent subscriptions): linear per-second payouts, keeper-friendly `withdraw`, and `cancel` that splits earned from remaining. Unit tests plus a model-based property test that tracks every token movement. |
+| `faucet` | Rate-limited ERC-20 faucet for testnets and demos: anyone can `drip` once per cooldown, and `availableAt(who)` says when. Lets visitors try your dApp without asking you for tokens. Unit tests plus a model-based property test. |
 
 ## What you get in the generated project
 
@@ -65,7 +66,7 @@ the contract does not define.
 ## Options
 
 ```
--t, --template <name>  counter | erc20 | vault | escrow | stream (default: counter)
+-t, --template <name>  counter | erc20 | vault | escrow | stream | faucet (default: counter)
 -y, --yes              Skip prompts and use defaults
     --no-git           Do not run git init
     --with-client      Also generate a TypeScript (viem) client in client/

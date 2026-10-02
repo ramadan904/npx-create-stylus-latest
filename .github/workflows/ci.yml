@@ -106,6 +106,9 @@ jobs:
           test -n "$stream" || { echo "stream deploy failed"; exit 1; }
           escrow=$(WITH_CLIENT=1 deploy escrow "$token")
           test -n "$escrow" || { echo "escrow deploy failed"; exit 1; }
+          faucet=$(deploy faucet "$token" 100 30)   # 100 base units per drip, 30 s cooldown
+          test -n "$faucet" || { echo "faucet deploy failed"; exit 1; }
+          echo "FAUCET=$faucet" >> "$GITHUB_ENV"
           echo "TOKEN=$token" >> "$GITHUB_ENV"
           echo "STREAM=$stream" >> "$GITHUB_ENV"
           echo "ESCROW=$escrow" >> "$GITHUB_ENV"
@@ -135,7 +138,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        template: [counter, erc20, vault, escrow, stream]
+        template: [counter, erc20, vault, escrow, stream, faucet]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -189,6 +192,7 @@ jobs:
           case "${{ matrix.template }}" in
             counter) args=() ;;
             erc20) args=("Test Token" TST 1000 0x1111111111111111111111111111111111111111) ;;
+            faucet) args=(0x1111111111111111111111111111111111111111 100 60) ;;  # token, amount per drip, cooldown
             *) args=(0x1111111111111111111111111111111111111111) ;;  # vault, escrow, stream: any non-zero token address
           esac
           if [ ${#args[@]} -gt 0 ]; then ./scripts/deploy.sh -- "${args[@]}"; else ./scripts/deploy.sh; fi
