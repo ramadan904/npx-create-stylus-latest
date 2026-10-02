@@ -283,10 +283,10 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
 - On npm: https://www.npmjs.com/package/create-stylus-latest (`npx create-stylus-latest my-app`). Version 0.1.0 was published by the tag-triggered workflow after
   `npm test` and the packed-tarball smoke test, with a provenance statement: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37043469397
 
-- Latest all-green CI (13 jobs: real-token flows, the agent CLIs, a real local deploy of every template, the npm package
-  smoke test, the site in a real browser, the live agent demo against the agent CLI, and the USDG addresses and network
-  RPCs checked on-chain): https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37059195125 (main:
-  https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37056631397)
+- Latest all-green CI on main (15 jobs: real-token flows, the agent CLIs, a real local deploy of all eight templates,
+  the generated contract page driven in a real browser, the npm package smoke test, the site in a real browser, the live
+  agent demo against the agent CLI, and the USDG addresses, Chainlink feeds and network RPCs checked on-chain):
+  https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37073563769
 - The Codespace, built and used in CI: the published package scaffolds, tests and builds inside it, and the one-command
   quickstart deploys and calls a contract on a local Nitro node in 105 s:
   https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37061245097
