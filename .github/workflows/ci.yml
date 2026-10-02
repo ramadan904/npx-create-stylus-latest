@@ -226,11 +226,20 @@ jobs:
         run: |
           echo "PRIVATE_KEY=0x$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')" > .env
           ./scripts/devnode.sh
-      # Catches missing Stylus.toml, size limits and activation errors.
-      - run: ./scripts/deploy.sh --check-only
+      # Catches missing Stylus.toml, size limits and activation errors. Stylus refuses more than 24,576 bytes
+      # compressed, and a build's size drifts as dependencies release, so fail at a 23,000-byte budget instead:
+      # a template that creeps up is caught here, with room to fix it, before it fails for users.
+      - name: Check the contract against the dev node, with a size budget
         working-directory: ${{ runner.temp }}/app
         env:
           RPC_URL: http://127.0.0.1:8547
+        run: |
+          set -o pipefail
+          ./scripts/deploy.sh --check-only 2>&1 | tee check.log
+          bytes="$(sed 's/\x1b\[[0-9;]*m//g' check.log | grep -oE 'contract size: [0-9.]+ KB \(([0-9]+) bytes\)' | grep -oE '[0-9]+ bytes' | head -1 | cut -d' ' -f1)"
+          [ -n "$bytes" ] || { echo "::error::could not read the contract size"; exit 1; }
+          echo "${{ matrix.template }}: ${bytes} bytes compressed (limit 24576, budget 23000)"
+          [ "$bytes" -le 23000 ] || { echo "::error::${{ matrix.template }} is ${bytes} bytes, over the 23,000-byte budget (Stylus limit 24,576). Shrink it before it stops deploying."; exit 1; }
       # And a real deploy, constructor included, so the local dev node flow in the README actually works.
       - name: Deploy to the dev node
         working-directory: ${{ runner.temp }}/app

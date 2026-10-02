@@ -16,8 +16,10 @@ A Stylus (Rust) ERC-721 NFT contract scaffolded with `create-stylus-latest` agai
 - **Errors** are the standard ERC-6093 ones (`ERC721NonexistentToken`, `ERC721InsufficientApproval`, ...), so wallets and
   agents can decode them by name. A refused call changes nothing.
 
-Size: about 24.4 KB compressed, just under Stylus's 24 KB (24,576-byte) limit; `./scripts/deploy.sh --check-only` reports
-it. Adding much more to this contract may need trimming elsewhere, or splitting into two contracts.
+Size: about 20.1 KB compressed, under Stylus's 24 KB (24,576-byte) limit; `./scripts/deploy.sh --check-only` reports
+it. Two choices keep it there: the name, symbol and base URI use a small string store in `lib.rs` instead of the SDK's
+`string` storage type (about 5 KB smaller), and `tokenURI` writes the id by hand instead of `to_string()`. Watch the size
+as you add features; past the limit, trim or split into two contracts.
 
 ## Develop
 

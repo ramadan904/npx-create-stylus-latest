@@ -5,18 +5,17 @@ extern crate alloc;
 use alloc::{string::String, vec::Vec};
 use stylus_sdk::{
     abi::Bytes,
-    alloy_primitives::{Address, FixedBytes, U256},
-    alloy_sol_types::sol,
+    alloy_primitives::{Address, B256, FixedBytes, U256},
+    alloy_sol_types::{SolCall, sol},
+    call::call,
     prelude::*,
 };
 
-sol_interface! {
-    interface IERC721Receiver {
-        function onERC721Received(address operator, address from, uint256 token_id, bytes data) external returns (bytes4);
-    }
-}
-
 sol! {
+    // What safeTransferFrom asks a receiving contract. Called directly rather than through sol_interface!, whose
+    // generated decoder costs bytes this contract cannot spare under Stylus's 24 KB limit.
+    function onERC721Received(address operator, address from, uint256 tokenId, bytes data) external returns (bytes4);
+
     event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
     event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId);
     event ApprovalForAll(address indexed owner, address indexed operator, bool approved);
@@ -52,12 +51,15 @@ const IERC165: [u8; 4] = [0x01, 0xff, 0xc9, 0xa7];
 const IERC721: [u8; 4] = [0x80, 0xac, 0x58, 0xcd];
 const IERC721_METADATA: [u8; 4] = [0x5b, 0x5e, 0x13, 0x9f];
 
+// Where the name, symbol and base URI live (see `store_string`). Not fields below: the SDK's `string` storage type costs
+// about 5 KB of code, which this contract cannot spare under Stylus's 24 KB size limit.
+const NAME: &[u8] = b"create-stylus-latest.erc721.name";
+const SYMBOL: &[u8] = b"create-stylus-latest.erc721.symbol";
+const BASE_URI: &[u8] = b"create-stylus-latest.erc721.base_uri";
+
 sol_storage! {
     #[entrypoint]
     pub struct Nft {
-        string name;
-        string symbol;
-        string base_uri;
         address minter;
         uint256 minted;
         uint256 total_supply;
@@ -84,19 +86,19 @@ impl Nft {
         if minter == Address::ZERO {
             return Err(NftError::ZeroAddress(ZeroAddress {}));
         }
-        self.name.set_str(name);
-        self.symbol.set_str(symbol);
-        self.base_uri.set_str(base_uri);
+        self.store_string(NAME, &name);
+        self.store_string(SYMBOL, &symbol);
+        self.store_string(BASE_URI, &base_uri);
         self.minter.set(minter);
         Ok(())
     }
 
     pub fn name(&self) -> String {
-        self.name.get_string()
+        self.load_string(NAME)
     }
 
     pub fn symbol(&self) -> String {
-        self.symbol.get_string()
+        self.load_string(SYMBOL)
     }
 
     pub fn minter(&self) -> Address {
@@ -122,7 +124,7 @@ impl Nft {
     #[selector(name = "tokenURI")]
     pub fn token_uri(&self, token_id: U256) -> Result<String, NftError> {
         self.require_owned(token_id)?;
-        let base = self.base_uri.get_string();
+        let base = self.load_string(BASE_URI);
         if base.is_empty() {
             return Ok(base);
         }
@@ -291,6 +293,42 @@ fn decimal(id: U256) -> String {
 
 // Internal helpers (not exposed in the ABI).
 impl Nft {
+    /// A string's length goes in the slot at `keccak256(label)` and its bytes, 32 per slot, in the slots after it. The
+    /// labels are distinct and the struct's own slots are 0..7 or keccak-derived, so nothing else writes there.
+    fn string_slot(&self, label: &[u8]) -> U256 {
+        U256::from_be_bytes(self.vm().native_keccak256(label).0)
+    }
+
+    fn store_string(&mut self, label: &[u8], value: &str) {
+        let base = self.string_slot(label);
+        let bytes = value.as_bytes();
+        let length = B256::from(U256::from(bytes.len()).to_be_bytes::<32>());
+        // Safety: these slots belong to this string alone (see `string_slot`); the entrypoint flushes the cache.
+        unsafe { self.vm().storage_cache_bytes32(base, length) };
+        for (i, chunk) in bytes.chunks(32).enumerate() {
+            let mut word = [0u8; 32];
+            word[..chunk.len()].copy_from_slice(chunk);
+            let slot = base.wrapping_add(U256::from(i + 1));
+            unsafe { self.vm().storage_cache_bytes32(slot, B256::from(word)) };
+        }
+    }
+
+    fn load_string(&self, label: &[u8]) -> String {
+        let base = self.string_slot(label);
+        let length =
+            U256::from_be_bytes(self.vm().storage_load_bytes32(base).0).as_limbs()[0] as usize;
+        let mut bytes = Vec::with_capacity(length);
+        let mut slot = base;
+        while bytes.len() < length {
+            slot = slot.wrapping_add(U256::from(1));
+            let word = self.vm().storage_load_bytes32(slot);
+            let take = (length - bytes.len()).min(32);
+            bytes.extend_from_slice(&word[..take]);
+        }
+        // Only `store_string` writes these slots, always from a `&str`, so this is valid UTF-8.
+        String::from_utf8(bytes).unwrap_or_default()
+    }
+
     fn require_owned(&self, token_id: U256) -> Result<Address, NftError> {
         let owner = self.owners.get(token_id);
         if owner == Address::ZERO {
@@ -364,10 +402,17 @@ impl Nft {
         if self.vm().code_size(to) == 0 {
             return Ok(());
         }
-        let receiver = IERC721Receiver::new(to);
-        let call = Call::new_mutating(self);
-        match receiver.on_erc_721_received(self.vm(), call, operator, from, token_id, data) {
-            Ok(answer) if answer.0 == RECEIVED => Ok(()),
+        let calldata = onERC721ReceivedCall {
+            operator,
+            from,
+            tokenId: token_id,
+            data: data.0.into(),
+        }
+        .abi_encode();
+        let context = Call::new_mutating(self);
+        // A `bytes4` answer is one 32-byte word with the selector in its first 4 bytes.
+        match call(self.vm(), context, to, &calldata) {
+            Ok(answer) if answer.len() >= 32 && answer[..4] == RECEIVED => Ok(()),
             _ => Err(NftError::ERC721InvalidReceiver(ERC721InvalidReceiver {
                 receiver: to,
             })),
@@ -379,10 +424,6 @@ impl Nft {
 mod tests {
     use super::*;
     use stylus_sdk::{alloy_primitives::address, alloy_sol_types::SolCall, testing::*};
-
-    sol! {
-        function onERC721Received(address operator, address from, uint256 token_id, bytes data) external returns (bytes4);
-    }
 
     const MINTER: Address = address!("0xA11CE00000000000000000000000000000000001");
     const BOB: Address = address!("0xB0B0000000000000000000000000000000000002");
@@ -421,6 +462,35 @@ mod tests {
             bad.constructor("A".into(), "A".into(), "".into(), Address::ZERO)
                 .is_err()
         );
+    }
+
+    #[test]
+    fn strings_of_any_length_are_stored_and_read_back_exactly() {
+        let (_vm, mut nft) = deployed();
+        // Empty, under, exactly at and just over one and two 32-byte slots, multi-byte UTF-8, and a long URI.
+        let long = "https://metadata.example.com/collections/badges-2026/".repeat(5);
+        for value in [
+            "",
+            "A",
+            &"x".repeat(31),
+            &"x".repeat(32),
+            &"x".repeat(33),
+            &"y".repeat(64),
+            &"y".repeat(65),
+            "Badge ✓ — édition 🏅",
+            &long,
+        ] {
+            nft.store_string(NAME, value);
+            assert_eq!(nft.load_string(NAME), value);
+        }
+        // A shorter value after a longer one reads back short; the three strings do not overlap.
+        nft.store_string(NAME, "short");
+        nft.store_string(SYMBOL, &"s".repeat(70));
+        nft.store_string(BASE_URI, &long);
+        assert_eq!(nft.name(), "short");
+        assert_eq!(nft.symbol(), "s".repeat(70));
+        assert_eq!(nft.mint(BOB).ok(), Some(one()));
+        assert_eq!(nft.token_uri(one()).ok(), Some(long + "1"));
     }
 
     #[test]
@@ -513,7 +583,7 @@ mod tests {
             onERC721ReceivedCall {
                 operator: BOB,
                 from: BOB,
-                token_id: U256::from(id),
+                tokenId: U256::from(id),
                 data: Default::default(),
             }
             .abi_encode()
@@ -562,6 +632,11 @@ mod tests {
         assert!(nft.owner_of(one()).is_err());
         assert_eq!(nft.balance_of(BOB).ok(), Some(U256::ZERO));
         assert_eq!(nft.total_supply(), U256::ZERO);
+    }
+
+    #[test]
+    fn the_receiver_answer_is_the_selector_of_on_erc721_received() {
+        assert_eq!(onERC721ReceivedCall::SELECTOR, RECEIVED);
     }
 
     #[test]
