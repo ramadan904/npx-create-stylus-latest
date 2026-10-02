@@ -15,7 +15,8 @@ Scaffold an Arbitrum Stylus (Rust) project pinned to the latest stylus-sdk.
 
 Usage
   npx create-stylus-latest [project-name | path] [options]
-  npx create-stylus-latest doctor [--rpc <url>]    Check your toolchain, and optionally that an RPC can run Stylus
+  npx create-stylus-latest doctor [--rpc <url> | --network <name>]
+                                                  Check your toolchain, and optionally that an RPC can run Stylus
 
 Options
   -t, --template <name>  ${Object.keys(TEMPLATES).join(" | ")} (default: ${DEFAULT_TEMPLATE})
@@ -29,6 +30,7 @@ Options
                          USDG on arbitrum-one and robinhood; on testnets it has none, so you supply a stand-in
       --offline          Do not query crates.io; use the bundled known-good versions
       --rpc <url>        With "doctor": probe this endpoint (default: $RPC_URL). Only the host is printed
+                         With "doctor --network <name>": probe that network's public RPC and check its chain id
   -l, --list             List templates
   -v, --version          Print version
   -h, --help             Show this help
@@ -72,7 +74,9 @@ export async function main(argv) {
   }
 
   if (positionals[0] === "doctor") {
-    process.exitCode = await runDoctor({ rpc: values.rpc ?? process.env.RPC_URL, offline: values.offline });
+    const net = values.network || values.robinhood ? resolveNetwork(values.robinhood ? "robinhood-testnet" : values.network) : undefined;
+    const rpc = values.rpc ?? net?.rpc ?? process.env.RPC_URL;
+    process.exitCode = await runDoctor({ rpc, network: net, offline: values.offline });
     return;
   }
 

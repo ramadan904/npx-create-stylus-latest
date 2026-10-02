@@ -1,13 +1,16 @@
 // Building blocks for an AI-agent interface to a contract: JSON in, JSON out, safety limits, machine-readable errors.
 //
 // An agent (an LLM with tool use, or any script) calls an *intent* such as `open_stream` with a JSON object and gets back a
-// JSON object: `{ ok: true, ... }` or `{ ok: false, error: { code, message, hint } }`. Amounts are decimal strings in the
-// token's base units (never floats), so nothing is lost to rounding. Stdout carries only that JSON; logs go to stderr.
+// JSON object: `{ ok: true, ... }` or `{ ok: false, error: { code, message, hint } }`. Amounts are decimal strings, never
+// floats: `amount` in the token's base units, or `amountTokens` in whole tokens ("2.5"), converted exactly with the
+// token's own decimals (USDG has 6, most tokens 18). Stdout carries only that JSON; logs go to stderr.
 import {
   BaseError,
   ContractFunctionRevertedError,
+  formatUnits,
   getAddress,
   isAddress,
+  parseAbi,
   type Abi,
   type Address,
   type Hex,
@@ -52,6 +55,66 @@ export function parseAddress(name: string, value: unknown): Address {
   if (typeof value === "string" && isAddress(value, { strict: false })) return getAddress(value);
   throw new IntentError("InvalidInput", `${name} must be a 0x-prefixed 20-byte address`, { field: name });
 }
+
+// ---- token amounts -------------------------------------------------------------------------------------------------
+
+const erc20Meta = parseAbi(["function decimals() view returns (uint8)", "function symbol() view returns (string)"]);
+
+export interface TokenInfo {
+  address: Address;
+  symbol: string;
+  decimals: number;
+}
+
+/** The token's address, symbol and decimals, read from the token itself. */
+export async function tokenInfo(ctx: Ctx, address: Address): Promise<TokenInfo> {
+  const [decimals, symbol] = await Promise.all([
+    ctx.publicClient.readContract({ address, abi: erc20Meta, functionName: "decimals" }),
+    ctx.publicClient.readContract({ address, abi: erc20Meta, functionName: "symbol" }).catch(() => "?"),
+  ]);
+  return { address, symbol, decimals };
+}
+
+/** Converts whole tokens ("2.5") to base units exactly. More decimal places than the token has is an error, not a rounding. */
+export function tokensToUnits(name: string, value: unknown, decimals: number): bigint {
+  const text = typeof value === "number" ? String(value) : value;
+  const match = typeof text === "string" ? /^(\d+)(?:\.(\d+))?$/.exec(text.trim()) : null;
+  if (!match) {
+    throw new IntentError("InvalidInput", `${name} must be a decimal number of tokens such as "2.5"`, { field: name });
+  }
+  const [, whole, fraction = ""] = match;
+  if (fraction.length > decimals) {
+    throw new IntentError("InvalidInput", `${name} has ${fraction.length} decimal places but the token has only ${decimals}`, {
+      field: name,
+      decimals,
+    });
+  }
+  return BigInt(whole) * 10n ** BigInt(decimals) + BigInt(fraction.padEnd(decimals, "0") || "0");
+}
+
+/** Schema properties for an amount: an intent takes exactly one of them. */
+export function amountSchema(what: string) {
+  return {
+    amount: { type: "string", description: `${what}, in the token's base units, as a decimal string (USDG: "1000000" = 1 USDG).` },
+    amountTokens: {
+      type: "string",
+      description: `${what}, in whole tokens, as a decimal string (e.g. "2.5"); converted exactly using the token's own decimals. Use instead of amount.`,
+    },
+  };
+}
+
+/** Reads `amount` (base units) or `amountTokens` (whole tokens); exactly one must be given. */
+export function parseAmount(input: Record<string, unknown>, token: TokenInfo): bigint {
+  const hasUnits = input.amount !== undefined && input.amount !== null;
+  const hasTokens = input.amountTokens !== undefined && input.amountTokens !== null;
+  if (hasUnits === hasTokens) {
+    throw new IntentError("InvalidInput", "Give exactly one of amount (base units) or amountTokens (whole tokens)", { field: "amount" });
+  }
+  return hasUnits ? parseUint("amount", input.amount) : tokensToUnits("amountTokens", input.amountTokens, token.decimals);
+}
+
+/** An amount as whole tokens, for results an agent (or a person) reads. */
+export const formatTokens = (amount: bigint, token: TokenInfo) => `${formatUnits(amount, token.decimals)} ${token.symbol}`;
 
 // ---- safety limits ---------------------------------------------------------------------------------------------------
 // An agent that holds a key can spend. These limits are enforced before anything is signed, from the environment, so the

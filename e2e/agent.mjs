@@ -81,6 +81,8 @@ async function main() {
   check(got.ok && got.state === "active" && got.deposit === "1000" && got.recipient === payee && got.youAre === "sender", "get_stream describes the stream and who the agent is in it");
   same(BigInt(got.cancelPreview.toRecipient) + BigInt(got.cancelPreview.toSender) + BigInt(got.withdrawn), 1000n, "the cancel preview plus what is withdrawn always equals the deposit");
   check(got.heldForClaim?.sender === "0" && got.heldForClaim?.recipient === "0", "get_stream reports nothing held for either party", got.heldForClaim);
+  check(got.token?.address?.toLowerCase() === TOKEN.toLowerCase() && got.token.decimals === 18 && got.token.symbol === "TST", "get_stream names the token, read from the token itself", got.token);
+  same(got.depositTokens, "0.000000000000001 TST", "and shows the deposit in whole tokens");
 
   // the limits the operator sets in the environment, enforced before anything is signed
   const capped = call(sdir, STREAM, { intent: "open_stream", recipient: payee, amount: "1000", durationSeconds: 40 }, { AGENT_MAX_AMOUNT: "500" });
@@ -89,6 +91,13 @@ async function main() {
   check(!walled.ok && walled.error.code === "PolicyViolation", "a recipient outside AGENT_ALLOWED_COUNTERPARTIES is refused");
   const broke = call(sdir, STREAM, { intent: "open_stream", recipient: payee, amount: "1000000000000000000000000000000", durationSeconds: 40 });
   check(!broke.ok && broke.error.code === "InsufficientBalance", "more than the agent holds is refused up front");
+  // amountTokens is converted with the token's decimals before the limits apply: 0.000000000000001 TST is 1000 base units.
+  const cappedTokens = call(sdir, STREAM, { intent: "open_stream", recipient: payee, amountTokens: "0.000000000000001", durationSeconds: 40 }, { AGENT_MAX_AMOUNT: "500" });
+  check(!cappedTokens.ok && cappedTokens.error.code === "PolicyViolation", "an amountTokens over AGENT_MAX_AMOUNT is refused too");
+  const both = call(sdir, STREAM, { intent: "open_stream", recipient: payee, amount: "1", amountTokens: "1", durationSeconds: 40 });
+  check(!both.ok && both.error.code === "InvalidInput", "amount and amountTokens together are refused");
+  const tooFine = call(sdir, STREAM, { intent: "open_stream", recipient: payee, amountTokens: "0.0000000000000000001", durationSeconds: 40 });
+  check(!tooFine.ok && tooFine.error.code === "InvalidInput" && /19 decimal places/.test(tooFine.error.message), "more decimal places than the token has is refused, not rounded");
   const bad = call(sdir, STREAM, { intent: "open_stream", recipient: "0x123", amount: "1", durationSeconds: 40 });
   check(!bad.ok && bad.error.code === "InvalidInput", "a malformed address is refused");
   same(await balanceOf(STREAM) >= 1000n, true, "none of the refused calls moved tokens");
@@ -118,13 +127,16 @@ async function main() {
 
   console.log("\nescrow: an agent locks, checks permissions, and releases");
   const eBefore = await balanceOf(agent.address);
-  const created = call(edir, ESCROW, { intent: "create_escrow", seller: payee, amount: "700", deadlineSeconds: 3600 });
+  // In whole tokens this time: 0.0000000000000007 TST = 700 base units.
+  const created = call(edir, ESCROW, { intent: "create_escrow", seller: payee, amountTokens: "0.0000000000000007", deadlineSeconds: 3600 });
   succeeded(created, "create_escrow succeeded"); check(/^\d+$/.test(created.dealId), `create_escrow returned a deal id (${created.dealId})`, created);
+  same(created.amount, "700", "amountTokens was converted exactly with the token's 18 decimals");
+  same(created.amountTokens, "0.0000000000000007 TST", "and the result shows it back in whole tokens");
   same(await balanceOf(agent.address), eBefore - 700n, "the agent was debited exactly the amount");
   const deal = created.dealId;
 
   const view = call(edir, ESCROW, { intent: "get_escrow", id: deal });
-  check(view.ok && view.state === "funded" && view.seller === payee && view.arbiter === null, "get_escrow describes the deal");
+  check(view.ok && view.state === "funded" && view.seller === payee && view.arbiter === null && view.amountTokens === "0.0000000000000007 TST", "get_escrow describes the deal, in base units and whole tokens", view);
   check(view.permissions.canRelease === true && view.permissions.canRefund === false, "as buyer the agent can release but not yet refund");
   const asSeller = call(edir, ESCROW, { intent: "check_escrow_permissions", id: deal, who: payee });
   check(asSeller.canRelease === false && asSeller.canRefund === true, "the contract says the seller can refund but not release");

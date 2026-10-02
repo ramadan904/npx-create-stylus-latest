@@ -90,3 +90,12 @@ test("doctor warns, not fails, on a public arbitrum.io endpoint", async () => {
   assert.equal(code, 0);
   assert.match(lines.join("\n"), /public Arbitrum endpoint/);
 });
+
+test("doctor --network: a chain id that differs from the network table fails", async () => {
+  const network = { label: "Robinhood Chain testnet", chainId: 46630 };
+  const wrong = collect();
+  assert.equal(await runDoctor({ rpc: KEY_URL, network, run_: tools(), fetchImpl: fakeRpc({ chainId: 421614 }), offline: true, log: wrong.log }), 1);
+  assert.ok(wrong.lines.some((l) => l.includes("expected chain id 46630 for Robinhood Chain testnet")));
+  const right = collect();
+  assert.equal(await runDoctor({ rpc: KEY_URL, network, run_: tools(), fetchImpl: fakeRpc({ chainId: 46630 }), offline: true, log: right.log }), 0);
+});

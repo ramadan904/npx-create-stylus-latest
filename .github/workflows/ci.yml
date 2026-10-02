@@ -127,12 +127,14 @@ jobs:
             node bin/create-stylus-latest.js "$dir" -t "$name" -y --no-git ${flags[@]+"${flags[@]}"} >&2
             if [ "${WITH_CLIENT:-}" = 1 ]; then (cd "$dir/client" && npm install --silent --no-audit --no-fund >&2); fi
             printf 'RPC_URL=http://127.0.0.1:8547\nCHAIN_ID=412346\nPRIVATE_KEY=%s\n' "$E2E_KEY" > "$dir/.env"
+            # DOTENV_TOKEN: put the token in .env as TOKEN_ADDRESS, the way --usdg does, for an env:TOKEN_ADDRESS argument
+            if [ -n "${DOTENV_TOKEN:-}" ]; then echo "TOKEN_ADDRESS=$DOTENV_TOKEN" >> "$dir/.env"; fi
             (cd "$dir" && ./scripts/deploy.sh -- "$@" > deploy.log 2>&1) || { sed 's/\x1b\[[0-9;]*m//g' "$dir/deploy.log" | tail -30 >&2; return 1; }
             sed 's/\x1b\[[0-9;]*m//g' "$dir/deploy.log" | grep -iE 'deployed code at address' | grep -oE '0x[0-9a-fA-F]{40}' | head -1
           }
           token=$(deploy erc20 "Test Token" TST 1000000000000000000000000 "$E2E_ADDR")
           test -n "$token" || { echo "token deploy failed"; exit 1; }
-          stream=$(WITH_CLIENT=1 deploy stream "$token")
+          stream=$(WITH_CLIENT=1 DOTENV_TOKEN="$token" deploy stream env:TOKEN_ADDRESS)   # the token comes from .env
           test -n "$stream" || { echo "stream deploy failed"; exit 1; }
           escrow=$(WITH_CLIENT=1 deploy escrow "$token")
           test -n "$escrow" || { echo "escrow deploy failed"; exit 1; }

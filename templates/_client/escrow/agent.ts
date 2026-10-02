@@ -2,17 +2,21 @@
 // conventions (decimal-string amounts, `{ ok, ... }` results, operator-set safety limits).
 //
 //   npx tsx --env-file=../.env src/agent-cli.ts --tools                                    # tool schemas for an LLM
-//   npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"create_escrow","seller":"0x...","amount":"5000000","deadlineSeconds":86400}'
+//   npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"create_escrow","seller":"0x...","amountTokens":"5","deadlineSeconds":86400}'
 import { parseAbi, parseEventLogs, type Address } from "viem";
 import { connect } from "./client.js";
 import {
+  amountSchema,
   chainNow,
   checkAmount,
   checkCounterparty,
   ensureFunds,
+  formatTokens,
   parseAddress,
+  parseAmount,
   parseUint,
   policyFromEnv,
+  tokenInfo,
   write,
   type Handler,
   type ToolSpec,
@@ -50,11 +54,11 @@ export const tools: ToolSpec[] = [
       type: "object",
       properties: {
         seller: { type: "string", description: "0x address that is paid on release." },
-        amount: { type: "string", description: "Amount to lock, in the token's base units, as a decimal string." },
+        ...amountSchema("Amount to lock"),
         deadlineSeconds: { type: "integer", minimum: 1, description: "Seconds from now after which the buyer may refund alone." },
         arbiter: { type: "string", description: "Optional 0x address that can settle a dispute either way. Omit for none." },
       },
-      required: ["seller", "amount", "deadlineSeconds"],
+      required: ["seller", "deadlineSeconds"],
     },
   },
   {
@@ -81,12 +85,12 @@ export const tools: ToolSpec[] = [
 
 async function setup() {
   const ctx = connect();
-  const token = await ctx.publicClient.readContract({ address: ctx.address, abi, functionName: "token" });
-  return { ctx, token, contract: ctx.address };
+  const address = await ctx.publicClient.readContract({ address: ctx.address, abi, functionName: "token" });
+  return { ctx, token: await tokenInfo(ctx, address), contract: ctx.address };
 }
 
 async function readDeal(id: bigint, who?: Address) {
-  const { ctx, contract } = await setup();
+  const { ctx, contract, token } = await setup();
   const [buyer, seller, arbiter, amount, deadline, state] = await ctx.publicClient.readContract({ address: contract, abi, functionName: "deal", args: [id] });
   const account = who ?? ctx.account?.address;
   const permissions = account
@@ -96,26 +100,46 @@ async function readDeal(id: bigint, who?: Address) {
         canRefund: await ctx.publicClient.readContract({ address: contract, abi, functionName: "canRefund", args: [id, account] }),
       }
     : undefined;
-  return { id, state: STATES[state] ?? String(state), buyer, seller, arbiter: arbiter === ZERO ? null : arbiter, amount, deadline, permissions };
+  return {
+    id,
+    state: STATES[state] ?? String(state),
+    token,
+    buyer,
+    seller,
+    arbiter: arbiter === ZERO ? null : arbiter,
+    amount,
+    amountTokens: formatTokens(amount, token),
+    deadline,
+    permissions,
+  };
 }
 
 export const handlers: Record<string, Handler> = {
   async create_escrow(input) {
     const policy = policyFromEnv();
     const seller = parseAddress("seller", input.seller);
-    const amount = parseUint("amount", input.amount);
     const deadlineIn = parseUint("deadlineSeconds", input.deadlineSeconds);
     const arbiter = input.arbiter === undefined || input.arbiter === null ? ZERO : parseAddress("arbiter", input.arbiter);
-    checkAmount(policy, amount);
     checkCounterparty(policy, "seller", seller);
     if (arbiter !== ZERO) checkCounterparty(policy, "arbiter", arbiter);
 
     const { ctx, token, contract } = await setup();
+    const amount = parseAmount(input, token);
+    checkAmount(policy, amount);
     const deadline = BigInt(await chainNow(ctx)) + deadlineIn;
-    const approvalTxHash = await ensureFunds(ctx, token, contract, amount);
+    const approvalTxHash = await ensureFunds(ctx, token.address, contract, amount);
     const { hash, receipt } = await write(ctx, { address: contract, abi, functionName: "create", args: [seller, amount, deadline, arbiter] });
     const [created] = parseEventLogs({ abi, logs: receipt.logs, eventName: "DealCreated" });
-    return { dealId: created?.args.id, txHash: hash, approvalTxHash, seller, arbiter: arbiter === ZERO ? null : arbiter, amount, deadline };
+    return {
+      dealId: created?.args.id,
+      txHash: hash,
+      approvalTxHash,
+      seller,
+      arbiter: arbiter === ZERO ? null : arbiter,
+      amount,
+      amountTokens: formatTokens(amount, token),
+      deadline,
+    };
   },
 
   async get_escrow(input) {

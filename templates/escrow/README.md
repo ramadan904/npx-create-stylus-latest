@@ -37,7 +37,9 @@ npx tsx --env-file=../.env src/agent-example.ts              # a runnable exampl
 ```
 
 Five intents: `create_escrow`, `get_escrow`, `check_escrow_permissions`, `release_escrow`, `refund_escrow`. Amounts are decimal
-strings in the token's base units. Every call prints one JSON object, `{ "ok": true, ... }` or
+strings, never floats: `amount` in the token's base units, or `amountTokens` in whole tokens (`"5"` is 5 USDG), which
+the agent converts exactly with the token's own `decimals()` and refuses if it has more decimal places than the token.
+Results show both (`amountTokens: "5 USDG"`). Every call prints one JSON object, `{ "ok": true, ... }` or
 `{ "ok": false, "error": { "code": "NotAuthorized", "message": "...", "hint": "..." } }`, where `code` is the contract's own custom
 error name, so an agent can branch on it.
 

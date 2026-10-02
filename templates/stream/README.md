@@ -44,7 +44,9 @@ npx tsx --env-file=../.env src/agent-example.ts               # a runnable examp
 
 Six intents: `open_stream`, `get_stream`, `withdraw_from_stream`, `preview_cancel_stream`, `cancel_stream`, `claim_held_payment`
 (collect a cancel payout the token refused at the time; `{"checkOnly":true}` only reads it). Amounts are decimal
-strings in the token's base units. Every call prints one JSON object, `{ "ok": true, ... }` or
+strings, never floats: `amount` in the token's base units, or `amountTokens` in whole tokens (`"25"` is 25 USDG), which
+the agent converts exactly with the token's own `decimals()` and refuses if it has more decimal places than the token.
+Results show both (`amountTokens: "25 USDG"`). Every call prints one JSON object, `{ "ok": true, ... }` or
 `{ "ok": false, "error": { "code": "NotAuthorized", "message": "...", "hint": "..." } }`, where `code` is the contract's own custom
 error name, so an agent can branch on it.
 

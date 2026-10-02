@@ -2,18 +2,22 @@
 // conventions (decimal-string amounts, `{ ok, ... }` results, operator-set safety limits).
 //
 //   npx tsx --env-file=../.env src/agent-cli.ts --tools                                   # tool schemas for an LLM
-//   npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"open_stream","recipient":"0x...","amount":"1000000","durationSeconds":3600}'
+//   npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"open_stream","recipient":"0x...","amountTokens":"25","durationSeconds":3600}'
 import { parseAbi, parseEventLogs, type Address } from "viem";
 import { connect } from "./client.js";
 import {
+  amountSchema,
   chainNow,
   checkAmount,
   checkCounterparty,
   ensureFunds,
+  formatTokens,
   IntentError,
   parseAddress,
+  parseAmount,
   parseUint,
   policyFromEnv,
+  tokenInfo,
   write,
   type Handler,
   type ToolSpec,
@@ -59,11 +63,11 @@ export const tools: ToolSpec[] = [
       type: "object",
       properties: {
         recipient: { type: "string", description: "0x address that receives the stream." },
-        amount: { type: "string", description: "Total to stream, in the token's base units, as a decimal string (e.g. \"1000000\" = 1 USDC)." },
+        ...amountSchema("Total to stream"),
         durationSeconds: { type: "integer", minimum: 1, description: "How long the stream runs." },
         startInSeconds: { type: "integer", minimum: 0, description: "Delay before it starts earning. Default 10 (covers block time)." },
       },
-      required: ["recipient", "amount", "durationSeconds"],
+      required: ["recipient", "durationSeconds"],
     },
   },
   {
@@ -105,12 +109,12 @@ export const tools: ToolSpec[] = [
 
 async function setup() {
   const ctx = connect();
-  const token = await ctx.publicClient.readContract({ address: ctx.address, abi, functionName: "token" });
-  return { ctx, token, contract: ctx.address };
+  const address = await ctx.publicClient.readContract({ address: ctx.address, abi, functionName: "token" });
+  return { ctx, token: await tokenInfo(ctx, address), contract: ctx.address };
 }
 
 async function readStream(id: bigint) {
-  const { ctx, contract } = await setup();
+  const { ctx, contract, token } = await setup();
   const read = <T extends "stream" | "streamed" | "withdrawable" | "previewCancel">(functionName: T) =>
     ctx.publicClient.readContract({ address: contract, abi, functionName, args: [id] } as never) as Promise<never>;
   const [sender, recipient, deposit, start, stop, withdrawn, state] = (await read("stream")) as unknown as [Address, Address, bigint, bigint, bigint, bigint, number];
@@ -120,6 +124,8 @@ async function readStream(id: bigint) {
   return {
     id,
     state: STATES[state] ?? String(state),
+    token,
+    depositTokens: formatTokens(deposit, token),
     sender,
     recipient,
     deposit,
@@ -139,19 +145,29 @@ export const handlers: Record<string, Handler> = {
   async open_stream(input) {
     const policy = policyFromEnv();
     const recipient = parseAddress("recipient", input.recipient);
-    const amount = parseUint("amount", input.amount);
     const duration = parseUint("durationSeconds", input.durationSeconds);
     const startIn = input.startInSeconds === undefined ? 10n : parseUint("startInSeconds", input.startInSeconds);
-    checkAmount(policy, amount);
     checkCounterparty(policy, "recipient", recipient);
 
     const { ctx, token, contract } = await setup();
+    const amount = parseAmount(input, token);
+    checkAmount(policy, amount);
     const start = BigInt(await chainNow(ctx)) + startIn;
     const stop = start + duration;
-    const approvalTxHash = await ensureFunds(ctx, token, contract, amount);
+    const approvalTxHash = await ensureFunds(ctx, token.address, contract, amount);
     const { hash, receipt } = await write(ctx, { address: contract, abi, functionName: "create", args: [recipient, amount, start, stop] });
     const [created] = parseEventLogs({ abi, logs: receipt.logs, eventName: "StreamCreated" });
-    return { streamId: created?.args.id, txHash: hash, approvalTxHash, recipient, amount, start, stop, ratePerSecond: amount / duration };
+    return {
+      streamId: created?.args.id,
+      txHash: hash,
+      approvalTxHash,
+      recipient,
+      amount,
+      amountTokens: formatTokens(amount, token),
+      start,
+      stop,
+      ratePerSecond: amount / duration,
+    };
   },
 
   async get_stream(input) {
