@@ -201,7 +201,7 @@ RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh -- 0xYourTokenAddress</pre>
     <div class="grid four">
       <div class="card"><h3>Always current</h3><p>Reads the crates.io index at scaffold time and pins the newest stable SDK with the exact alloy version it needs. Works offline with a known-good fallback.</p></div>
       <div class="card"><h3>Six templates</h3><p><code>counter</code>, <code>erc20</code>, <code>vault</code>, <code>escrow</code>, <code>stream</code> and <code>faucet</code>, each with unit tests and a model-based property test that checks every token movement.</p></div>
-      <div class="card"><h3>Agent-native</h3><p>Stream and escrow ship a JSON tool interface an AI agent can call, with spending limits enforced before signing and the contract's own error names in every failure.</p></div>
+      <div class="card"><h3>Agent-native</h3><p>Stream, escrow and vault ship a JSON tool interface an AI agent can call, with spending limits enforced before signing and the contract's own error names in every failure.</p></div>
       <div class="card"><h3>Deploy that works</h3><p><code>deploy.sh</code> handles the lockfile, RPC override, gas cap and key hand-off. <code>devnode.sh</code> starts a local Nitro node for free validation.</p></div>
       <div class="card"><h3>Typed client</h3><p><code>--with-client</code> adds a viem script that fails loudly on reverted transactions.</p></div>
     </div>

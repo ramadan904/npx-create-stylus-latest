@@ -227,8 +227,8 @@ test("devnode.sh ships the setup that constructor deploys need, and it is wired 
   }
 });
 
-test("stream and escrow ship an agent interface with the client, and other templates do not", () => {
-  for (const template of ["stream", "escrow"]) {
+test("stream, escrow and vault ship an agent interface with the client, and other templates do not", () => {
+  for (const [template, minimum] of [["stream", 5], ["escrow", 5], ["vault", 3]]) {
     const dir = tmp();
     scaffold({ targetDir: dir, name: "my-app", template, versions, withClient: true });
     for (const f of ["agent.ts", "agent-cli.ts", "agent-example.ts", "agent-kit.ts"]) {
@@ -238,7 +238,7 @@ test("stream and escrow ship an agent interface with the client, and other templ
     // every intent an agent can call is described to the model, and every described tool has a handler
     const tools = [...agent.matchAll(/^\s*name: "(\w+)",$/gm)].map((m) => m[1]);
     const handlers = [...agent.matchAll(/^  async (\w+)\(input\)/gm)].map((m) => m[1]);
-    assert.ok(tools.length >= 5, `${template}: expected at least 5 tools, found ${tools.length}`);
+    assert.ok(tools.length >= minimum, `${template}: expected at least ${minimum} tools, found ${tools.length}`);
     assert.deepEqual([...tools].sort(), [...handlers].sort(), `${template}: tool schemas and handlers must match`);
   }
   const counter = tmp();

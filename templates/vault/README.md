@@ -15,6 +15,27 @@ against `stylus-sdk` {{stylus_sdk_version}}.
 State is updated before the external token call, and any failed or false-returning transfer reverts the whole call.
 This is a starting point, not audited: add pausing, caps or fee-on-transfer handling before holding real funds.
 
+## Use it from an AI agent
+
+`--with-client` adds a ready-made, JSON-in/JSON-out agent interface in `client/src`, so an AI agent can park funds in the
+vault and take them back:
+
+```bash
+cd client && npm install
+npx tsx --env-file=../.env src/agent-cli.ts --tools          # the tool schemas, ready to give to an LLM
+npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"deposit_to_vault","amountTokens":"10"}'
+npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"withdraw_from_vault","all":true}'
+npx tsx --env-file=../.env src/agent-example.ts              # a runnable example agent
+```
+
+Three intents: `get_vault`, `deposit_to_vault`, `withdraw_from_vault` (an amount, or `all: true`). Amounts are decimal
+strings, never floats: `amount` in the token's base units, or `amountTokens` in whole tokens (`"10"` is 10 USDG), which
+the agent converts exactly with the token's own `decimals()`. A deposit approves exactly what it moves, never an
+unlimited allowance. Withdrawing more than the agent deposited comes back as
+`{ "ok": false, "error": { "code": "InsufficientDeposit", "details": { "have": ..., "want": ... }, "hint": ... } }` before any
+transaction is sent. `AGENT_MAX_AMOUNT` in `../.env` caps a single deposit; use a dedicated key holding only what the
+agent may spend.
+
 ## Develop
 
 ```bash

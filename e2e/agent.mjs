@@ -1,8 +1,8 @@
 // Drives the generated agent CLIs (client/src/agent-cli.ts of the stream and escrow templates) exactly as an AI agent
 // would: a JSON intent in, a JSON result out, as a subprocess. Against the real contracts and the real erc20 on the dev node.
 //
-// Env: RPC_URL, CHAIN_ID, E2E_KEY (the funded key; it is the agent's key), TOKEN, STREAM, ESCROW, STREAM_DIR, ESCROW_DIR
-// (the scaffolded projects, with `client/` installed).
+// Env: RPC_URL, CHAIN_ID, E2E_KEY (the funded key; it is the agent's key), TOKEN, STREAM, ESCROW, VAULT, STREAM_DIR,
+// ESCROW_DIR, VAULT_DIR (the scaffolded projects, with `client/` installed).
 import { spawnSync } from "node:child_process";
 import { createPublicClient, createWalletClient, defineChain, http, parseAbi } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
@@ -57,12 +57,13 @@ async function tick() {
 }
 
 async function main() {
-  const [sdir, edir] = [need("STREAM_DIR"), need("ESCROW_DIR")];
+  const [sdir, edir, vdir] = [need("STREAM_DIR"), need("ESCROW_DIR"), need("VAULT_DIR")];
+  const VAULT = need("VAULT");
   const payee = privateKeyToAccount(generatePrivateKey()).address;
   const stranger = privateKeyToAccount(generatePrivateKey()).address;
 
   console.log("\nthe tool schemas an LLM would be given");
-  for (const [dir, expected] of [[sdir, ["open_stream", "get_stream", "withdraw_from_stream", "preview_cancel_stream", "cancel_stream", "claim_held_payment"]], [edir, ["create_escrow", "get_escrow", "check_escrow_permissions", "release_escrow", "refund_escrow"]]]) {
+  for (const [dir, expected] of [[sdir, ["open_stream", "get_stream", "withdraw_from_stream", "preview_cancel_stream", "cancel_stream", "claim_held_payment"]], [edir, ["create_escrow", "get_escrow", "check_escrow_permissions", "release_escrow", "refund_escrow"]], [vdir, ["get_vault", "deposit_to_vault", "withdraw_from_vault"]]]) {
     const r = spawnSync("npx", ["tsx", "src/agent-cli.ts", "--tools"], { cwd: `${dir}/client`, encoding: "utf8" });
     const tools = JSON.parse(r.stdout);
     check(JSON.stringify(tools.map((t) => t.name).sort()) === JSON.stringify([...expected].sort()), `tools: ${expected.join(", ")}`);
@@ -155,6 +156,32 @@ async function main() {
   check(after.permissions.canRelease === false && after.permissions.canRefund === false, "once settled the contract allows nothing");
   const twice = call(edir, ESCROW, { intent: "release_escrow", id: deal });
   check(!twice.ok && ["NotFunded", "NotAuthorized"].includes(twice.error.code), `a second release fails (${twice.error?.code})`);
+
+  console.log("\nvault: an agent deposits, is refused an overdraw, and withdraws everything");
+  const vBefore = await balanceOf(agent.address);
+  const fresh = call(vdir, VAULT, { intent: "get_vault" });
+  check(fresh.ok && fresh.deposit === "0" && fresh.token.symbol === "TST" && fresh.account === agent.address, "get_vault: the agent starts with nothing in the vault", fresh);
+  const dep = call(vdir, VAULT, { intent: "deposit_to_vault", amountTokens: "0.0000000000000009" });
+  succeeded(dep, "deposit_to_vault succeeded (whole tokens)");
+  same(dep.deposited, "900", "the vault's Deposited event says exactly 900 base units");
+  same(await balanceOf(agent.address), vBefore - 900n, "the agent was debited exactly that");
+  same(await balanceOf(VAULT), 900n, "and the vault holds it");
+  const vcap = call(vdir, VAULT, { intent: "deposit_to_vault", amount: "1000" }, { AGENT_MAX_AMOUNT: "500" });
+  check(!vcap.ok && vcap.error.code === "PolicyViolation", "a deposit over AGENT_MAX_AMOUNT is refused");
+  const over = call(vdir, VAULT, { intent: "withdraw_from_vault", amount: "901" });
+  check(!over.ok && over.error.code === "InsufficientDeposit" && over.error.details?.have === "900" && over.error.hint, "withdrawing more than deposited is refused with the numbers and a hint", over.error);
+  const mixed = call(vdir, VAULT, { intent: "withdraw_from_vault", all: true, amount: "1" });
+  check(!mixed.ok && mixed.error.code === "InvalidInput", "all and an amount together are refused");
+  const part = call(vdir, VAULT, { intent: "withdraw_from_vault", amount: "300" });
+  succeeded(part, "withdraw_from_vault of part succeeded");
+  same(part.depositNow, "600", "600 remains deposited");
+  const rest = call(vdir, VAULT, { intent: "withdraw_from_vault", all: true });
+  succeeded(rest, "withdraw_from_vault all: true succeeded");
+  same(rest.withdrawn, "600", "all: true withdrew exactly the remaining 600");
+  same(await balanceOf(agent.address), vBefore, "the agent has every token back");
+  same(await balanceOf(VAULT), 0n, "and the vault is empty");
+  const asOther = call(vdir, VAULT, { intent: "get_vault", who: payee });
+  check(asOther.ok && asOther.account === payee && asOther.deposit === "0", "get_vault reads any account's deposit", asOther);
 
   console.log(`\nE2E AGENT FLOWS PASSED (${checks} checks)`);
 }

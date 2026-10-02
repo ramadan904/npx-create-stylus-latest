@@ -35,7 +35,7 @@ One command produces a working project and a deploy path that has already been r
   the project says so and asks for a stand-in instead of guessing. `deploy.sh` asks the RPC which chain it is and
   refuses a mainnet deploy without `MAINNET=1`.
 - **Agent-native money contracts.** `stream` and `escrow` can tell a caller what will happen before it commits
-  (`previewCancel`, `canRelease`, `canRefund`), and `--with-client` adds a JSON-in/JSON-out interface for AI agents: tool
+  (`previewCancel`, `canRelease`, `canRefund`), and for them and `vault` `--with-client` adds a JSON-in/JSON-out interface for AI agents: tool
   schemas an LLM can be given, results like `{ ok: false, error: { code: "NotAuthorized", hint } }` using the contract's own
   error names, amounts in base units or in whole tokens (`"amountTokens": "25"`, converted exactly with the token's
   own decimals, so a model never does 6-vs-18-decimal arithmetic), spending limits the operator sets in the

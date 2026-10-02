@@ -138,6 +138,10 @@ jobs:
           test -n "$stream" || { echo "stream deploy failed"; exit 1; }
           escrow=$(WITH_CLIENT=1 deploy escrow "$token")
           test -n "$escrow" || { echo "escrow deploy failed"; exit 1; }
+          vault=$(WITH_CLIENT=1 deploy vault "$token")
+          test -n "$vault" || { echo "vault deploy failed"; exit 1; }
+          echo "VAULT=$vault" >> "$GITHUB_ENV"
+          echo "VAULT_DIR=${{ runner.temp }}/app-vault" >> "$GITHUB_ENV"
           faucet=$(deploy faucet "$token" 100 30)   # 100 base units per drip, 30 s cooldown
           test -n "$faucet" || { echo "faucet deploy failed"; exit 1; }
           echo "FAUCET=$faucet" >> "$GITHUB_ENV"
