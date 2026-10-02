@@ -19,9 +19,15 @@ commit and workflow that built it ([publish run](https://github.com/ramadan904/n
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/ramadan904/npx-create-stylus-latest?quickstart=1)
 
 A browser workspace with everything already set up: the Rust toolchain the templates pin (with the WASM target),
-`cargo-stylus`, Node for `npx`, and Docker for the local Nitro dev node. Run `npx create-stylus-latest my-app`, then
-`cargo test` and `./scripts/devnode.sh` as in the project's README. The first start takes a few minutes; the
-environment (`.devcontainer/`) is built and used in CI by the `Dev container` workflow.
+`cargo-stylus`, Node for `npx`, and Docker for the local Nitro dev node. Once it opens, one command scaffolds a contract,
+starts a local Arbitrum chain, deploys the contract with a throwaway key and calls it, timing each step:
+
+```bash
+.devcontainer/quickstart.sh
+```
+
+No wallet, faucet or real funds needed. The first start of the Codespace takes a few minutes. The environment
+(`.devcontainer/`) is built in CI by the `Dev container` workflow, which runs this quickstart inside it.
 
 ## Why "latest"
 

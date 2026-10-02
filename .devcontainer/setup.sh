@@ -17,11 +17,22 @@ if ! command -v cargo-stylus >/dev/null 2>&1; then
   fi
 fi
 
+# The note a new terminal shows once in a Codespace.
+notice=$'\n  create-stylus-latest: deploy and call a Stylus contract on a local Arbitrum chain in one command:\n\n      .devcontainer/quickstart.sh\n\n  More in .devcontainer/WELCOME.md\n'
+for dir in /usr/local/etc/vscode-dev-containers /workspaces/.codespaces/shared; do
+  if [ -d "$dir" ] && { [ -w "$dir" ] || sudo -n true 2>/dev/null; }; then
+    printf '%s\n' "$notice" | { [ -w "$dir" ] && cat > "$dir/first-run-notice.txt" || sudo tee "$dir/first-run-notice.txt" >/dev/null; } || true
+  fi
+done
+
 cat <<'MSG'
 
-Ready. Try:
-  npx create-stylus-latest my-app -t stream --with-client     # or: node bin/create-stylus-latest.js ...
-  cd my-app && cargo test
-  cp .env.example .env && ./scripts/devnode.sh                 # local Nitro node in Docker, funds a throwaway key
-  RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh -- 0xYourTokenAddress
+Ready. Deploy and call a Stylus contract on a local Arbitrum chain in one command:
+  .devcontainer/quickstart.sh
+
+Or step by step (see .devcontainer/WELCOME.md):
+  npx create-stylus-latest my-app -t counter --with-client && cd my-app
+  cargo test
+  cp .env.example .env    # set PRIVATE_KEY to a throwaway key
+  ./scripts/devnode.sh && ./scripts/deploy.sh
 MSG
