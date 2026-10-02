@@ -1,12 +1,32 @@
 // Builds web/agent-demo.json, the "watch an agent move money" replay on the project site, from a real agent run.
 //
-//   node gen-agent-demo.mjs <ci-log-file> <run-url>
+//   node gen-agent-demo.mjs <ci-log-file> <run-url>          (in CI: also prints AGENT_DEMO and its SHA-256)
+//   node gen-agent-demo.mjs --from-log <copied-log> <sha256>  (locally: writes the file CI printed, if the hash matches)
 //
 // The log is the e2e-flows job log; e2e/agent.mjs prints the whole run as one `AGENT_TRANSCRIPT {...}` line: every intent
 // the agent sent and the exact JSON its CLI returned, against real contracts on a local Nitro node. This script only
 // picks a story out of it and adds a sentence per step. It never invents a result: each step's `result` is copied
 // verbatim, and the script fails if a step it wants is missing from the run.
+import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
+
+const OUT = new URL("../web/agent-demo.json", import.meta.url);
+const sha256 = (text) => createHash("sha256").update(text).digest("hex");
+const save = (demo) => writeFileSync(OUT, `${JSON.stringify(demo, null, 1)}\n`);
+
+// Local mode: the site file is whatever CI printed, accepted only if it hashes to what CI printed alongside it.
+if (process.argv[2] === "--from-log") {
+  const [, file, want] = process.argv.slice(2);
+  const text = readFileSync(file, "utf8");
+  const at = text.indexOf("AGENT_DEMO {");
+  if (at < 0) throw new Error("no AGENT_DEMO line in the file");
+  const compact = text.slice(at + "AGENT_DEMO ".length).split("\n")[0].trimEnd();
+  if (sha256(compact) !== want) throw new Error(`hash mismatch: got ${sha256(compact)}, CI printed ${want}`);
+  const demo = JSON.parse(compact);
+  save(demo);
+  console.log(`wrote web/agent-demo.json from ${demo.source} (${demo.steps.length} steps, hash verified)`);
+  process.exit(0);
+}
 
 const [logFile, runUrl] = process.argv.slice(2);
 if (!logFile || !runUrl) throw new Error("usage: node gen-agent-demo.mjs <ci-log-file> <run-url>");
@@ -74,8 +94,9 @@ const steps = story.map(({ when, say, sum }, n) => {
   return { say, contract: s.contract, tool: s.intent.intent, input, policy, ok: s.result.ok, summary: sum(s.result), ms: s.ms, result: s.result };
 });
 
-writeFileSync(
-  new URL("../web/agent-demo.json", import.meta.url),
-  `${JSON.stringify({ source: runUrl, chainId: run.chainId, checks: run.checks, totalCalls: run.steps.length, steps }, null, 1)}\n`,
-);
+const demo = { source: runUrl, chainId: run.chainId, checks: run.checks, totalCalls: run.steps.length, steps };
+save(demo);
+const compact = JSON.stringify(demo);
 console.log(`wrote web/agent-demo.json: ${steps.length} steps from ${run.steps.length} calls (${runUrl})`);
+console.log(`AGENT_DEMO ${compact}`);
+console.log(`AGENT_DEMO_SHA256 ${sha256(compact)}`);

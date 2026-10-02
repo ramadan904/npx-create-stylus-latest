@@ -1,6 +1,6 @@
 import { chromium } from "playwright-core";
 import { createServer } from "node:http";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { encodeFunctionData, parseAbi, encodeErrorResult, parseUnits } from "viem";
 
 // Serves web/ locally and checks the playground in a real browser: no script errors, phone layout, and the pure logic
@@ -25,7 +25,9 @@ let fail = 0;
 const check = (cond, label, extra = "") => { console.log((cond ? "ok   " : "FAIL ") + label + (cond ? "" : " " + extra)); if (!cond) fail++; };
 
 // 1. the page has no script errors, apart from network reads the sandbox may block
-const scriptErrors = errors.filter((e) => !/Failed to fetch|net::|ERR_|fetch/i.test(e));
+// Until CI has produced web/agent-demo.json, loading it 404s; the page handles that, so it is not a script error.
+const demoMissing = !existsSync(web + "agent-demo.json");
+const scriptErrors = errors.filter((e) => !/Failed to fetch|net::|ERR_|fetch/i.test(e) && !(demoMissing && /status of 404/.test(e)));
 check(scriptErrors.length === 0, "no script errors on load", JSON.stringify(scriptErrors));
 check(await page.evaluate(() => typeof ABI === "object" && typeof PG === "object"), "abi.js and playground.js loaded");
 if (await page.evaluate(() => PG.faucet === null)) {

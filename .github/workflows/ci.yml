@@ -163,7 +163,11 @@ jobs:
         env:
           RPC_URL: http://127.0.0.1:8547
           CHAIN_ID: "412346"
-        run: node agent.mjs
+        shell: bash
+        run: node agent.mjs | tee "$RUNNER_TEMP/agent.log"
+      - name: Build the site's agent replay from this run
+        working-directory: e2e
+        run: node gen-agent-demo.mjs "$RUNNER_TEMP/agent.log" "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
       - if: failure()
         run: docker logs --tail 80 stylus-devnode || true
 
