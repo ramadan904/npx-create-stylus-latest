@@ -122,16 +122,24 @@ const erc20 = [
   { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ name: "spender", type: "address" }, { name: "value", type: "uint256" }], outputs: [{ type: "bool" }] },
 ] as const satisfies Abi;
 
-/** Sends a transaction and waits for it. Gas is the node's estimate plus a 30% margin: the work a call does can change between
- *  the estimate and the block it lands in (a stream that has earned a little more pays a different amount), and a transaction
- *  that runs out of gas fails after costing gas. Set GAS_LIMIT to use a fixed limit instead. */
+/** The gas limit for a call: twice the node's estimate, capped. Estimation runs against the latest block, and the work a call does
+ *  can change by the block it lands in. Example: `cancel` on a stream skips paying the recipient when nothing is owed yet, but a
+ *  second later something is owed, so a whole token transfer is added and a 30% margin is not enough. A transaction that runs out
+ *  of gas still costs gas and does nothing. Only gas actually used is charged; the rest of the limit is refunded. */
+export function gasWithMargin(estimate: bigint): bigint {
+  const doubled = estimate * 2n;
+  return doubled > MAX_GAS ? (estimate > MAX_GAS ? estimate : MAX_GAS) : doubled;
+}
+const MAX_GAS = 30_000_000n; // below Arbitrum's per-transaction gas cap
+
+/** Sends a transaction and waits for it. Set GAS_LIMIT to use a fixed gas limit instead of `gasWithMargin(estimate)`. */
 export async function write(
   ctx: Ctx,
   call: { address: Address; abi: Abi; functionName: string; args?: readonly unknown[] },
 ) {
   const { wallet, account } = needWallet(ctx);
   // Estimation also reverts with the contract's own error for a call that cannot succeed, which becomes a named error code.
-  const gas = gasFromEnv() ?? ((await ctx.publicClient.estimateContractGas({ ...call, account } as never)) * 13n) / 10n;
+  const gas = gasFromEnv() ?? gasWithMargin(await ctx.publicClient.estimateContractGas({ ...call, account } as never));
   const hash = await wallet.writeContract({ ...call, gas } as never);
   const receipt = await ctx.publicClient.waitForTransactionReceipt({ hash });
   if (receipt.status !== "success") {
