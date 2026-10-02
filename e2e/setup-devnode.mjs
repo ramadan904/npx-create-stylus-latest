@@ -20,13 +20,14 @@ const chain = defineChain({
 });
 const bytecode = JSON.parse(readFileSync(new URL("./devnode-bytecode.json", import.meta.url), "utf8"));
 
+// Addresses are lowercase on purpose: viem rejects a mixed-case address whose checksum does not match.
 // The well-known key of the dev chain's owner (public in nitro's docs and in stylus-tools). Dev node only.
 const owner = privateKeyToAccount("0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659");
-const ARB_DEBUG = "0x00000000000000000000000000000000000000FF";
+const ARB_DEBUG = "0x00000000000000000000000000000000000000ff";
 const ARB_OWNER = "0x0000000000000000000000000000000000000070";
 const FACTORY = "0x4e59b44847b379578588920ca78fbf26c0b4956c";
 const FACTORY_DEPLOYER = "0x3fab184622dc19b6109349b94811493bf2a45362";
-const STYLUS_DEPLOYER = "0xcEcba2F1DC234f70Dd89F2041029807F8D03A990";
+const STYLUS_DEPLOYER = "0xcecba2f1dc234f70dd89f2041029807f8d03a990";
 
 const pub = createPublicClient({ chain, transport: http(rpc) });
 const wallet = createWalletClient({ account: owner, chain, transport: http(rpc) });
