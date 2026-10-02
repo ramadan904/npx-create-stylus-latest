@@ -39,6 +39,22 @@ requires. If you are offline it falls back to a bundled known-good pair (`--offl
 Every template is built, tested and validated with `cargo stylus check` against a local Nitro dev node in CI, using live crates.io versions, so a broken release shows up as a red
 build here rather than in your project.
 
+## How it compares
+
+Not to be confused with `npx create-stylus` (Scaffold-Stylus): a different tool, with a different job.
+
+| | `cargo stylus new` | [Scaffold-Stylus](https://github.com/Arb-Stylus/scaffold-stylus) (`npx create-stylus`) | **create-stylus-latest** |
+| --- | --- | --- | --- |
+| Focus | The official minimal starter | A full-stack dApp: Next.js frontend, wallet connect, contract hot reload | The contract and its path to a live deploy: payments and AI agents |
+| Contracts | A counter | A sample contract; ERC-20, ERC-721 and Chainlink extensions | Seven templates: counter, ERC-20, ERC-721, vault, escrow, stream, faucet |
+| Tests | Example tests | `yarn stylus:test` | Unit tests plus reference-model property tests; every template deployed to a Nitro node in CI |
+| AI agents | – | – | JSON tool interface with operator spending limits, checked against real contracts in CI |
+| Stablecoins and chains | – | Arbitrum Sepolia, mainnet, Orbit | Paxos USDG presets checked on-chain; Arbitrum One, Robinhood Chain and their testnets |
+| Frontend | – | Full Next.js app | A typed TypeScript client (`--with-client`); bring your own UI |
+
+Pick Scaffold-Stylus for a ready-made dApp frontend; pick this when the contract has to move money correctly and an
+agent has to drive it. They combine: the contracts here are plain Stylus projects that any frontend can call.
+
 ## Templates
 
 | Name | What you get |

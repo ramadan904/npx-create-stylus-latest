@@ -56,6 +56,17 @@ The gas comparison is measured, not claimed, and reported honestly: Stylus pays 
 about 31× less on compute ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36935538361)).
 *Limit:* fixes were found on one team's deploys; more pitfalls will surface with more users.
 
+## How it compares to the existing tools
+
+- **`cargo stylus new`** (official): one counter contract. create-stylus-latest adds six more templates, deploy scripts
+  proven on live networks, a local dev node that can deploy constructors, and CI that deploys every template.
+- **[Scaffold-Stylus](https://github.com/Arb-Stylus/scaffold-stylus)** (`npx create-stylus`, a different tool despite
+  the similar name): a full-stack dApp kit with a Next.js frontend and contract hot reload. create-stylus-latest is
+  contract-first instead: money contracts (vault, escrow, stream, faucet, ERC-20, ERC-721) with reference-model property
+  tests, an AI-agent interface with operator spending limits, and USDG / Robinhood Chain presets checked on-chain. It
+  does not generate a frontend; its typed client works with any. The two are complementary.
+- None of the code here comes from either project.
+
 ## One line
 
 `npx create-stylus-latest` scaffolds a Stylus (Rust) smart contract project that builds, tests and deploys on the
