@@ -204,7 +204,6 @@ These are templates and a scaffolder, not audited products. Read this before put
 - **No testnet USDG on Arbitrum or Robinhood.** Paxos publishes testnet USDG only on Ethereum Sepolia, Ink Sepolia and X
   Layer testnet, so a testnet build uses a stand-in token; the mainnet USDG addresses are real money behind the
   `MAINNET=1` guard.
-- **Not yet on npm.** The package is publish-ready (see `RELEASING.md`) but has not been published.
 
 ## Tech
 
@@ -220,7 +219,7 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
 - **Product-market fit.** The users are Stylus builders, and the pain is real and measured: we hit every deploy pitfall on a real
   network and the scripts now handle them (Docker default, RPC refusal, gas-cap race, constructor deploys on a local node). The
   agent-native contracts target the Promising Products track: an agent can open a stream or an escrow deal, and ask the
-  contract what is allowed before it sends. Limit: no adoption measured yet and the npm package is not published.
+  contract what is allowed before it sends. Limit: no adoption measured yet; the npm package was published on 2026-10-02.
 - **Innovation.** The newest compatible SDK is resolved at scaffold time; "does it deploy" is a CI test, not a README promise;
   money contracts that expose a preview/permission view sharing their own logic so an agent cannot be surprised; and a test
   design that proves token amounts are right when the framework's mocks cannot.
@@ -229,6 +228,9 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
   constructor contracts, and a test VM that hides wrong amounts. A reviewer can re-run all of it from `.github/workflows/ci.yml`.
 
 ## Live evidence index
+
+- On npm: https://www.npmjs.com/package/create-stylus-latest (`npx create-stylus-latest my-app`). Version 0.1.0 was published by the tag-triggered workflow after
+  `npm test` and the packed-tarball smoke test, with a provenance statement: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37043469397
 
 - Latest all-green CI run (all 13 jobs: real-token flows, the agent CLIs, a real local deploy of every template, the npm
   package smoke test, the playground in a real browser, and the USDG addresses and network RPCs checked on-chain):
@@ -246,12 +248,9 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
 
 ## Roadmap
 
-1. Publish to npm so `npx create-stylus-latest` works anywhere. The package, a smoke test of the packed tarball (every template, run
-   with `npx` from an empty directory) and an automated publish-on-tag workflow with provenance are in place
-   (`RELEASING.md`); the first release needs an npm token added as the `NPM_TOKEN` secret and a version tag pushed.
-2. A Foundry interop template (Solidity test calling a Stylus contract).
-3. `cargo stylus verify` support with a Docker-friendly key path.
-4. Testnet USDG presets, as soon as Paxos lists USDG on Arbitrum Sepolia or Robinhood Chain testnet.
+1. A Foundry interop template (Solidity test calling a Stylus contract).
+2. `cargo stylus verify` support with a Docker-friendly key path.
+3. Testnet USDG presets, as soon as Paxos lists USDG on Arbitrum Sepolia or Robinhood Chain testnet.
 
 ## Try it
 

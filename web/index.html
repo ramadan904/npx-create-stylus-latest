@@ -241,9 +241,8 @@
     <h1>Scaffold a Stylus project that <span class="grad">deploys on the first try.</span></h1>
     <p class="lead">create-stylus-latest generates a Rust smart contract project for Arbitrum, pinned to the newest
       <code>stylus-sdk</code> and its matching <code>alloy</code> version, with deploy scripts that have been run on a live network.</p>
-    <div class="term"><div class="bar3" aria-hidden="true"><b></b><b></b><b></b></div><pre><span class="p">$ </span>git clone https://github.com/ramadan904/npx-create-stylus-latest
-<span class="p">$ </span>cd npx-create-stylus-latest
-<span class="p">$ </span>node bin/create-stylus-latest.js my-app -t stream --with-client --usdg --network arbitrum-one</pre></div>
+    <div class="term"><div class="bar3" aria-hidden="true"><b></b><b></b><b></b></div><pre><span class="p">$ </span>npx create-stylus-latest my-app -t stream --with-client
+<span class="p">$ </span>npx create-stylus-latest pay -t escrow --usdg --network arbitrum-one</pre></div>
     <div class="btns">
       <a class="btn primary" href="https://github.com/ramadan904/npx-create-stylus-latest">View on GitHub</a>
       <a class="btn" href="https://github.com/ramadan904/npx-create-stylus-latest/blob/main/README.md">Read the docs</a>
@@ -254,7 +253,7 @@
       <span class="chip" style="--k:var(--c5)"><b>Paxos USDG</b> on-chain verified</span>
       <span class="chip" style="--k:var(--c3)"><b>AI-agent</b> ready</span>
     </div>
-    <p class="note" style="margin-top:12px">An <code>npx</code> package is planned; until it is published, run the CLI from the repository as shown.</p>
+    <p class="note" style="margin-top:12px">On npm as <a href="https://www.npmjs.com/package/create-stylus-latest" style="color:var(--accent)"><code>create-stylus-latest</code></a>, published from CI with provenance. Nothing to install first: <code>npx</code> fetches it.</p>
   </header>
 
   <section class="stats" aria-label="Verified in CI">
@@ -391,14 +390,13 @@ npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"open_stream","recipient"
   <section id="deploy-your-own">
     <h2>Deploy your own</h2>
     <p class="sub">Every contract above came out of one command. Scaffold the same thing, try it on a free local node, then deploy it.</p>
-    <pre>git clone https://github.com/ramadan904/npx-create-stylus-latest && cd npx-create-stylus-latest
-node bin/create-stylus-latest.js ../my-stream -t stream --with-client
-cd ../my-stream && cargo test               # unit + property tests
+    <pre>npx create-stylus-latest my-stream -t stream --with-client
+cd my-stream && cargo test                    # unit + property tests
 cp .env.example .env && ./scripts/devnode.sh  # local Nitro node, funded key, Stylus deployer
 RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh -- 0xYourTokenAddress</pre>
     <div class="btns">
       <a class="btn primary" href="https://github.com/ramadan904/npx-create-stylus-latest#readme">Get started</a>
-      <a class="btn" href="https://github.com/ramadan904/npx-create-stylus-latest/blob/main/RELEASING.md">npm release status</a>
+      <a class="btn" href="https://www.npmjs.com/package/create-stylus-latest">View on npm</a>
     </div>
   </section>
 
