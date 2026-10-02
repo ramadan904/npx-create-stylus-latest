@@ -13,7 +13,8 @@
   const box = byId("al-log");
   const button = byId("al-run");
   if (!box || !button) return;
-  // The contract the demo drives. A test can point it elsewhere by setting window.AGENT_LIVE_CONFIG before the page loads.
+  // The contract the demo drives. A test or a recording can point it elsewhere, or shorten the waits (startIn, earnFor,
+  // in seconds), by setting window.AGENT_LIVE_CONFIG before the page loads.
   const CFG = Object.assign({ stream: PG.stream, scan: SCAN }, window.AGENT_LIVE_CONFIG || {});
   const STATES = ["unknown", "active", "cancelled"];
   const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -262,8 +263,8 @@
   // ---- the demo ----------------------------------------------------------------------------------------------------------
   const AMOUNT = "10";
   const DURATION = 60;
-  const START_IN = 20; // seconds for you to confirm the create in the wallet before the stream starts
-  const EARN_FOR = 12; // the agent waits until the stream has run this long before paying out
+  const START_IN = CFG.startIn ?? 20; // seconds for you to confirm the create in the wallet before the stream starts
+  const EARN_FOR = CFG.earnFor ?? 12; // the agent waits until the stream has run this long before paying out
   const status = byId("al-status");
   const summary = byId("al-summary");
   const recipientInput = byId("al-to");

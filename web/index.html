@@ -192,6 +192,12 @@
   #gas.reveal:not(.in) .gbar i > span { animation-play-state: paused; }
   @media (prefers-reduced-motion: reduce) { .gbar i > span { animation: none; } }
 
+  /* ---- the demo video ---- */
+  .demo-video { margin: 4px 0 26px; }
+  .demo-video video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #05080d; border-radius: 16px;
+    border: 1px solid color-mix(in srgb, var(--c2) 45%, var(--line));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--c1) 25%, transparent), 0 18px 60px rgba(0,0,0,.35), 0 0 46px color-mix(in srgb, var(--c2) 22%, transparent); }
+  .demo-video .note { margin: 10px 2px 0; }
   /* ---- the live agent demo ---- */
   .al-plan { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 6px; font-size: 13px; }
   .al-plan code { padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--glass); color: var(--c5); }
@@ -268,6 +274,13 @@
     </div>
     <p class="note" style="margin-top:12px">On npm as <a href="https://www.npmjs.com/package/create-stylus-latest" style="color:var(--accent)"><code>create-stylus-latest</code></a>, published from CI with provenance. Nothing to install first: <code>npx</code> fetches it.</p>
   </header>
+
+  <section class="demo-video" aria-label="Demo video">
+    <video id="demo-video" src="demo.mp4" poster="demo-poster.jpg" width="1280" height="720" controls muted loop playsinline preload="metadata"></video>
+    <p class="note">68 seconds: <code>npx</code> create, tests, the faucet, a payment stream, then an AI agent doing it through JSON tool calls.
+      Generated from a real run by <a href="https://github.com/ramadan904/npx-create-stylus-latest/blob/main/e2e/video/record.mjs" style="color:var(--accent)"><code>e2e/video/record.mjs</code></a>:
+      real <code>npx</code> and <code>cargo</code> output, real transactions on a local Arbitrum Nitro node.</p>
+  </section>
 
   <section class="stats" aria-label="Verified in CI">
     <div class="stat"><div class="n" data-count="6">6</div><div class="l">contract templates, each with property tests</div></div>

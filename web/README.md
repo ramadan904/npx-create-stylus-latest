@@ -14,6 +14,10 @@ test tokens from the faucet, open a payment stream and watch it pay out, fund an
   runs it against a dev node in CI and checks its JSON against the agent CLI's (same fields; identical bytes for the same
   calls). Its error hints come from `agent-kit.ts` through `abi.js`.
 - `agent-demo.js` replays `agent-demo.json`, a longer agent run that CI recorded (see `e2e/gen-agent-demo.mjs`).
+- `demo.mp4` (with `demo-poster.jpg`) is the video at the top of the page. It is generated from a real run, not edited:
+  `e2e/video/chain.sh <dir>` deploys the six contracts to a local Nitro dev node with the projects' own deploy scripts, then
+  `node e2e/video/record.mjs <dir>` runs the real `npx` and `cargo test`, drives this page against those contracts with a
+  stand-in wallet, and encodes the result with ffmpeg. `web-check` checks its length (60–90 s), size and poster.
 - The faucet address goes in `PG.faucet` at the top of `playground.js`; until it is set the faucet button is disabled.
 
 ## Deploy on Vercel

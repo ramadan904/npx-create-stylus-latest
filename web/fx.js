@@ -35,6 +35,17 @@
     });
   }
 
+  // The demo video plays (muted) while it is on screen and pauses when it is not; with reduced motion it waits for a click.
+  const video = document.getElementById("demo-video");
+  if (video && !calm && "IntersectionObserver" in window) {
+    new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (e.isIntersecting) video.play().catch(() => {});
+        else video.pause();
+      }
+    }, { threshold: 0.5 }).observe(video);
+  }
+
   // A soft light that follows the pointer across a card.
   document.addEventListener("pointermove", (ev) => {
     const card = ev.target instanceof Element ? ev.target.closest(".card") : null;
