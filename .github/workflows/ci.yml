@@ -278,7 +278,7 @@ jobs:
         with:
           path: ~/.cargo/bin/cargo-stylus
           key: cargo-stylus-${{ runner.os }}-v1
-      - run: node bin/create-stylus-latest.js "$APP" -t counter -y --no-git --with-client
+      - run: node bin/create-stylus-latest.js "$APP" -t counter -y --no-git --with-client --with-ui
       - run: npm install
         working-directory: ${{ env.APP }}/client
       - name: Create a throwaway key
@@ -315,5 +315,11 @@ jobs:
           npm start | tee out.txt
           grep -q 'number: 0n' out.txt
           grep -q 'number: 1n' out.txt
+      # The page --with-ui generates, in a real browser: lists the functions, reads, signs with the dev node key, writes.
+      - name: Use the contract through the generated web page
+        run: |
+          (cd "$APP" && ./scripts/ui.sh 5173 > ui.log 2>&1 &)
+          for _ in $(seq 1 120); do curl -sf http://127.0.0.1:5173/config.json > /dev/null && break; sleep 2; done
+          cd e2e && npm install --silent --no-audit --no-fund && node ui-check.mjs || { cat "$APP/ui.log"; exit 1; }
       - if: failure()
         run: docker logs --tail 80 stylus-devnode || true

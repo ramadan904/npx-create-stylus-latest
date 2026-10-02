@@ -17,7 +17,7 @@ tells you how long that took. No wallet, no faucet, no real funds. CI runs this 
 ## Or step by step
 
 ```bash
-npx create-stylus-latest my-app -t stream --with-client   # counter, erc20, erc721, vault, escrow, stream, oracle, faucet
+npx create-stylus-latest my-app -t stream --with-client --with-ui   # counter, erc20, erc721, vault, escrow, stream, oracle, faucet
 cd my-app
 cargo test                                                # unit and property tests
 cp .env.example .env                                      # set PRIVATE_KEY to a throwaway key (any 0x + 64 hex)

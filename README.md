@@ -50,7 +50,7 @@ Not to be confused with `npx create-stylus` (Scaffold-Stylus): a different tool,
 | Tests | Example tests | `yarn stylus:test` | Unit tests plus reference-model property tests; every template deployed to a Nitro node in CI |
 | AI agents | – | – | JSON tool interface with operator spending limits, checked against real contracts in CI |
 | Stablecoins and chains | – | Arbitrum Sepolia, mainnet, Orbit | Paxos USDG presets checked on-chain; Arbitrum One, Robinhood Chain and their testnets |
-| Frontend | – | Full Next.js app | A typed TypeScript client (`--with-client`); bring your own UI |
+| Frontend | – | Full Next.js app | A generated contract page (`--with-ui`) and a typed TypeScript client (`--with-client`) |
 
 Pick Scaffold-Stylus for a ready-made dApp frontend; pick this when the contract has to move money correctly and an
 agent has to drive it. They combine: the contracts here are plain Stylus projects that any frontend can call.
@@ -104,6 +104,16 @@ contract reporting symbol `USDG` and 6 decimals.
 
 `deploy.sh` asks the RPC which chain it is. On a mainnet (Arbitrum One, Nova, Robinhood Chain) it refuses to deploy
 unless you set `MAINNET=1`, because these templates are unaudited; `--check-only` is always allowed.
+
+## Optional web page for your contract
+
+`--with-ui` adds `./scripts/ui.sh`: it exports the contract's interface and serves a page on `http://127.0.0.1:5173`
+(in a Codespace, the forwarded port) with every function as a form. Reads run on load; writes are simulated first, so a
+revert shows the contract's own error by name (`StalePrice(...)`, `ERC721NonexistentToken(...)`) before you sign, then
+sent through your browser wallet with the emitted events shown. On the local dev node only, it can also sign with the
+throwaway key in `.env`, like a burner wallet; on any other chain the page never sees a key. It reads `.env` on each
+load, so after a redeploy update `CONTRACT_ADDRESS` and reload. One HTML file and a small Node server, no build step;
+CI drives it in a browser against a deployed counter.
 
 ## Optional TypeScript client
 

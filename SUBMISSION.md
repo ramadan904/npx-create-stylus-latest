@@ -64,7 +64,8 @@ about 31× less on compute ([run](https://github.com/ramadan904/npx-create-stylu
   the similar name): a full-stack dApp kit with a Next.js frontend and contract hot reload. create-stylus-latest is
   contract-first instead: money contracts (vault, escrow, stream, faucet, ERC-20, ERC-721) and a Chainlink oracle with
   reference-model property tests, an AI-agent interface with operator spending limits, and USDG / Robinhood Chain presets checked on-chain. It
-  does not generate a frontend; its typed client works with any. The two are complementary.
+  generates a contract page (`--with-ui`: every function as a form, errors by name, a burner key on the dev node)
+  rather than a dApp frontend, plus a typed client for your own. The two are complementary.
 - None of the code here comes from either project.
 
 ## One line
@@ -113,6 +114,8 @@ One command produces a working project and a deploy path that has already been r
 - **Deploy scripts that work.** `scripts/deploy.sh` validates and deploys with `cargo-stylus`, handles the lockfile,
   the Docker default, RPC override and an optional gas cap. `scripts/devnode.sh` starts a local Nitro dev node so
   everything can be validated without a funded testnet key.
+- **Optional contract page.** `--with-ui` adds `./scripts/ui.sh`, a page with every function as a form, simulated before
+  signing so reverts show the contract's error by name, and a burner key on the local dev node only.
 - **Optional TypeScript client.** `--with-client` adds a viem client typed from the contract ABI that fails loudly on
   reverted transactions.
 - **Safe by default.** The key is handed to `cargo-stylus` through a private temp file, never argv.
