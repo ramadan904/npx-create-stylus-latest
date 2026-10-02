@@ -110,9 +110,16 @@ tokens through approve, transferFrom and transfer, asserting exact balances: 40 
 (run: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36989741978). It covers a partial mid-stream payout
 (450 of 1000 at 18 s of a 40 s stream, exactly), a cancel split, a finished stream paying the exact deposit with no rounding dust,
 a failed `create` leaving no trace, and every escrow path (release, seller refund, buyer refund only after the deadline, arbiter),
-with unauthorized and repeated calls rejected. A second step, `e2e/agent.mjs`, drives the generated agent CLIs as subprocesses.
-This job found two real problems before any user did: constructor deploys cannot work on a bare dev node (now fixed in the
-shipped `devnode.sh`), and gas estimation on an idle node simulates against a stale block.
+with unauthorized and repeated calls rejected. A second step, `e2e/agent.mjs`, drives the generated agent CLIs as subprocesses, the way a tool-using AI agent would: 55 checks
+passed (run: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36998181283). An agent opens a stream, reads it,
+withdraws a partial amount and cancels, with paid + paid-on-cancel + refunded equal to the deposit exactly; spending limits, an
+unknown counterparty, an amount above the balance and a malformed address are all refused before anything is signed; a second
+cancel comes back as the contract's own error name (`NotActive`) with a hint; and for escrow, `canRelease` / `canRefund` correctly
+predict that an early buyer refund fails with `NotAuthorized` before the agent releases the deal.
+This job found three real problems before any user did: constructor deploys cannot work on a bare dev node (now fixed in the
+shipped `devnode.sh`), gas estimation on an idle node simulates against a stale block, and a plain gas estimate can be too low
+for `cancel`, whose work depends on how much is owed by the block it lands in (the agent kit now doubles the estimate; only gas
+actually used is charged).
 
 ### Gas benchmark: Stylus vs Solidity (measured in CI)
 
@@ -192,8 +199,8 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
 
 ## Live evidence index
 
-- Latest all-green CI run, including real-token flows and a real local deploy of every template:
-  https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36991267896
+- Latest all-green CI run (all 10 jobs: real-token flows, the agent CLIs, a real local deploy of every template, the npm
+  package smoke test): https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36998181283
 - Real-token end-to-end flows (40 checks): https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36989741978
 - Arbitrum Sepolia: escrow `0x5c3766164e3a2d4abb61f605879c18234b36a60e`, stream `0xa97f7f79dd79b6c72c8daa452f68baf1ca7bade5`
   (details in the Evidence section above).
