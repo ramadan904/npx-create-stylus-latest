@@ -7,3 +7,6 @@ export const TEMPLATES = {
 };
 
 export const DEFAULT_TEMPLATE = "counter";
+
+// Templates that ship an AI-agent interface (tool schemas + JSON intents) in their client; see templates/_client/_agent.
+export const AGENT_TEMPLATES = ["stream", "escrow"];

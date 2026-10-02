@@ -25,6 +25,30 @@ failed or false-returning transfer reverts the whole call.
 Not audited, and deliberately small: fee-on-transfer and rebasing tokens are not handled, streams cannot be topped up
 or transferred, and either side can cancel at any time. Decide those before holding real funds.
 
+## Use it from an AI agent
+
+The stream contract is easy for a program to call: every intent is one function with a plain result, and the contract can
+tell you what will happen before you commit (`previewCancel`). `--with-client` adds a ready-made, JSON-in/JSON-out agent
+interface in `client/src`:
+
+```bash
+cd client && npm install
+npx tsx --env-file=../.env src/agent-cli.ts --tools          # the tool schemas, ready to give to an LLM
+npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"open_stream","recipient":"0x...","amount":"1000000","durationSeconds":3600}'
+npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"get_stream","id":"1"}'
+npx tsx --env-file=../.env src/agent-example.ts               # a runnable example agent
+```
+
+Five intents: `open_stream`, `get_stream`, `withdraw_from_stream`, `preview_cancel_stream`, `cancel_stream`. Amounts are decimal
+strings in the token's base units. Every call prints one JSON object, `{ "ok": true, ... }` or
+`{ "ok": false, "error": { "code": "NotAuthorized", "message": "...", "hint": "..." } }`, where `code` is the contract's own custom
+error name, so an agent can branch on it.
+
+**Limit what an agent can spend.** Set these in `../.env`; they are enforced before anything is signed:
+`AGENT_MAX_AMOUNT` (largest single amount, base units) and `AGENT_ALLOWED_COUNTERPARTIES` (comma-separated addresses it may pay).
+Use a dedicated key holding only what the agent may spend, never your main wallet. `GAS_LIMIT` skips gas estimation, which is
+only useful on an idle local dev node (errors then lose their contract error name).
+
 ## Develop
 
 ```bash

@@ -133,6 +133,16 @@ impl Stream {
         self.earned(id) - self.withdrawn.get(id)
     }
 
+    /// What `cancel` would pay right now as `(to_recipient, to_sender)`; zeros for a cancelled or unknown stream.
+    /// An agent or a UI can show the outcome before committing to it. `cancel` uses the same arithmetic.
+    pub fn preview_cancel(&self, id: U256) -> (U256, U256) {
+        if self.state(id) != ACTIVE {
+            return (U256::ZERO, U256::ZERO);
+        }
+        let (_, to_recipient, to_sender) = self.cancel_split(id);
+        (to_recipient, to_sender)
+    }
+
     /// The caller (sender) locks `amount` of the token, to be paid to `recipient` linearly between `start` and
     /// `stop` (unix seconds). The sender must `approve` this contract first. Returns the stream id.
     pub fn create(
@@ -216,9 +226,7 @@ impl Stream {
         if caller != sender && caller != recipient {
             return Err(StreamError::NotAuthorized(NotAuthorized {}));
         }
-        let earned = self.earned(id);
-        let to_recipient = earned - self.withdrawn.get(id);
-        let to_sender = self.deposits.get(id) - earned;
+        let (earned, to_recipient, to_sender) = self.cancel_split(id);
 
         // After this, `streamed` reports exactly what the recipient received over the stream's life.
         self.withdrawn.setter(id).set(earned);
@@ -253,6 +261,17 @@ impl Stream {
             ACTIVE => Ok(()),
             _ => Err(StreamError::NotActive(NotActive { id })),
         }
+    }
+
+    /// `(earned, to_recipient, to_sender)` if the stream were cancelled now: the recipient gets what is earned and not yet
+    /// withdrawn, the sender gets the rest of the deposit. Shared by `cancel` and `preview_cancel` so they cannot disagree.
+    fn cancel_split(&self, id: U256) -> (U256, U256, U256) {
+        let earned = self.earned(id);
+        (
+            earned,
+            earned - self.withdrawn.get(id),
+            self.deposits.get(id) - earned,
+        )
     }
 
     /// Linear vesting of the deposit. `create` guarantees `deposit * (stop - start)` fits in a U256, and
@@ -539,6 +558,42 @@ mod tests {
     }
 
     #[test]
+    fn preview_cancel_shows_exactly_what_cancel_will_pay() {
+        let (vm, mut stream) = funded();
+        let id = U256::from(1);
+        let split = |s: &Stream| s.preview_cancel(id);
+        assert_eq!(
+            split(&stream),
+            (U256::ZERO, U256::from(AMOUNT)),
+            "before the start the sender gets everything"
+        );
+
+        vm.set_block_timestamp(1_400);
+        mock_push(&vm, PAYEE, 400);
+        mock_push(&vm, PAYER, 600);
+        let preview = split(&stream);
+        assert_eq!(preview, (U256::from(400u64), U256::from(600u64)));
+        vm.set_sender(PAYER);
+        assert!(stream.cancel(id).is_ok());
+        assert_eq!(
+            take_moves(),
+            vec![
+                (vm.contract_address(), PAYEE, preview.0),
+                (vm.contract_address(), PAYER, preview.1)
+            ]
+        );
+        assert_eq!(
+            split(&stream),
+            (U256::ZERO, U256::ZERO),
+            "nothing left to preview once cancelled"
+        );
+        assert_eq!(
+            stream.preview_cancel(U256::from(99u64)),
+            (U256::ZERO, U256::ZERO)
+        );
+    }
+
+    #[test]
     fn cancelling_before_the_start_refunds_everything_to_the_sender() {
         let (vm, mut stream) = funded();
         mock_push(&vm, PAYER, AMOUNT);
@@ -751,6 +806,15 @@ mod properties {
                                 mock_push(&vm, ACTORS[m.sender], m.deposit - earned);
                             }
                         }
+                        let model_split = idx.map(|i| {
+                            let m = &model[i];
+                            if m.cancelled { (0, 0) } else { (m.earned(now) - m.withdrawn, m.deposit - m.earned(now)) }
+                        }).unwrap_or((0, 0));
+                        prop_assert_eq!(
+                            stream.preview_cancel(U256::from(id)),
+                            (U256::from(model_split.0), U256::from(model_split.1)),
+                            "preview_cancel must match the model"
+                        );
                         let ok = stream.cancel(U256::from(id)).is_ok();
                         prop_assert_eq!(ok, expected, "cancel outcome");
                         let mut expected_moves = vec![];

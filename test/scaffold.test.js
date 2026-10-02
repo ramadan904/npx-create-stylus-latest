@@ -224,3 +224,24 @@ test("devnode.sh ships the setup that constructor deploys need, and it is wired 
     assert.equal(address, address.toLowerCase(), `${address}: addresses must be lowercase (viem rejects a bad checksum)`);
   }
 });
+
+test("stream and escrow ship an agent interface with the client, and other templates do not", () => {
+  for (const template of ["stream", "escrow"]) {
+    const dir = tmp();
+    scaffold({ targetDir: dir, name: "my-app", template, versions, withClient: true });
+    for (const f of ["agent.ts", "agent-cli.ts", "agent-example.ts", "agent-kit.ts"]) {
+      assert.ok(fs.existsSync(path.join(dir, "client/src", f)), `${template}: client/src/${f} is missing`);
+    }
+    const agent = fs.readFileSync(path.join(dir, "client/src/agent.ts"), "utf8");
+    // every intent an agent can call is described to the model, and every described tool has a handler
+    const tools = [...agent.matchAll(/^\s*name: "(\w+)",$/gm)].map((m) => m[1]);
+    const handlers = [...agent.matchAll(/^  async (\w+)\(input\)/gm)].map((m) => m[1]);
+    assert.ok(tools.length >= 5, `${template}: expected at least 5 tools, found ${tools.length}`);
+    assert.deepEqual([...tools].sort(), [...handlers].sort(), `${template}: tool schemas and handlers must match`);
+  }
+  const counter = tmp();
+  scaffold({ targetDir: counter, name: "my-app", template: "counter", versions, withClient: true });
+  for (const f of ["agent.ts", "agent-kit.ts", "agent-cli.ts"]) {
+    assert.ok(!fs.existsSync(path.join(counter, "client/src", f)), `counter must not ship client/src/${f}`);
+  }
+});

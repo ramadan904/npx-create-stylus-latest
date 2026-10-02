@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { toCrateName, validateName } from "./names.js";
-import { TEMPLATES } from "./templates.js";
+import { AGENT_TEMPLATES, TEMPLATES } from "./templates.js";
 
 const TEMPLATES_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "templates");
 
@@ -54,6 +54,9 @@ export function scaffold({ targetDir, name, template, versions, withClient = fal
   if (withClient) {
     copyDir(path.join(TEMPLATES_DIR, "_client", "common"), path.join(targetDir, "client"), vars, written);
     copyDir(path.join(TEMPLATES_DIR, "_client", template), path.join(targetDir, "client", "src"), vars, written);
+    if (AGENT_TEMPLATES.includes(template)) {
+      copyDir(path.join(TEMPLATES_DIR, "_client", "_agent"), path.join(targetDir, "client", "src"), vars, written);
+    }
   }
   return written.sort();
 }
