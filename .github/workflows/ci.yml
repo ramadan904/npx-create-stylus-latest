@@ -186,7 +186,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        template: [counter, erc20, vault, escrow, stream, faucet]
+        template: [counter, erc20, erc721, vault, escrow, stream, faucet]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -240,6 +240,7 @@ jobs:
           case "${{ matrix.template }}" in
             counter) args=() ;;
             erc20) args=("Test Token" TST 1000 0x1111111111111111111111111111111111111111) ;;
+            erc721) args=("Test Badges" TBDG ipfs://cid/ 0x1111111111111111111111111111111111111111) ;;  # name, symbol, base URI, minter
             faucet) args=(0x1111111111111111111111111111111111111111 100 60) ;;  # token, amount per drip, cooldown
             *) args=(0x1111111111111111111111111111111111111111) ;;  # vault, escrow, stream: any non-zero token address
           esac

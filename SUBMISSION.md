@@ -14,10 +14,10 @@
 
 Each claim links to its proof, with the limit after it.
 
-**1. Smart contract quality: five money contracts checked against a reference model, all six run on real nodes.**
-- `counter`, `erc20`, `vault`, `escrow`, `stream` and `faucet` use custom Solidity errors, checks-effects-interactions,
+**1. Smart contract quality: six token contracts checked against a reference model, all seven run on real nodes.**
+- `counter`, `erc20`, `erc721`, `vault`, `escrow`, `stream` and `faucet` use custom Solidity errors, checks-effects-interactions,
   and `#[constructor]` initialization where they have state to set, so nobody can front-run an `init`.
-- The five that move tokens have unit tests plus a property test that checks every token movement against a reference
+- The six that move tokens have unit tests plus a property test that checks every token movement against a reference
   model (the stream: 15 tests). The tests are tested: deliberately broken contracts fail them. They also found a real
   bug: a failed `transfer_from` left partial state behind (see below).
 - Every template is formatted, linted, tested, built to WASM and deployed to a Nitro dev node on every change. The
@@ -78,7 +78,8 @@ One command produces a working project and a deploy path that has already been r
 - **Always current.** At scaffold time the CLI reads the crates.io sparse index, picks the newest stable `stylus-sdk`
   and pins the exact `alloy-primitives` / `alloy-sol-types` it requires. Offline it falls back to a bundled
   known-good pair.
-- **Six templates.** `counter` (minimal), `erc20` (events, custom errors), `vault` (a stablecoin vault using
+- **Seven templates.** `counter` (minimal), `erc20` (events, custom errors), `erc721` (NFT with metadata, receiver-checked safe
+  transfers and the standard ERC-6093 errors), `vault` (a stablecoin vault using
   cross-contract ERC-20 calls), `escrow` (buyer-funded deals with an optional arbiter and a deadline refund), `stream`
   (linear per-second stablecoin payments with keeper-friendly `withdraw` and a `cancel` that splits earned from remaining)
   and `faucet` (rate-limited test-token drips, so visitors can try a dApp without asking for tokens).

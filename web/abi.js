@@ -78,6 +78,17 @@ const ABI = {
         "id"
       ]
     },
+    "0x177e802f": {
+      "name": "ERC721InsufficientApproval",
+      "types": [
+        "address",
+        "uint256"
+      ],
+      "names": [
+        "operator",
+        "tokenId"
+      ]
+    },
     "0x1f2a2005": {
       "name": "ZeroAmount",
       "types": [],
@@ -103,6 +114,15 @@ const ABI = {
         "id"
       ]
     },
+    "0x361c31f2": {
+      "name": "NotMinter",
+      "types": [
+        "address"
+      ],
+      "names": [
+        "caller"
+      ]
+    },
     "0x4a894b4b": {
       "name": "NoSuchDeal",
       "types": [
@@ -110,6 +130,15 @@ const ABI = {
       ],
       "names": [
         "id"
+      ]
+    },
+    "0x5b08ba18": {
+      "name": "ERC721InvalidOperator",
+      "types": [
+        "address"
+      ],
+      "names": [
+        "operator"
       ]
     },
     "0x5ba9375b": {
@@ -121,6 +150,28 @@ const ABI = {
       "names": [
         "start",
         "now"
+      ]
+    },
+    "0x64283d7b": {
+      "name": "ERC721IncorrectOwner",
+      "types": [
+        "address",
+        "uint256",
+        "address"
+      ],
+      "names": [
+        "sender",
+        "tokenId",
+        "owner"
+      ]
+    },
+    "0x64a0ae92": {
+      "name": "ERC721InvalidReceiver",
+      "types": [
+        "address"
+      ],
+      "names": [
+        "receiver"
       ]
     },
     "0x6a06b652": {
@@ -146,6 +197,24 @@ const ABI = {
         "id"
       ]
     },
+    "0x7e273289": {
+      "name": "ERC721NonexistentToken",
+      "types": [
+        "uint256"
+      ],
+      "names": [
+        "tokenId"
+      ]
+    },
+    "0x89c62b64": {
+      "name": "ERC721InvalidOwner",
+      "types": [
+        "address"
+      ],
+      "names": [
+        "owner"
+      ]
+    },
     "0x91beda24": {
       "name": "InsufficientAllowance",
       "types": [
@@ -165,6 +234,15 @@ const ABI = {
       "name": "NothingToClaim",
       "types": [],
       "names": []
+    },
+    "0xa9fbf51f": {
+      "name": "ERC721InvalidApprover",
+      "types": [
+        "address"
+      ],
+      "names": [
+        "approver"
+      ]
     },
     "0xbf8157f3": {
       "name": "BadTimeRange",
