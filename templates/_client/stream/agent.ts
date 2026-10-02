@@ -152,9 +152,10 @@ export const handlers: Record<string, Handler> = {
     const { ctx, token, contract } = await setup();
     const amount = parseAmount(input, token);
     checkAmount(policy, amount);
+    // Approve first, then fix the start: a slow approval cannot eat into startInSeconds and make the start land in the past.
+    const approvalTxHash = await ensureFunds(ctx, token.address, contract, amount);
     const start = BigInt(await chainNow(ctx)) + startIn;
     const stop = start + duration;
-    const approvalTxHash = await ensureFunds(ctx, token.address, contract, amount);
     const { hash, receipt } = await write(ctx, { address: contract, abi, functionName: "create", args: [recipient, amount, start, stop] });
     const [created] = parseEventLogs({ abi, logs: receipt.logs, eventName: "StreamCreated" });
     return {

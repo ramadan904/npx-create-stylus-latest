@@ -192,6 +192,17 @@
   #gas.reveal:not(.in) .gbar i > span { animation-play-state: paused; }
   @media (prefers-reduced-motion: reduce) { .gbar i > span { animation: none; } }
 
+  /* ---- the live agent demo ---- */
+  .al-plan { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 6px; font-size: 13px; }
+  .al-plan code { padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--glass); color: var(--c5); }
+  .al-plan i { color: var(--muted); font-style: normal; }
+  #agent-live .agent-log { margin-top: 14px; }
+  #agent-live .astep .out { word-break: break-word; }
+  .astep .txs a, .al-sum a { color: var(--accent); }
+  .al-sum { margin: 4px 0 0; padding: 12px 14px; border-radius: 12px; font-size: 14px; word-break: break-word;
+    border: 1px solid color-mix(in srgb, var(--ok) 45%, var(--line)); background: color-mix(in srgb, var(--ok) 8%, transparent); }
+  #al-run:not(:disabled) { animation: beacon 2.4s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { #al-run { animation: none !important; } }
   /* ---- the agent replay ---- */
   #agent-meta a { color: var(--accent); }
   ol.agent-log { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 10px; }
@@ -244,7 +255,8 @@
     <div class="term"><div class="bar3" aria-hidden="true"><b></b><b></b><b></b></div><pre><span class="p">$ </span>npx create-stylus-latest my-app -t stream --with-client
 <span class="p">$ </span>npx create-stylus-latest pay -t escrow --usdg --network arbitrum-one</pre></div>
     <div class="btns">
-      <a class="btn primary" href="https://github.com/ramadan904/npx-create-stylus-latest">View on GitHub</a>
+      <a class="btn primary" href="#agent-live">&#9654; Run the AI agent demo</a>
+      <a class="btn" href="https://github.com/ramadan904/npx-create-stylus-latest">View on GitHub</a>
       <a class="btn" href="https://github.com/ramadan904/npx-create-stylus-latest/blob/main/README.md">Read the docs</a>
       <a class="btn" href="https://codespaces.new/ramadan904/npx-create-stylus-latest?quickstart=1">Open in Codespaces</a>
     </div>
@@ -262,6 +274,23 @@
     <div class="stat"><div class="n" data-count="98">98</div><div class="l">agent end-to-end checks on a real node</div></div>
     <div class="stat"><div class="n" data-count="13">13</div><div class="l">CI jobs green on every change</div></div>
     <div class="stat"><div class="n" data-count="12">12</div><div class="l">on-chain checks of USDG and RPCs</div></div>
+  </section>
+
+  <section class="pg" id="agent-live">
+    <h2>Run the AI agent demo</h2>
+    <p class="sub">The stream template ships a JSON tool interface for AI agents. Press the button and its three tool calls run
+      for real from your wallet on Arbitrum Sepolia: <b>open a stream</b> of 10 test BUIDL, <b>pay out</b> what has been earned
+      after a few seconds, then <b>cancel</b> and split the rest. Under each call is the exact JSON the agent gets back, with the
+      transaction on Arbiscan. The page runs a port of the agent's own code, and CI checks every result against the agent CLI's
+      output, field by field.</p>
+    <div class="al-plan" aria-hidden="true"><code>open_stream</code><i>&rarr;</i><code>wait</code><i>&rarr;</i><code>withdraw_from_stream</code><i>&rarr;</i><code>cancel_stream</code></div>
+    <label for="al-to">Recipient (anyone but you; test tokens sent here are gone)</label>
+    <input id="al-to" autocomplete="off" spellcheck="false">
+    <div class="wallet" style="margin-top:12px"><button class="btn primary" id="al-run" disabled>&#9654; Run the agent demo</button>
+      <span class="note" id="al-status">Needs a wallet with a little Arbitrum Sepolia ETH and 10 BUIDL (free from the
+        <a href="#playground" style="color:var(--accent)">faucet</a>). Your wallet asks 3 or 4 times; about a minute in all.</span></div>
+    <ol class="agent-log" id="al-log" aria-live="polite"></ol>
+    <p class="al-sum" id="al-summary" hidden></p>
   </section>
 
   <section>
@@ -339,9 +368,9 @@
   </section>
 
   <section id="agent">
-    <h2>Watch an AI agent move money</h2>
-    <p class="sub">The stream, escrow and vault templates ship a JSON tool interface an AI agent can call. This is a real run
-      of it, replayed: each tool call the agent sent and the result it got back. The overspend and the early refund were
+    <h2>Replay: a longer agent run</h2>
+    <p class="sub">No wallet needed. The stream, escrow and vault templates all ship a JSON tool interface an AI agent can call.
+      This is a real run of it on a local Arbitrum node, recorded in CI and replayed: each tool call the agent sent and the result it got back. The overspend and the early refund were
       refused before anything was signed, by limits the operator set and permission checks the contract answers.</p>
     <div class="wallet"><button class="btn primary" id="agent-play" disabled>Replay</button>
       <span class="note" id="agent-meta">Loading the recorded run…</span></div>
@@ -617,5 +646,6 @@ CONTRACTS.forEach(build);
 <script src="playground.js"></script>
 <script src="fx.js"></script>
 <script src="agent-demo.js"></script>
+<script src="agent-live.js"></script>
 </body>
 </html>
