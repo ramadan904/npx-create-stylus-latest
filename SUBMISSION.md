@@ -2,6 +2,8 @@
 
 **Arbitrum Open House Singapore Online Buildathon**
 
+**Live site and playground:** https://npx-create-stylus-latest-web-mocha.vercel.app/
+
 ## One line
 
 `npx create-stylus-latest` scaffolds a Stylus (Rust) smart contract project that builds, tests and deploys on the
@@ -239,7 +241,8 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
   `0x91336c54f5df938fdd1ac36d0ce08bc1f6e327bb`. Earlier versions (used by the playground): escrow
   `0x5c3766164e3a2d4abb61f605879c18234b36a60e`, stream `0xa97f7f79dd79b6c72c8daa452f68baf1ca7bade5`,
   faucet `0x05bdd4d122896a638f7ff41ed58c7d90a84142d8` holding 500,000 BUIDL (details in the Evidence section above).
-- The playground (`web/`): take BUIDL from the faucet, then stream, escrow or use the vault from your own wallet.
+- The playground (https://npx-create-stylus-latest-web-mocha.vercel.app/, source in `web/`): take BUIDL from the faucet, then stream, escrow or use the vault from your
+  own wallet on Arbitrum Sepolia.
 
 ## Roadmap
 
