@@ -6,7 +6,8 @@
 // stylus-tools crate does when it boots its own dev node: become chain owner, zero the L1 price so the CREATE2 factory's
 // presigned transaction fits, deploy that factory, then deploy StylusDeployer through it.
 //
-// Env: RPC_URL (default http://127.0.0.1:8547), CHAIN_ID (default 412346).
+// Env: RPC_URL (default http://127.0.0.1:8547), CHAIN_ID (default 412346), FUNDER_KEY (a funded key; needed when the
+// node was started with FUND_ADDRESS, because that flag replaces the default funding of the chain owner below).
 import { readFileSync } from "node:fs";
 import { createPublicClient, createWalletClient, defineChain, concatHex, http, parseAbi, parseEther } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -45,6 +46,17 @@ if (await hasCode(STYLUS_DEPLOYER)) {
 }
 
 console.log("Installing the helper contracts on the dev node");
+if ((await pub.getBalance({ address: owner.address })) < parseEther("0.5")) {
+  if (!process.env.FUNDER_KEY) {
+    throw new Error(`The chain owner ${owner.address} has no ETH on this node. Set FUNDER_KEY to a funded key (the key you passed as FUND_ADDRESS).`);
+  }
+  const funder = privateKeyToAccount(process.env.FUNDER_KEY);
+  const hash = await createWalletClient({ account: funder, chain, transport: http(rpc) }).sendTransaction({
+    to: owner.address,
+    value: parseEther("1"),
+  });
+  await ok(hash, "funded the chain owner");
+}
 await ok(
   await wallet.writeContract({
     address: ARB_DEBUG,

@@ -79,6 +79,7 @@ jobs:
         env:
           RPC_URL: http://127.0.0.1:8547
           CHAIN_ID: "412346"
+          FUNDER_KEY: ${{ env.E2E_KEY }}
         run: node setup-devnode.mjs
       - name: Deploy the token, the stream contract and the escrow
         run: |
