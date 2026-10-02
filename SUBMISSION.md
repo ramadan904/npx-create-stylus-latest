@@ -90,8 +90,7 @@ One command produces a working project and a deploy path that has already been r
     `claimable`; run https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37020525139) and escrow
     `0x91336c54f5df938fdd1ac36d0ce08bc1f6e327bb` (https://sepolia.arbiscan.io/address/0x91336c54f5df938fdd1ac36d0ce08bc1f6e327bb;
     with `canRelease` / `canRefund`; run https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37024243460).
-    In both, the client read back `token()` equal to BUIDL and zero streams / deals. The playground still points at the
-    earlier pair above.
+    In both, the client read back `token()` equal to BUIDL and zero streams / deals. The playground uses this pair.
   - Faucet: `0x05bdd4d122896a638f7ff41ed58c7d90a84142d8`
     (https://sepolia.arbiscan.io/address/0x05bdd4d122896a638f7ff41ed58c7d90a84142d8), the `faucet` template constructed with
     the token above, 100 BUIDL per drip and a one-hour cooldown, then stocked with 500,000 BUIDL in the same run (block
@@ -238,9 +237,10 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
   6 decimals; all four RPC chain ids): https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37006932863/job/110837305641
 - Real-token end-to-end flows (40 checks): https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36989741978
 - Arbitrum Sepolia, current versions: stream `0x8f318a966bbc75bca53d9251e86ae8b97d578712`, escrow
-  `0x91336c54f5df938fdd1ac36d0ce08bc1f6e327bb`. Earlier versions (used by the playground): escrow
-  `0x5c3766164e3a2d4abb61f605879c18234b36a60e`, stream `0xa97f7f79dd79b6c72c8daa452f68baf1ca7bade5`,
-  faucet `0x05bdd4d122896a638f7ff41ed58c7d90a84142d8` holding 500,000 BUIDL (details in the Evidence section above).
+  `0x91336c54f5df938fdd1ac36d0ce08bc1f6e327bb`, both used by the playground; faucet
+  `0x05bdd4d122896a638f7ff41ed58c7d90a84142d8` holding 500,000 BUIDL. Earlier versions: escrow
+  `0x5c3766164e3a2d4abb61f605879c18234b36a60e`, stream `0xa97f7f79dd79b6c72c8daa452f68baf1ca7bade5` (details in the
+  Evidence section above).
 - The playground (https://npx-create-stylus-latest-web-mocha.vercel.app/, source in `web/`): take BUIDL from the faucet, then stream, escrow or use the vault from your
   own wallet on Arbitrum Sepolia.
 
