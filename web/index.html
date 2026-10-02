@@ -171,6 +171,36 @@
   /* readings that come live from the chain breathe */
   .live:not(.err) { animation: breathe 2.2s ease-in-out infinite; }
   @keyframes breathe { 50% { text-shadow: 0 0 10px var(--ok); opacity: .75; } }
+  /* ---- the agent replay ---- */
+  #agent-meta a { color: var(--accent); }
+  ol.agent-log { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 10px; }
+  .astep { background: var(--glass); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0;
+    animation: rise .35s ease both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+  .astep .say { font-size: 14px; margin-bottom: 8px; }
+  .astep .call { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; min-width: 0; }
+  .astep .fn { color: var(--c5); word-break: break-all; min-width: 0; }
+  .astep .fn::after { content: "▍"; color: var(--c3); animation: blink 1s steps(1) infinite; }
+  .astep.done .fn::after { content: ""; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .who { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px;
+    color: #fff; background: var(--c1); }
+  .who.escrow { background: var(--c2); } .who.vault { background: var(--c4); }
+  .pol { font: 11.5px ui-monospace, Menlo, Consolas, monospace; color: var(--warn); border: 1px dashed var(--warn);
+    border-radius: 6px; padding: 1px 6px; max-width: 100%; word-break: break-all; }
+  .astep .out { display: none; margin-top: 8px; font-size: 13.5px; }
+  .astep.done .out { display: block; animation: rise .3s ease both; }
+  .astep .mark { font-weight: 800; margin-right: 6px; }
+  .astep.good .mark { color: var(--ok); text-shadow: 0 0 10px var(--ok); }
+  .astep.bad .mark { color: var(--warn); text-shadow: 0 0 10px var(--warn); }
+  .astep.bad { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+  .astep.good.done { border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); }
+  .astep .sum { word-break: break-word; }
+  .astep details { margin-top: 6px; } .astep summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
+  .astep details pre { margin-top: 6px; font-size: 12px; max-height: 260px; overflow: auto; }
+  @media (prefers-reduced-motion: reduce) {
+    .astep, .astep.done .out { animation: none; } .astep .fn::after { content: ""; }
+  }
   @media (prefers-reduced-motion: reduce) {
     .term, .pg, #connect, #pg-drip, .live, .stat::after { animation: none !important; }
     .stat::after { display: none; }
@@ -285,6 +315,18 @@
     </div>
     <h3 style="margin:22px 0 0;font-size:16px">Your activity</h3>
     <ol class="activity" id="pg-activity"><li id="pg-activity-empty">Transactions you send from this page appear here, with links to Arbiscan.</li></ol>
+  </section>
+
+  <section id="agent">
+    <h2>Watch an AI agent move money</h2>
+    <p class="sub">The stream, escrow and vault templates ship a JSON tool interface an AI agent can call. This is a real run
+      of it, replayed: each tool call the agent sent and the result it got back. The overspend and the early refund were
+      refused before anything was signed, by limits the operator set and permission checks the contract answers.</p>
+    <div class="wallet"><button class="btn primary" id="agent-play" disabled>Replay</button>
+      <span class="note" id="agent-meta">Loading the recorded run…</span></div>
+    <ol class="agent-log" id="agent-log" aria-live="polite"></ol>
+    <pre>cd my-stream/client &amp;&amp; npx tsx --env-file=../.env src/agent-cli.ts --tools   # hand these to your LLM
+npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"open_stream","recipient":"0x…","amountTokens":"25","durationSeconds":3600}'</pre>
   </section>
 
   <section id="deploy-your-own">
@@ -516,5 +558,6 @@ CONTRACTS.forEach(build);
 <script src="abi.js"></script>
 <script src="playground.js"></script>
 <script src="fx.js"></script>
+<script src="agent-demo.js"></script>
 </body>
 </html>

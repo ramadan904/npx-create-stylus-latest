@@ -33,8 +33,13 @@ const succeeded = (result, label) => check(result.ok === true, label, result.err
 const same = (a, b, label) => check(a === b, `${label} (got ${a}, want ${b})`);
 const sleep = (s) => new Promise((r) => setTimeout(r, s * 1000));
 
+// Every intent and its exact JSON result, in order. Printed at the end as one AGENT_TRANSCRIPT line; the project site
+// replays it (web/agent-demo.json) so visitors see a real agent run, not a mock-up.
+const transcript = [];
+
 /** Calls the agent CLI the way a tool-use harness would and returns the parsed JSON result. */
 function call(dir, contract, intent, extraEnv = {}) {
+  const started = Date.now();
   const r = spawnSync("npx", ["tsx", "src/agent-cli.ts", JSON.stringify(intent)], {
     cwd: `${dir}/client`,
     encoding: "utf8",
@@ -47,6 +52,8 @@ function call(dir, contract, intent, extraEnv = {}) {
     throw new Error(`The agent CLI did not print JSON for ${JSON.stringify(intent)}:\n${r.stdout}\n${r.stderr}`);
   }
   check((r.status === 0) === result.ok, `exit code ${r.status} agrees with ok=${result.ok} for ${intent.intent}`);
+  const policy = Object.fromEntries(Object.entries(extraEnv).filter(([k]) => k.startsWith("AGENT_")));
+  transcript.push({ contract: dir.split("/").pop().replace(/^app-/, ""), intent, policy, result, ms: Date.now() - started });
   return result;
 }
 
@@ -184,6 +191,7 @@ async function main() {
   check(asOther.ok && asOther.account === payee && asOther.deposit === "0", "get_vault reads any account's deposit", asOther);
 
   console.log(`\nE2E AGENT FLOWS PASSED (${checks} checks)`);
+  console.log(`AGENT_TRANSCRIPT ${JSON.stringify({ checks, chainId, steps: transcript })}`);
 }
 
 main().catch((err) => {
