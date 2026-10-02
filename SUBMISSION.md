@@ -61,6 +61,11 @@ One command produces a working project and a deploy path that has already been r
     above; the client read back `token()` equal to it and zero deals. Only construction and reads were exercised
     on-chain; the deal logic is covered by the unit and property tests, not by a live deal. Run:
     https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36937262867
+  - Stream: `0xa97f7f79dd79b6c72c8daa452f68baf1ca7bade5`
+    (https://sepolia.arbiscan.io/address/0xa97f7f79dd79b6c72c8daa452f68baf1ca7bade5), constructed with the token
+    above; the client read back `token()` equal to it and zero streams. Only construction and reads were exercised
+    on-chain; stream vesting, withdraw and cancel are covered by the unit and property tests, not by a live stream.
+    Run: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36984521709
   - Superseded: an earlier ERC-20 (`0x45a81630ec980e8517e032d5c069a24011dedba5`) and vault
     (`0xcd542511830dbaec42f753f3b96ed8c8c66dc953`) used a callable `init()` that anyone could have called first.
     They remain on the testnet but are not the recommended design, which is why the templates changed.
