@@ -96,6 +96,22 @@ const curve = await page.evaluate(() => {
 });
 check(JSON.stringify(curve) === JSON.stringify(["0", "0", "25", "450", "975", "1000", "1000"]), "earnedAt matches the contract (450 of 1000 at 18 s of 40)", JSON.stringify(curve));
 
+// 6. the recorded agent run: every step renders with its result, it links its CI run, and it fits a phone.
+// Reduced motion makes the replay render at once instead of animating.
+let demo = null;
+try { demo = JSON.parse(readFileSync(web + "agent-demo.json", "utf8")); } catch { console.log("skip agent replay checks: web/agent-demo.json not generated yet"); }
+if (demo) {
+check(demo.steps.length >= 10 && demo.steps.every((s) => s.result && typeof s.result.ok === "boolean" && s.ok === s.result.ok), "agent-demo.json holds verbatim results for every step");
+check(/^https:\/\/github\.com\/ramadan904\/npx-create-stylus-latest\/actions\/runs\/\d+/.test(demo.source), "the replay names the CI run it was recorded from", demo.source);
+const still = await browser.newPage({ viewport: { width: 390, height: 900 }, reducedMotion: "reduce" });
+still.on("pageerror", (e) => errors.push("pageerror: " + e.message));
+await still.goto(`http://localhost:${process.env.PORT || 8811}/`, { waitUntil: "load" });
+await still.waitForTimeout(1500);
+check(await still.locator("#agent-log .astep.done").count() === demo.steps.length, "the agent replay renders every step and its result");
+check(await still.locator("#agent-log .astep.bad").count() === demo.steps.filter((s) => !s.ok).length, "refused steps are shown as refusals");
+check(!(await still.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)), "no horizontal scroll at phone width with the replay shown");
+check(errors.filter((e) => !/Failed to fetch|net::|ERR_|fetch/i.test(e)).length === 0, "still no script errors", JSON.stringify(errors));
+}
 
 await browser.close(); server.close();
 console.log(fail ? `\n${fail} FAILED` : "\nall page checks passed");
