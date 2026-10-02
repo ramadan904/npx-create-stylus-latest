@@ -13,6 +13,8 @@ test tokens from the faucet, open a payment stream and watch it pay out, fund an
 
 ## Deploy on Vercel
 
+Live: https://npx-create-stylus-latest-web-mocha.vercel.app/
+
 1. Sign in at https://vercel.com with GitHub, then **Add New → Project** and import this repository.
 2. Set **Root Directory** to `web`. Framework preset: **Other**. Leave the build and output settings empty.
 3. Deploy. Vercel redeploys on every push to the production branch (`main` by default).

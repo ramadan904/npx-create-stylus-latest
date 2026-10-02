@@ -3,7 +3,7 @@
 Scaffold an [Arbitrum Stylus](https://docs.arbitrum.io/stylus/gentle-introduction) (Rust) smart contract project in
 one command, **always pinned to the newest `stylus-sdk`**.
 
-Built for the Arbitrum Open House Singapore Online Buildathon.
+Built for the Arbitrum Open House Singapore Online Buildathon. **Live site and playground:** https://npx-create-stylus-latest-web-mocha.vercel.app/
 
 ```bash
 npx create-stylus-latest my-app            # prompts for a template

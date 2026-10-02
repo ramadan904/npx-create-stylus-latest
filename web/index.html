@@ -70,24 +70,111 @@
   ol.activity a { color: var(--accent); }
   footer { border-top: 1px solid var(--line); padding: 22px 0 40px; color: var(--muted); font-size: 13.5px; }
   footer a { color: var(--accent); text-decoration: none; }
+
+  /* ---- colour and motion ------------------------------------------------------------------------------------------ */
+  :root { --c1: #28a0f0; --c2: #a855f7; --c3: #ff4fa3; --c4: #ff9b3d; --c5: #2de2c4;
+    --glow: rgba(40,160,240,.35); --glass: rgba(21,27,36,.72); }
+  @media (prefers-color-scheme: light) {
+    :root { --c1: #0b6fd6; --c2: #7c3aed; --c3: #db2777; --c4: #ea580c; --c5: #0d9488;
+      --glow: rgba(11,111,214,.22); --glass: rgba(255,255,255,.78); }
+  }
+  body { background: var(--bg); overflow-x: hidden; }
+  .aurora { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+  .aurora i { position: absolute; width: 60vmax; height: 60vmax; border-radius: 50%; filter: blur(80px); opacity: .28;
+    animation: drift 22s ease-in-out infinite alternate; }
+  .aurora i:nth-child(1) { background: var(--c1); top: -25vmax; left: -15vmax; }
+  .aurora i:nth-child(2) { background: var(--c2); top: 10vmax; right: -25vmax; animation-duration: 28s; }
+  .aurora i:nth-child(3) { background: var(--c3); bottom: -30vmax; left: 10vmax; animation-duration: 34s; opacity: .2; }
+  @keyframes drift { to { transform: translate(8vmax, 6vmax) scale(1.15); } }
+  .grad { background: linear-gradient(90deg, var(--c1), var(--c2), var(--c3), var(--c4), var(--c1));
+    background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: flow 9s linear infinite; }
+  @keyframes flow { to { background-position: 300% 0; } }
+  .tag { border-color: transparent; background: linear-gradient(var(--glass), var(--glass)) padding-box,
+    linear-gradient(90deg, var(--c1), var(--c3)) border-box; border: 1px solid transparent; }
+  .tag .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); margin-right: 7px;
+    box-shadow: 0 0 0 0 var(--ok); animation: ping 2s infinite; vertical-align: 1px; }
+  @keyframes ping { 70% { box-shadow: 0 0 0 8px transparent; } }
+  .term { border-radius: 12px; padding: 1px; background: linear-gradient(120deg, var(--c1), var(--c2), var(--c3));
+    box-shadow: 0 10px 40px -10px var(--glow); }
+  .term .bar3 { display: flex; gap: 6px; padding: 9px 12px; background: var(--code); border-radius: 11px 11px 0 0; }
+  .term .bar3 b { width: 10px; height: 10px; border-radius: 50%; background: #ff5f57; }
+  .term .bar3 b:nth-child(2) { background: #febc2e; } .term .bar3 b:nth-child(3) { background: #28c840; }
+  .term pre { border: 0; border-radius: 0 0 11px 11px; }
+  .term pre .p { color: var(--c5); user-select: none; }
+  a.btn.primary, button.btn.primary { border-color: transparent; position: relative; overflow: hidden;
+    background: linear-gradient(110deg, var(--c1), var(--c2) 55%, var(--c3)); box-shadow: 0 6px 22px -8px var(--glow); }
+  a.btn.primary::after, button.btn.primary::after { content: ""; position: absolute; inset: 0;
+    background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.35) 50%, transparent 70%);
+    transform: translateX(-120%); transition: transform .7s; }
+  a.btn.primary:hover::after, button.btn.primary:hover::after { transform: translateX(120%); }
+  a.btn, button.btn { transition: transform .15s, box-shadow .15s; }
+  a.btn:hover, button.btn:not(:disabled):hover { transform: translateY(-2px); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 6px 0 4px; }
+  .stat { background: var(--glass); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); min-width: 0; }
+  .stat .n { font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+  .stat:nth-child(1) .n { color: var(--c1); } .stat:nth-child(2) .n { color: var(--c2); }
+  .stat:nth-child(3) .n { color: var(--c3); } .stat:nth-child(4) .n { color: var(--c4); }
+  .stat .l { color: var(--muted); font-size: 13px; }
+  h2 { display: inline-block; padding-bottom: 6px; background: linear-gradient(90deg, var(--c1), var(--c3)) no-repeat left bottom / 48px 3px; }
+  .card { background: var(--glass); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); position: relative;
+    transition: transform .2s, border-color .2s, box-shadow .2s; }
+  .card::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0;
+    transition: opacity .25s; background: radial-gradient(380px circle at var(--x, 50%) var(--y, 50%), var(--glow), transparent 45%); }
+  .card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--c2) 55%, var(--line));
+    box-shadow: 0 14px 40px -18px var(--glow); }
+  .card:hover::before { opacity: 1; }
+  .card > * { position: relative; }
+  .ico { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; margin-bottom: 10px;
+    font-size: 19px; color: #fff; background: linear-gradient(135deg, var(--a, var(--c1)), var(--b, var(--c2))); }
+  .bar > span { background: linear-gradient(90deg, var(--c5), var(--c1), var(--c2)); box-shadow: 0 0 12px var(--glow); }
+  .big { background: linear-gradient(90deg, var(--c5), var(--c1)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+  .chip { font-size: 12.5px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--glass); }
+  .chip b { font-weight: 600; } .chip::before { content: "\25CF"; margin-right: 6px; color: var(--k, var(--c1)); }
+  .grid.four { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
+  footer { border-image: linear-gradient(90deg, var(--c1), var(--c2), var(--c3)) 1; border-top-width: 1px; border-top-style: solid; }
+  @media (prefers-reduced-motion: reduce) {
+    .aurora i, .grad, .tag .dot { animation: none; }
+    .reveal { opacity: 1; transform: none; transition: none; }
+    .card, a.btn, button.btn { transition: none; }
+  }
 </style>
 </head>
 <body>
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
 <div class="wrap">
   <header>
-    <span class="tag">Arbitrum Open House Singapore &middot; Online Buildathon</span>
-    <h1>Scaffold a Stylus project that deploys on the first try.</h1>
+    <span class="tag"><span class="dot"></span>Arbitrum Open House Singapore &middot; Online Buildathon</span>
+    <h1>Scaffold a Stylus project that <span class="grad">deploys on the first try.</span></h1>
     <p class="lead">create-stylus-latest generates a Rust smart contract project for Arbitrum, pinned to the newest
       <code>stylus-sdk</code> and its matching <code>alloy</code> version, with deploy scripts that have been run on a live network.</p>
-    <pre>git clone https://github.com/ramadan904/npx-create-stylus-latest
-cd npx-create-stylus-latest
-node bin/create-stylus-latest.js my-app -t counter --with-client</pre>
+    <div class="term"><div class="bar3" aria-hidden="true"><b></b><b></b><b></b></div><pre><span class="p">$ </span>git clone https://github.com/ramadan904/npx-create-stylus-latest
+<span class="p">$ </span>cd npx-create-stylus-latest
+<span class="p">$ </span>node bin/create-stylus-latest.js my-app -t stream --with-client --usdg --network arbitrum-one</pre></div>
     <div class="btns">
       <a class="btn primary" href="https://github.com/ramadan904/npx-create-stylus-latest">View on GitHub</a>
       <a class="btn" href="https://github.com/ramadan904/npx-create-stylus-latest/blob/main/README.md">Read the docs</a>
     </div>
+    <div class="chips">
+      <span class="chip" style="--k:var(--c1)"><b>Arbitrum Sepolia</b> live</span>
+      <span class="chip" style="--k:var(--c4)"><b>Robinhood Chain</b> testnet</span>
+      <span class="chip" style="--k:var(--c5)"><b>Paxos USDG</b> on-chain verified</span>
+      <span class="chip" style="--k:var(--c3)"><b>AI-agent</b> ready</span>
+    </div>
     <p class="note" style="margin-top:12px">An <code>npx</code> package is planned; until it is published, run the CLI from the repository as shown.</p>
   </header>
+
+  <section class="stats" aria-label="Verified in CI">
+    <div class="stat"><div class="n" data-count="6">6</div><div class="l">contract templates, each with property tests</div></div>
+    <div class="stat"><div class="n" data-count="98">98</div><div class="l">agent end-to-end checks on a real node</div></div>
+    <div class="stat"><div class="n" data-count="13">13</div><div class="l">CI jobs green on every change</div></div>
+    <div class="stat"><div class="n" data-count="12">12</div><div class="l">on-chain checks of USDG and RPCs</div></div>
+  </section>
 
   <section>
     <h2>Live on Arbitrum Sepolia</h2>
@@ -199,11 +286,12 @@ RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh -- 0xYourTokenAddress</pre>
   <section>
     <h2>What you get</h2>
     <div class="grid four">
-      <div class="card"><h3>Always current</h3><p>Reads the crates.io index at scaffold time and pins the newest stable SDK with the exact alloy version it needs. Works offline with a known-good fallback.</p></div>
-      <div class="card"><h3>Six templates</h3><p><code>counter</code>, <code>erc20</code>, <code>vault</code>, <code>escrow</code>, <code>stream</code> and <code>faucet</code>, each with unit tests and a model-based property test that checks every token movement.</p></div>
-      <div class="card"><h3>Agent-native</h3><p>Stream, escrow and vault ship a JSON tool interface an AI agent can call, with spending limits enforced before signing and the contract's own error names in every failure.</p></div>
-      <div class="card"><h3>Deploy that works</h3><p><code>deploy.sh</code> handles the lockfile, RPC override, gas cap and key hand-off. <code>devnode.sh</code> starts a local Nitro node for free validation.</p></div>
-      <div class="card"><h3>Typed client</h3><p><code>--with-client</code> adds a viem script that fails loudly on reverted transactions.</p></div>
+      <div class="card"><div class="ico" style="--a:var(--c4);--b:var(--c3)" aria-hidden="true">&#9889;</div><h3>Always current</h3><p>Reads the crates.io index at scaffold time and pins the newest stable SDK with the exact alloy version it needs. Works offline with a known-good fallback.</p></div>
+      <div class="card"><div class="ico" style="--a:var(--c1);--b:var(--c2)" aria-hidden="true">&#129521;</div><h3>Six templates</h3><p><code>counter</code>, <code>erc20</code>, <code>vault</code>, <code>escrow</code>, <code>stream</code> and <code>faucet</code>, each with unit tests and a model-based property test that checks every token movement.</p></div>
+      <div class="card"><div class="ico" style="--a:var(--c2);--b:var(--c3)" aria-hidden="true">&#129302;</div><h3>Agent-native</h3><p>Stream, escrow and vault ship a JSON tool interface an AI agent can call, with spending limits enforced before signing and the contract's own error names in every failure.</p></div>
+      <div class="card"><div class="ico" style="--a:var(--c5);--b:var(--c1)" aria-hidden="true">&#128640;</div><h3>Deploy that works</h3><p><code>deploy.sh</code> handles the lockfile, RPC override, gas cap and key hand-off. <code>devnode.sh</code> starts a local Nitro node for free validation.</p></div>
+      <div class="card"><div class="ico" style="--a:var(--c3);--b:var(--c4)" aria-hidden="true">&#128187;</div><h3>Typed client</h3><p><code>--with-client</code> adds a viem script that fails loudly on reverted transactions.</p></div>
+      <div class="card"><div class="ico" style="--a:var(--c5);--b:var(--c2)" aria-hidden="true">&#128181;</div><h3>USDG &amp; Robinhood</h3><p><code>--usdg</code> wires vault, escrow and stream to Paxos USDG; <code>--network</code> targets Arbitrum or Robinhood Chain. Addresses checked on-chain in CI; mainnet deploys need <code>MAINNET=1</code>.</p></div>
     </div>
   </section>
 
@@ -390,5 +478,6 @@ CONTRACTS.forEach(build);
 </script>
 <script src="abi.js"></script>
 <script src="playground.js"></script>
+<script src="fx.js"></script>
 </body>
 </html>
