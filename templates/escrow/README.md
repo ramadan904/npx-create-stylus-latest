@@ -22,6 +22,32 @@ transfer reverts the whole call. The zero address is never treated as an arbiter
 Not audited, and deliberately small: fee-on-transfer and rebasing tokens are not handled, there is no partial release,
 and the arbiter is trusted by both sides. Decide those before holding real funds.
 
+## Use it from an AI agent
+
+The escrow contract is easy for a program to call, and it can tell you what is allowed before you try: `canRelease(id, who)`
+and `canRefund(id, who)` use the very same rule as `release` and `refund`, so an agent checks instead of sending a
+transaction that would revert. `--with-client` adds a ready-made, JSON-in/JSON-out agent interface in `client/src`:
+
+```bash
+cd client && npm install
+npx tsx --env-file=../.env src/agent-cli.ts --tools          # the tool schemas, ready to give to an LLM
+npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"create_escrow","seller":"0x...","amount":"5000000","deadlineSeconds":86400}'
+npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"check_escrow_permissions","id":"1"}'
+npx tsx --env-file=../.env src/agent-example.ts              # a runnable example agent
+```
+
+Five intents: `create_escrow`, `get_escrow`, `check_escrow_permissions`, `release_escrow`, `refund_escrow`. Amounts are decimal
+strings, never floats: `amount` in the token's base units, or `amountTokens` in whole tokens (`"5"` is 5 USDG), which
+the agent converts exactly with the token's own `decimals()` and refuses if it has more decimal places than the token.
+Results show both (`amountTokens: "5 USDG"`). Every call prints one JSON object, `{ "ok": true, ... }` or
+`{ "ok": false, "error": { "code": "NotAuthorized", "message": "...", "hint": "..." } }`, where `code` is the contract's own custom
+error name, so an agent can branch on it.
+
+**Limit what an agent can spend.** Set these in `../.env`; they are enforced before anything is signed:
+`AGENT_MAX_AMOUNT` (largest single amount, base units) and `AGENT_ALLOWED_COUNTERPARTIES` (comma-separated addresses it may deal with,
+including the arbiter). Use a dedicated key holding only what the agent may spend, never your main wallet. `GAS_LIMIT` skips gas
+estimation, which is only useful on an idle local dev node (errors then lose their contract error name).
+
 ## Develop
 
 ```bash
@@ -38,3 +64,19 @@ cp .env.example .env                # add a funded testnet PRIVATE_KEY
 ./scripts/deploy.sh --check-only
 ./scripts/deploy.sh -- 0xTokenAddress
 ```
+
+Scaffolded with `--usdg`? The token is already in `.env` as `TOKEN_ADDRESS` (Paxos USDG on Arbitrum One and Robinhood
+Chain; on testnets, where Paxos publishes none, put a stand-in ERC-20 there), so deploy with
+`./scripts/deploy.sh -- env:TOKEN_ADDRESS`. USDG has 6 decimals: 1 USDG = `1000000`. On a mainnet `deploy.sh` also
+needs `MAINNET=1`; these templates are unaudited, so start on a testnet.
+
+### Deploy locally first
+
+```bash
+cp .env.example .env     # a throwaway PRIVATE_KEY is fine; the dev node funds it
+./scripts/devnode.sh     # needs Docker and Node: starts a dev node, funds your key, installs the Stylus deployer
+RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh -- 0xTokenAddress
+docker rm -f stylus-devnode
+```
+
+Constructor deploys need that deployer contract, which a bare dev node does not have; `devnode.sh` installs it.

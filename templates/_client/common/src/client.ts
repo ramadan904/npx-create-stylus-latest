@@ -9,8 +9,8 @@ function need(name: string): string {
 }
 
 // Reads RPC_URL, CONTRACT_ADDRESS, CHAIN_ID and (for writes) PRIVATE_KEY from ../.env.
-// Defaults to Arbitrum Sepolia. Set RPC_URL and CHAIN_ID to target another Arbitrum chain
-// (a local dev node is 412346; use Robinhood Chain's values from its docs).
+// Defaults to Arbitrum Sepolia. RPC_URL and CHAIN_ID come from ../.env, which `--network` fills in for the chain you
+// picked (a local dev node is 412346, Robinhood Chain testnet 46630).
 export function connect() {
   const rpc = process.env.RPC_URL ?? arbitrumSepolia.rpcUrls.default.http[0];
   const chainId = Number(process.env.CHAIN_ID ?? arbitrumSepolia.id);

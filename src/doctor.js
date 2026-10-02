@@ -41,6 +41,7 @@ function majorMinor(v) {
 // Everything is injectable so it can be tested without Rust, Docker or a network.
 export async function runDoctor({
   rpc,
+  network,
   run_ = run,
   nodeVersion = process.versions.node,
   fetchImpl = fetch,
@@ -94,6 +95,9 @@ export async function runDoctor({
       line(BAD, `${p.host} is not reachable`, p.notes.join("; "));
     } else {
       line(OK, `${p.host} answers (chain id ${p.chainId})`);
+      if (network && p.chainId !== network.chainId) {
+        line(BAD, `expected chain id ${network.chainId} for ${network.label}`, "This RPC is a different chain: check RPC_URL or --network");
+      }
       if (!p.arbitrum) line(BAD, "not an Arbitrum chain", "ArbSys (0x64) did not answer; Stylus needs an Arbitrum Nitro chain");
       else if (!p.stylus) line(BAD, "Stylus is not enabled", "ArbWasm.stylusVersion() returned 0 or reverted");
       else line(OK, `Stylus enabled (ArbWasm version ${p.stylusVersion})`);

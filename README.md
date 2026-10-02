@@ -10,6 +10,15 @@ npx create-stylus-latest my-app            # prompts for a template
 npx create-stylus-latest my-token -t erc20 # skip the prompt
 ```
 
+> **Status:** the package is publish-ready and publishes automatically when a version tag is pushed (see
+> [RELEASING.md](RELEASING.md)), but it has **not been published to npm yet**, so `npx create-stylus-latest` will return a 404 until
+> the first release. Until then run it from a clone:
+>
+> ```bash
+> git clone https://github.com/ramadan904/npx-create-stylus-latest && cd npx-create-stylus-latest
+> node bin/create-stylus-latest.js ../my-app -t escrow
+> ```
+
 ## Why "latest"
 
 Stylus templates go stale quickly: SDK APIs and the `alloy` version they depend on change between releases, and a
@@ -28,6 +37,8 @@ build here rather than in your project.
 | `erc20` | ERC-20 token with events, custom Solidity errors and tests. |
 | `vault` | Stablecoin vault for any ERC-20 (USDC, USDG): deposits and withdrawals through cross-contract calls, with mocked-token tests. |
 | `escrow` | Stablecoin escrow for payments between parties or agents: buyer-funded deals, release by buyer or arbiter, refund by seller or arbiter, and a buyer-side refund after a deadline. Unit tests plus a model-based property test. |
+| `stream` | Stablecoin payment streams (payroll, vesting, agent subscriptions): linear per-second payouts, keeper-friendly `withdraw`, and `cancel` that splits earned from remaining. Unit tests plus a model-based property test that tracks every token movement. |
+| `faucet` | Rate-limited ERC-20 faucet for testnets and demos: anyone can `drip` once per cooldown, and `availableAt(who)` says when. Lets visitors try your dApp without asking you for tokens. Unit tests plus a model-based property test. |
 
 ## What you get in the generated project
 
@@ -35,7 +46,36 @@ build here rather than in your project.
 - Unit tests that run with plain `cargo test` (the SDK's `TestVM`, no node needed)
 - `scripts/export-abi.sh` to print the Solidity interface
 - `scripts/deploy.sh` to validate and deploy with `cargo-stylus` (key passed via a private temp file, not argv)
-- `Stylus.toml` and a pinned `rust-toolchain.toml` (1.91.0 + wasm target) matching `cargo stylus new`, `.env.example` defaulting to Arbitrum Sepolia, `.gitignore`
+- `Stylus.toml` and a pinned `rust-toolchain.toml` (1.91.0 + wasm target) matching `cargo stylus new`, `.env.example` for the network you chose (Arbitrum Sepolia by default), `.gitignore`
+
+## Networks and USDG
+
+```bash
+npx create-stylus-latest pay -t stream --robinhood                    # Robinhood Chain testnet (chain 46630)
+npx create-stylus-latest pay -t escrow --network arbitrum-one --usdg  # Arbitrum One, wired to Paxos USDG
+```
+
+`--network` takes `arbitrum-sepolia` (default), `arbitrum-one`, `robinhood-testnet`, `robinhood` or `devnode`, and writes
+that chain's `RPC_URL` and `CHAIN_ID` into `.env.example`; `--robinhood` is short for `--network robinhood-testnet`.
+
+`--usdg` (for `vault`, `escrow` and `stream`) puts the token in `.env.example` as `TOKEN_ADDRESS`, and you deploy with
+`./scripts/deploy.sh -- env:TOKEN_ADDRESS`. The addresses are Paxos's own
+([USDG on main networks](https://docs.paxos.com/guides/stablecoin/usdg/mainnet)):
+
+| Network | Chain id | USDG (6 decimals) |
+| --- | --- | --- |
+| Arbitrum One | 42161 | `0x004B506865409877C9fA29bfb1ebA929984B9bbC` |
+| Robinhood Chain | 4663 | `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168` |
+
+Paxos publishes testnet USDG only on Ethereum Sepolia, Ink Sepolia and X Layer testnet
+([USDG on test networks](https://docs.paxos.com/guides/stablecoin/usdg/testnet)), **not on Arbitrum Sepolia or Robinhood
+Chain testnet**. On those, `--usdg` leaves `TOKEN_ADDRESS` empty with a note rather than guess: deploy the `erc20`
+template as a stand-in dollar, and switch to the real address when you go to mainnet. CI (the `networks` job,
+`e2e/verify-networks.mjs`) checks every entry against the chain: the RPC's chain id, and that each USDG address holds a
+contract reporting symbol `USDG` and 6 decimals.
+
+`deploy.sh` asks the RPC which chain it is. On a mainnet (Arbitrum One, Nova, Robinhood Chain) it refuses to deploy
+unless you set `MAINNET=1`, because these templates are unaudited; `--check-only` is always allowed.
 
 ## Optional TypeScript client
 
@@ -55,7 +95,7 @@ the contract does not define.
 ## Options
 
 ```
--t, --template <name>  counter | erc20 | vault | escrow (default: counter)
+-t, --template <name>  counter | erc20 | vault | escrow | stream | faucet (default: counter)
 -y, --yes              Skip prompts and use defaults
     --no-git           Do not run git init
     --with-client      Also generate a TypeScript (viem) client in client/

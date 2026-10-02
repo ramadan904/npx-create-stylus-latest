@@ -42,6 +42,18 @@ pub enum EscrowError {
     TokenTransferFailed(TokenTransferFailed),
 }
 
+// Test-only record of every token movement as `(from, to, amount)`. The test VM answers any call it has no exact
+// mock for with success, so without this a wrong payout amount would go unnoticed.
+#[cfg(test)]
+thread_local! {
+    static MOVES: core::cell::RefCell<Vec<(Address, Address, U256)>> = const { core::cell::RefCell::new(Vec::new()) };
+}
+
+#[cfg(test)]
+fn take_moves() -> Vec<(Address, Address, U256)> {
+    MOVES.with(|m| core::mem::take(&mut *m.borrow_mut()))
+}
+
 /// Deal lifecycle. A deal is funded the moment it is created, so there is no "unfunded" state to get stuck in.
 pub const FUNDED: u8 = 1;
 pub const RELEASED: u8 = 2;
@@ -93,6 +105,18 @@ impl Escrow {
             self.deadlines.get(id),
             self.state(id),
         )
+    }
+
+    /// Whether `who` could `release` this deal right now: it must be funded and `who` must be the buyer or the arbiter.
+    /// An agent can check this instead of sending a transaction that would revert. `release` uses the same rule.
+    pub fn can_release(&self, id: U256, who: Address) -> bool {
+        self.state(id) == FUNDED && self.may_release(id, who)
+    }
+
+    /// Whether `who` could `refund` this deal right now: it must be funded and `who` must be the seller or the arbiter,
+    /// or the buyer once the deadline has passed. `refund` uses the same rule.
+    pub fn can_refund(&self, id: U256, who: Address) -> bool {
+        self.state(id) == FUNDED && self.may_refund(id, who)
     }
 
     /// The caller (buyer) locks `amount` of the token for `seller` and gets back a deal id.
@@ -152,7 +176,7 @@ impl Escrow {
     pub fn release(&mut self, id: U256) -> Result<(), EscrowError> {
         self.require_funded(id)?;
         let caller = self.vm().msg_sender();
-        if caller != self.buyers.get(id) && !self.is_arbiter(id, caller) {
+        if !self.may_release(id, caller) {
             return Err(EscrowError::NotAuthorized(NotAuthorized {}));
         }
         let (seller, amount) = (self.sellers.get(id), self.amounts.get(id));
@@ -168,11 +192,7 @@ impl Escrow {
         self.require_funded(id)?;
         let caller = self.vm().msg_sender();
         let buyer = self.buyers.get(id);
-        let expired = U256::from(self.vm().block_timestamp()) >= self.deadlines.get(id);
-        let allowed = caller == self.sellers.get(id)
-            || self.is_arbiter(id, caller)
-            || (caller == buyer && expired);
-        if !allowed {
+        if !self.may_refund(id, caller) {
             return Err(EscrowError::NotAuthorized(NotAuthorized {}));
         }
         let amount = self.amounts.get(id);
@@ -200,6 +220,19 @@ impl Escrow {
         }
     }
 
+    /// Who may release: the buyer or the arbiter. Callers check that the deal is funded.
+    fn may_release(&self, id: U256, who: Address) -> bool {
+        who == self.buyers.get(id) || self.is_arbiter(id, who)
+    }
+
+    /// Who may refund: the seller or the arbiter at any time, and the buyer once the deadline has passed.
+    fn may_refund(&self, id: U256, who: Address) -> bool {
+        let expired = U256::from(self.vm().block_timestamp()) >= self.deadlines.get(id);
+        who == self.sellers.get(id)
+            || self.is_arbiter(id, who)
+            || (who == self.buyers.get(id) && expired)
+    }
+
     /// The zero address means "no arbiter", so it must never match a caller.
     fn is_arbiter(&self, id: U256, who: Address) -> bool {
         let arbiter = self.arbiters.get(id);
@@ -207,6 +240,8 @@ impl Escrow {
     }
 
     fn pull(&mut self, from: Address, to: Address, amount: U256) -> Result<(), EscrowError> {
+        #[cfg(test)]
+        MOVES.with(|m| m.borrow_mut().push((from, to, amount)));
         let token = IERC20::new(self.token.get());
         let call = Call::new_mutating(self);
         let ok = token
@@ -220,6 +255,11 @@ impl Escrow {
     }
 
     fn push(&mut self, to: Address, amount: U256) -> Result<(), EscrowError> {
+        #[cfg(test)]
+        MOVES.with(|m| {
+            let this = self.vm().contract_address();
+            m.borrow_mut().push((this, to, amount));
+        });
         let token = IERC20::new(self.token.get());
         let call = Call::new_mutating(self);
         let ok = token
@@ -288,7 +328,15 @@ mod tests {
             .create(SELLER, U256::from(500u64), U256::from(DEADLINE), ARBITER)
             .unwrap_or_else(|_| panic!("create failed"));
         assert_eq!(id, U256::from(1));
+        assert_eq!(
+            take_moves(),
+            vec![(BUYER, vm.contract_address(), U256::from(500u64))]
+        );
         (vm, escrow)
+    }
+
+    fn paid(vm: &TestVM, to: Address, amount: u64) -> (Address, Address, U256) {
+        (vm.contract_address(), to, U256::from(amount))
     }
 
     #[test]
@@ -352,11 +400,13 @@ mod tests {
         mock_push(&vm, SELLER, 500);
         vm.set_sender(BUYER);
         assert!(escrow.release(U256::from(1)).is_ok());
+        assert_eq!(take_moves(), vec![paid(&vm, SELLER, 500)]);
         assert_eq!(escrow.deal(U256::from(1)).5, RELEASED);
-        // Settled deals cannot be settled again, in either direction.
+        // Settled deals cannot be settled again, in either direction, and a rejected call moves nothing.
         assert!(escrow.release(U256::from(1)).is_err());
         vm.set_sender(SELLER);
         assert!(escrow.refund(U256::from(1)).is_err());
+        assert!(take_moves().is_empty());
     }
 
     #[test]
@@ -370,8 +420,10 @@ mod tests {
                 "{who} must not release"
             );
         }
+        assert!(take_moves().is_empty());
         vm.set_sender(ARBITER);
         assert!(escrow.release(U256::from(1)).is_ok());
+        assert_eq!(take_moves(), vec![paid(&vm, SELLER, 500)]);
     }
 
     #[test]
@@ -398,7 +450,45 @@ mod tests {
             escrow.refund(U256::from(1)).is_ok(),
             "buyer can refund once the deadline has passed"
         );
+        assert_eq!(take_moves(), vec![paid(&vm, BUYER, 500)]);
         assert_eq!(escrow.deal(U256::from(1)).5, REFUNDED);
+    }
+
+    #[test]
+    fn can_release_and_can_refund_predict_who_is_allowed() {
+        let (vm, escrow) = funded();
+        let id = U256::from(1);
+        for (who, release, refund) in [
+            (BUYER, true, false),
+            (SELLER, false, true),
+            (ARBITER, true, true),
+            (STRANGER, false, false),
+        ] {
+            assert_eq!(escrow.can_release(id, who), release, "{who} can_release");
+            assert_eq!(escrow.can_refund(id, who), refund, "{who} can_refund");
+        }
+        vm.set_block_timestamp(DEADLINE);
+        assert!(
+            escrow.can_refund(id, BUYER),
+            "the buyer can refund once the deadline has passed"
+        );
+        assert!(!escrow.can_refund(id, STRANGER));
+        assert!(
+            !escrow.can_release(U256::from(99u64), BUYER),
+            "unknown deals allow nothing"
+        );
+    }
+
+    #[test]
+    fn nothing_is_allowed_once_a_deal_is_settled() {
+        let (vm, mut escrow) = funded();
+        mock_push(&vm, SELLER, 500);
+        vm.set_sender(BUYER);
+        assert!(escrow.release(U256::from(1)).is_ok());
+        for who in [BUYER, SELLER, ARBITER] {
+            assert!(!escrow.can_release(U256::from(1), who));
+            assert!(!escrow.can_refund(U256::from(1), who));
+        }
     }
 
     #[test]
@@ -407,6 +497,7 @@ mod tests {
         mock_push(&vm, BUYER, 500);
         vm.set_sender(SELLER);
         assert!(escrow.refund(U256::from(1)).is_ok());
+        assert_eq!(take_moves(), vec![paid(&vm, BUYER, 500)]);
     }
 
     #[test]
@@ -447,8 +538,9 @@ mod tests {
 }
 
 /// Model-based property test: random sequences of create / release / refund by random callers at random times are
-/// checked against a reference model. Funds are conserved (escrowed = created - settled) and a rejected call never
-/// changes a deal.
+/// checked against a reference model. Every token movement is recorded and compared with the model's exact
+/// expectation, the contract's token balance is tracked from those movements and must equal the funded deals, and a
+/// rejected call never changes a deal.
 #[cfg(test)]
 mod properties {
     use super::*;
@@ -539,6 +631,9 @@ mod properties {
 
             let mut deals: Vec<Model> = Vec::new();
             let (mut locked, mut paid_out) = (0u64, 0u64);
+            let this = vm.contract_address();
+            let mut held: i128 = 0; // tokens the contract holds, from the recorded movements
+            take_moves(); // drop anything left by an earlier case on this thread
 
             for op in ops {
                 match op {
@@ -554,7 +649,10 @@ mod properties {
                         let result = escrow.create(ACTORS[seller], U256::from(amount), U256::from(deadline), arbiter_addr);
                         let should_pass = buyer != seller && amount > 0 && deadline > now;
                         prop_assert_eq!(result.is_ok(), should_pass);
+                        let expected_moves = if should_pass { vec![(ACTORS[buyer], this, U256::from(amount))] } else { vec![] };
+                        prop_assert_eq!(take_moves(), expected_moves);
                         if should_pass {
+                            held += amount as i128;
                             prop_assert!(matches!(result, Ok(id) if id == U256::from(deals.len() as u64 + 1)));
                             deals.push(Model { buyer, seller, arbiter, amount, deadline, state: FUNDED });
                             locked += amount;
@@ -582,9 +680,14 @@ mod properties {
                             }
                         }).unwrap_or(false);
 
+                        let predicted = if is_release { escrow.can_release(U256::from(id), ACTORS[who]) } else { escrow.can_refund(U256::from(id), ACTORS[who]) };
+                        prop_assert_eq!(predicted, expected, "can_release / can_refund must predict the outcome");
                         let ok = if is_release { escrow.release(U256::from(id)) } else { escrow.refund(U256::from(id)) }.is_ok();
                         prop_assert_eq!(ok, expected);
+                        let expected_moves = if ok { vec![(this, to, U256::from(amount))] } else { vec![] };
+                        prop_assert_eq!(take_moves(), expected_moves);
                         if ok {
+                            held -= amount as i128;
                             let d = &mut deals[idx.unwrap()];
                             d.state = if is_release { RELEASED } else { REFUNDED };
                             locked -= d.amount;
@@ -597,6 +700,7 @@ mod properties {
                 // Conservation: everything ever locked is either still funded or has been paid out exactly once.
                 let still_funded: u64 = deals.iter().filter(|d| d.state == FUNDED).map(|d| d.amount).sum();
                 prop_assert_eq!(still_funded, locked);
+                prop_assert_eq!(held, locked as i128, "the contract holds exactly the funded deals");
                 let created: u64 = deals.iter().map(|d| d.amount).sum();
                 prop_assert_eq!(created, locked + paid_out);
                 prop_assert_eq!(escrow.deal_count(), U256::from(deals.len() as u64));

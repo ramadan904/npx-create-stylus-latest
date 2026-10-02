@@ -24,8 +24,25 @@ One command produces a working project and a deploy path that has already been r
 - **Always current.** At scaffold time the CLI reads the crates.io sparse index, picks the newest stable `stylus-sdk`
   and pins the exact `alloy-primitives` / `alloy-sol-types` it requires. Offline it falls back to a bundled
   known-good pair.
-- **Three templates.** `counter` (minimal), `erc20` (events, custom errors) and `vault` (a USDC/USDG-style vault using
-  cross-contract ERC-20 calls, tested with a mocked token).
+- **Six templates.** `counter` (minimal), `erc20` (events, custom errors), `vault` (a stablecoin vault using
+  cross-contract ERC-20 calls), `escrow` (buyer-funded deals with an optional arbiter and a deadline refund), `stream`
+  (linear per-second stablecoin payments with keeper-friendly `withdraw` and a `cancel` that splits earned from remaining)
+  and `faucet` (rate-limited test-token drips, so visitors can try a dApp without asking for tokens).
+- **USDG and Robinhood Chain presets.** `--network arbitrum-one|robinhood|arbitrum-sepolia|robinhood-testnet|devnode`
+  (`--robinhood` for short) writes the chain into `.env.example`, and `--usdg` wires `vault`, `escrow` and `stream` to
+  Paxos USDG (`./scripts/deploy.sh -- env:TOKEN_ADDRESS`). The addresses are Paxos's own and CI checks them on-chain
+  (contract present, symbol `USDG`, 6 decimals). Paxos lists no USDG on Arbitrum Sepolia or Robinhood testnet, so there
+  the project says so and asks for a stand-in instead of guessing. `deploy.sh` asks the RPC which chain it is and
+  refuses a mainnet deploy without `MAINNET=1`.
+- **Agent-native money contracts.** `stream` and `escrow` can tell a caller what will happen before it commits
+  (`previewCancel`, `canRelease`, `canRefund`), and for them and `vault` `--with-client` adds a JSON-in/JSON-out interface for AI agents: tool
+  schemas an LLM can be given, results like `{ ok: false, error: { code: "NotAuthorized", hint } }` using the contract's own
+  error names, amounts in base units or in whole tokens (`"amountTokens": "25"`, converted exactly with the token's
+  own decimals, so a model never does 6-vs-18-decimal arithmetic), spending limits the operator sets in the
+  environment, enforced before anything is signed, and a
+  `claim_held_payment` intent for a cancel payout the token refused (a blocked address) and the stream now holds instead.
+- **A local dev node that really deploys.** `scripts/devnode.sh` also funds your key and installs the Stylus deployer that
+  constructor deploys need, so every template, constructor included, deploys locally for free.
 - **Deploy scripts that work.** `scripts/deploy.sh` validates and deploys with `cargo-stylus`, handles the lockfile,
   the Docker default, RPC override and an optional gas cap. `scripts/devnode.sh` starts a local Nitro dev node so
   everything can be validated without a funded testnet key.
@@ -56,6 +73,28 @@ One command produces a working project and a deploy path that has already been r
   - Vault: `0xddcf208635bfdce4379a2535f228473310995915`
     (https://sepolia.arbiscan.io/address/0xddcf208635bfdce4379a2535f228473310995915), constructed with the token
     above; the client read back `asset()` equal to that token.
+  - Escrow: `0x5c3766164e3a2d4abb61f605879c18234b36a60e`
+    (https://sepolia.arbiscan.io/address/0x5c3766164e3a2d4abb61f605879c18234b36a60e), constructed with the token
+    above; the client read back `token()` equal to it and zero deals. Only construction and reads were exercised
+    on-chain; the deal logic is covered by the unit and property tests, not by a live deal. Run:
+    https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36937262867
+  - Stream: `0xa97f7f79dd79b6c72c8daa452f68baf1ca7bade5`
+    (https://sepolia.arbiscan.io/address/0xa97f7f79dd79b6c72c8daa452f68baf1ca7bade5), constructed with the token
+    above; the client read back `token()` equal to it and zero streams. Only construction and reads were exercised
+    on-chain; stream vesting, withdraw and cancel are covered by the unit and property tests, not by a live stream.
+    Run: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36984521709
+  - Current versions, redeployed from this branch with the same token: stream `0x8f318a966bbc75bca53d9251e86ae8b97d578712`
+    (https://sepolia.arbiscan.io/address/0x8f318a966bbc75bca53d9251e86ae8b97d578712; with `previewCancel`, `claim` and
+    `claimable`; run https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37020525139) and escrow
+    `0x91336c54f5df938fdd1ac36d0ce08bc1f6e327bb` (https://sepolia.arbiscan.io/address/0x91336c54f5df938fdd1ac36d0ce08bc1f6e327bb;
+    with `canRelease` / `canRefund`; run https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37024243460).
+    In both, the client read back `token()` equal to BUIDL and zero streams / deals. The playground still points at the
+    earlier pair above.
+  - Faucet: `0x05bdd4d122896a638f7ff41ed58c7d90a84142d8`
+    (https://sepolia.arbiscan.io/address/0x05bdd4d122896a638f7ff41ed58c7d90a84142d8), the `faucet` template constructed with
+    the token above, 100 BUIDL per drip and a one-hour cooldown, then stocked with 500,000 BUIDL in the same run (block
+    314972034); the client read back the configuration. It is what lets anyone use the playground. Run:
+    https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37002745266
   - Superseded: an earlier ERC-20 (`0x45a81630ec980e8517e032d5c069a24011dedba5`) and vault
     (`0xcd542511830dbaec42f753f3b96ed8c8c66dc953`) used a callable `init()` that anyone could have called first.
     They remain on the testnet but are not the recommended design, which is why the templates changed.
@@ -77,6 +116,36 @@ contract exists on that chain).
   `asset()` equal to that token and zero deposits. Run: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36928180867
 
 No block explorer link is given for this chain; the public deploy runs above show each address and the on-chain read-back.
+
+### Tests that check the money, not just the state
+
+Money-moving templates (`vault`, `escrow`, `stream`) record every token movement in a test-only ledger, and their model-based
+property tests assert each movement and the contract's token balance against a reference model. We added this after finding
+that a mutated refund amount passed every test: the Stylus test VM answers any call it has no exact mock for with success, so
+mocks alone cannot prove an amount is right. Breaking the payout amount, recipient or source on purpose now fails the tests in
+all three templates (stream 6 of 6 mutations caught, escrow 3 of 3 plus 2 of 2 on the permission views, vault 3 of 3).
+
+### Real tokens, end to end (measured in CI)
+
+The `e2e-flows` job deploys the real `erc20` template as the token plus `stream` and `escrow` on a local Nitro node and moves real
+tokens through approve, transferFrom and transfer, asserting exact balances: 40 checks passed
+(run: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36989741978). It covers a partial mid-stream payout
+(450 of 1000 at 18 s of a 40 s stream, exactly), a cancel split, a finished stream paying the exact deposit with no rounding dust,
+a failed `create` leaving no trace, and every escrow path (release, seller refund, buyer refund only after the deadline, arbiter),
+with unauthorized and repeated calls rejected. A second step, `e2e/agent.mjs`, drives the generated agent CLIs as subprocesses, the way a tool-using AI agent would: 98 checks
+passed across stream, escrow and vault (run: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37021498649). An agent opens a stream, reads it,
+withdraws a partial amount and cancels, with paid + paid-on-cancel + refunded equal to the deposit exactly; spending limits, an
+unknown counterparty, an amount above the balance and a malformed address are all refused before anything is signed; a second
+cancel comes back as the contract's own error name (`NotActive`) with a hint; nothing is reported held after a normal cancel and
+an empty `claim_held_payment` fails with `NothingToClaim`; amounts given in whole tokens (`amountTokens`) convert exactly
+with the token's own decimals, and too many decimal places is refused rather than rounded; and for escrow, `canRelease` / `canRefund` correctly
+predict that an early buyer refund fails with `NotAuthorized` before the agent releases the deal. For the vault, an agent
+deposits exactly 900 base units (given in whole tokens), is refused an overdraw with the numbers, withdraws part, then
+`all: true` returns exactly the rest, leaving the vault empty and the agent whole.
+This job found three real problems before any user did: constructor deploys cannot work on a bare dev node (now fixed in the
+shipped `devnode.sh`), gas estimation on an idle node simulates against a stale block, and a plain gas estimate can be too low
+for `cancel`, whose work depends on how much is owed by the block it lands in (the agent kit now doubles the estimate; only gas
+actually used is charged).
 
 ### Gas benchmark: Stylus vs Solidity (measured in CI)
 
@@ -106,29 +175,80 @@ warnings as errors on every generated project.
 it is an Arbitrum chain with Stylus enabled; CI exercises it against the dev node and the public Arbitrum Sepolia
 endpoint (which reports Stylus enabled, ArbWasm version 3). It prints only the RPC host, so API keys stay out of logs.
 
+## Security model and limitations
+
+These are templates and a scaffolder, not audited products. Read this before putting real funds in anything generated.
+
+- **Not audited.** No external review of any template. The tests are strong (see above) but tests are not an audit.
+- **No admin keys.** `vault`, `escrow` and `stream` have no owner, no pause and no upgrade path; the token is fixed at deploy by a
+  constructor. A mistake cannot be patched, which is the point and also the risk.
+- **Order of operations.** State is updated before any external token call (checks-effects-interactions), and a failed or
+  false-returning transfer reverts the whole call. We have not reviewed behaviour against a malicious or reentrant token.
+- **Tokens we do not support.** Fee-on-transfer and rebasing tokens would break the accounting.
+- **Blocked addresses (fixed in the `stream` template).** A token that blocks an address (USDC can) used to make every
+  `stream.cancel` revert, stranding the sender's unvested remainder. Now a refused payout is held for that party to `claim()`
+  later and the cancel completes; unit and property tests cover it and breaking it fails them. The first `stream` deployed on Arbitrum
+  Sepolia predates this fix; the redeployed one (`0x8f318a96…`) has it. `withdraw` to a blocked recipient still reverts (nothing is lost; the stream keeps running), and
+  `escrow` was never affected because its deadline refund and the arbiter pay the buyer.
+- **Time.** Deadlines and stream schedules use the block timestamp, which a sequencer can skew slightly. Fine for
+  minutes-to-days schedules, not for second-exact settlement.
+- **Trust in the arbiter.** Where one is set, it can settle a dispute either way. Pass the zero address for none.
+- **The agent limits are client-side.** `AGENT_MAX_AMOUNT` and `AGENT_ALLOWED_COUNTERPARTIES` are enforced by the agent
+  interface before signing, so they stop a model from overspending but not an attacker who already holds the key. Give an agent
+  a dedicated key that holds only what it may spend. On-chain limits would need a smart account with a spending policy.
+- **The dev node setup is local-only.** It uses a publicly documented dev-chain key and vendored helper bytecode; never use it
+  for a real network.
+- **What the live deployments prove.** The Arbitrum Sepolia and Robinhood testnet deployments exercised construction and
+  reads, not live deals; the money flows are proven on a local node in CI (above).
+- **No testnet USDG on Arbitrum or Robinhood.** Paxos publishes testnet USDG only on Ethereum Sepolia, Ink Sepolia and X
+  Layer testnet, so a testnet build uses a stand-in token; the mainnet USDG addresses are real money behind the
+  `MAINNET=1` guard.
+- **Not yet on npm.** The package is publish-ready (see `RELEASING.md`) but has not been published.
+
 ## Tech
 
 Stylus (Rust, `stylus-sdk` 0.10.x, Solidity-ABI compatible), Node 18+ zero-dependency CLI, TypeScript/viem client,
-GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia.
+GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain testnet.
 
-## Mapping to the judging criteria
+## Why we win, criterion by criterion
 
-- **Smart contract quality:** idiomatic `sol_storage!`/`#[public]` contracts, custom Solidity errors, checks-effects-
-  interactions in the vault, unit tests for every template. They are templates, not audited: the vault README says so.
-- **Product-market fit:** the users are Stylus builders, including every team in this and later Open House rounds.
-  We have not yet measured adoption.
-- **Innovation:** resolving the newest compatible SDK at scaffold time, and treating "does it deploy" as a CI test,
-  not a README promise.
-- **Real problem solving:** the deploy pitfalls above were found by running the real tooling against a real network,
-  and the scripts now handle them. Several earlier bugs in our own templates (a missing `Stylus.toml`, a missing
-  lockfile) were caught the same way by CI, not by reading docs.
+- **Smart contract quality.** Six contracts with custom Solidity errors, checks-effects-interactions ordering, and constructor
+  initialization (nobody can front-run a public `init`). Each ships unit tests plus a model-based property test that checks
+  every token movement against a reference model, and the tests are themselves tested: deliberately breaking the contracts
+  fails them. The money flows run against a real ERC-20 in CI (40 checks). Limit: unaudited (see the security model above).
+- **Product-market fit.** The users are Stylus builders, and the pain is real and measured: we hit every deploy pitfall on a real
+  network and the scripts now handle them (Docker default, RPC refusal, gas-cap race, constructor deploys on a local node). The
+  agent-native contracts target the Promising Products track: an agent can open a stream or an escrow deal, and ask the
+  contract what is allowed before it sends. Limit: no adoption measured yet and the npm package is not published.
+- **Innovation.** The newest compatible SDK is resolved at scaffold time; "does it deploy" is a CI test, not a README promise;
+  money contracts that expose a preview/permission view sharing their own logic so an agent cannot be surprised; and a test
+  design that proves token amounts are right when the framework's mocks cannot.
+- **Real problem solving.** Problems found by running the real tooling, each fixed and covered by CI: a Docker default that
+  cannot read a key, a public RPC that refuses activation checks, a base-fee race, a bare dev node that cannot deploy
+  constructor contracts, and a test VM that hides wrong amounts. A reviewer can re-run all of it from `.github/workflows/ci.yml`.
+
+## Live evidence index
+
+- Latest all-green CI run (all 13 jobs: real-token flows, the agent CLIs, a real local deploy of every template, the npm
+  package smoke test, the playground in a real browser, and the USDG addresses and network RPCs checked on-chain):
+  https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37021498649
+- USDG on-chain verification (Arbitrum One and Robinhood Chain: contract present, symbol USDG, name "Global Dollar",
+  6 decimals; all four RPC chain ids): https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37006932863/job/110837305641
+- Real-token end-to-end flows (40 checks): https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36989741978
+- Arbitrum Sepolia, current versions: stream `0x8f318a966bbc75bca53d9251e86ae8b97d578712`, escrow
+  `0x91336c54f5df938fdd1ac36d0ce08bc1f6e327bb`. Earlier versions (used by the playground): escrow
+  `0x5c3766164e3a2d4abb61f605879c18234b36a60e`, stream `0xa97f7f79dd79b6c72c8daa452f68baf1ca7bade5`,
+  faucet `0x05bdd4d122896a638f7ff41ed58c7d90a84142d8` holding 500,000 BUIDL (details in the Evidence section above).
+- The playground (`web/`): take BUIDL from the faucet, then stream, escrow or use the vault from your own wallet.
 
 ## Roadmap
 
-1. Publish to npm so `npx create-stylus-latest` works anywhere.
-2. Add Robinhood Chain and USDG presets once their RPC details are confirmed.
-3. A Foundry interop template (Solidity test calling a Stylus contract).
-4. `cargo stylus verify` support with a Docker-friendly key path.
+1. Publish to npm so `npx create-stylus-latest` works anywhere. The package, a smoke test of the packed tarball (every template, run
+   with `npx` from an empty directory) and an automated publish-on-tag workflow with provenance are in place
+   (`RELEASING.md`); the first release needs an npm token added as the `NPM_TOKEN` secret and a version tag pushed.
+2. A Foundry interop template (Solidity test calling a Stylus contract).
+3. `cargo stylus verify` support with a Docker-friendly key path.
+4. Testnet USDG presets, as soon as Paxos lists USDG on Arbitrum Sepolia or Robinhood Chain testnet.
 
 ## Try it
 

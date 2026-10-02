@@ -33,6 +33,18 @@ pub enum VaultError {
     TokenTransferFailed(TokenTransferFailed),
 }
 
+// Test-only record of every token movement as `(from, to, amount)`. The test VM answers any call it has no exact
+// mock for with success, so without this a wrong amount would go unnoticed.
+#[cfg(test)]
+thread_local! {
+    static MOVES: core::cell::RefCell<Vec<(Address, Address, U256)>> = const { core::cell::RefCell::new(Vec::new()) };
+}
+
+#[cfg(test)]
+fn take_moves() -> Vec<(Address, Address, U256)> {
+    MOVES.with(|m| core::mem::take(&mut *m.borrow_mut()))
+}
+
 sol_storage! {
     #[entrypoint]
     pub struct Vault {
@@ -80,14 +92,7 @@ impl Vault {
         self.deposits.setter(account).set(balance + amount);
         self.total_deposits.set(self.total_deposits.get() + amount);
 
-        let token = IERC20::new(self.asset.get());
-        let call = Call::new_mutating(self);
-        let ok = token
-            .transfer_from(self.vm(), call, account, vault, amount)
-            .map_err(|_| VaultError::TokenTransferFailed(TokenTransferFailed {}))?;
-        if !ok {
-            return Err(VaultError::TokenTransferFailed(TokenTransferFailed {}));
-        }
+        self.pull(account, vault, amount)?;
         self.vm().log(Deposited { account, amount });
         Ok(())
     }
@@ -109,16 +114,44 @@ impl Vault {
         self.deposits.setter(account).set(have - amount);
         self.total_deposits.set(self.total_deposits.get() - amount);
 
+        self.push(account, amount)?;
+        self.vm().log(Withdrawn { account, amount });
+        Ok(())
+    }
+}
+
+impl Vault {
+    fn pull(&mut self, from: Address, to: Address, amount: U256) -> Result<(), VaultError> {
+        #[cfg(test)]
+        MOVES.with(|m| m.borrow_mut().push((from, to, amount)));
         let token = IERC20::new(self.asset.get());
         let call = Call::new_mutating(self);
         let ok = token
-            .transfer(self.vm(), call, account, amount)
+            .transfer_from(self.vm(), call, from, to, amount)
             .map_err(|_| VaultError::TokenTransferFailed(TokenTransferFailed {}))?;
-        if !ok {
-            return Err(VaultError::TokenTransferFailed(TokenTransferFailed {}));
+        if ok {
+            Ok(())
+        } else {
+            Err(VaultError::TokenTransferFailed(TokenTransferFailed {}))
         }
-        self.vm().log(Withdrawn { account, amount });
-        Ok(())
+    }
+
+    fn push(&mut self, to: Address, amount: U256) -> Result<(), VaultError> {
+        #[cfg(test)]
+        MOVES.with(|m| {
+            let this = self.vm().contract_address();
+            m.borrow_mut().push((this, to, amount));
+        });
+        let token = IERC20::new(self.asset.get());
+        let call = Call::new_mutating(self);
+        let ok = token
+            .transfer(self.vm(), call, to, amount)
+            .map_err(|_| VaultError::TokenTransferFailed(TokenTransferFailed {}))?;
+        if ok {
+            Ok(())
+        } else {
+            Err(VaultError::TokenTransferFailed(TokenTransferFailed {}))
+        }
     }
 }
 
@@ -168,6 +201,7 @@ mod tests {
         vm.mock_call(TOKEN, pull.abi_encode(), U256::ZERO, Ok(yes()));
 
         assert!(vault.deposit(amount).is_ok());
+        assert_eq!(take_moves(), vec![(ALICE, vm.contract_address(), amount)]);
         assert_eq!(vault.deposit_of(ALICE), amount);
         assert_eq!(vault.total_deposits(), amount);
     }
@@ -196,6 +230,7 @@ mod tests {
         };
         vm.mock_call(TOKEN, pull.abi_encode(), U256::ZERO, Ok(yes()));
         assert!(vault.deposit(U256::from(100u64)).is_ok());
+        take_moves();
 
         let send = transferCall {
             to: ALICE,
@@ -203,15 +238,21 @@ mod tests {
         };
         vm.mock_call(TOKEN, send.abi_encode(), U256::ZERO, Ok(yes()));
         assert!(vault.withdraw(U256::from(40u64)).is_ok());
+        assert_eq!(
+            take_moves(),
+            vec![(vm.contract_address(), ALICE, U256::from(40u64))]
+        );
         assert_eq!(vault.deposit_of(ALICE), U256::from(60u64));
 
         assert!(vault.withdraw(U256::from(61u64)).is_err());
         assert!(vault.withdraw(U256::ZERO).is_err());
+        assert!(take_moves().is_empty(), "rejected withdrawals move nothing");
     }
 }
 
 /// Model-based property test: after any sequence of deposits and withdrawals, the vault must agree
-/// with a simple reference model, and a failed call must change nothing.
+/// with a simple reference model, every token movement must be exactly the one the model expects, the tokens held
+/// (tracked from those movements) must equal the deposits, and a failed call must change nothing.
 #[cfg(test)]
 mod properties {
     use super::*;
@@ -257,6 +298,9 @@ mod properties {
             prop_assert!(vault.constructor(TOKEN).is_ok());
 
             let mut model = [0u64; ACTORS.len()];
+            let this = vm.contract_address();
+            let mut held: i128 = 0; // tokens the vault holds, from the recorded movements
+            take_moves(); // drop anything left by an earlier case on this thread
             for op in ops {
                 match op {
                     Op::Deposit { who, amount } => {
@@ -269,7 +313,9 @@ mod properties {
                         vm.mock_call(TOKEN, pull.abi_encode(), U256::ZERO, Ok(yes()));
                         let ok = vault.deposit(U256::from(amount)).is_ok();
                         prop_assert_eq!(ok, amount > 0, "only a zero deposit may be rejected");
-                        if ok { model[who] += amount; }
+                        let expected_moves = if ok { vec![(ACTORS[who], this, U256::from(amount))] } else { vec![] };
+                        prop_assert_eq!(take_moves(), expected_moves);
+                        if ok { model[who] += amount; held += amount as i128; }
                     }
                     Op::Withdraw { who, amount } => {
                         vm.set_sender(ACTORS[who]);
@@ -277,13 +323,16 @@ mod properties {
                         vm.mock_call(TOKEN, send.abi_encode(), U256::ZERO, Ok(yes()));
                         let ok = vault.withdraw(U256::from(amount)).is_ok();
                         prop_assert_eq!(ok, amount > 0 && amount <= model[who], "withdraw succeeds only within the deposit");
-                        if ok { model[who] -= amount; }
+                        let expected_moves = if ok { vec![(this, ACTORS[who], U256::from(amount))] } else { vec![] };
+                        prop_assert_eq!(take_moves(), expected_moves);
+                        if ok { model[who] -= amount; held -= amount as i128; }
                     }
                 }
                 for (i, actor) in ACTORS.iter().enumerate() {
                     prop_assert_eq!(vault.deposit_of(*actor), U256::from(model[i]));
                 }
                 prop_assert_eq!(vault.total_deposits(), U256::from(model.iter().sum::<u64>()));
+                prop_assert_eq!(held, model.iter().sum::<u64>() as i128, "the vault holds exactly the deposits");
             }
         }
     }

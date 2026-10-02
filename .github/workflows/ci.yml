@@ -20,6 +20,46 @@ jobs:
           node-version: 22
       - run: npm test
 
+  web:
+    # The playground page: its generated selector table is current, and it works in a real browser (no script errors,
+    # phone layout, calldata identical to viem's, contract errors decoded into sentences).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+        working-directory: e2e
+      - run: node gen-web-abi.mjs --check
+        working-directory: e2e
+      - run: node web-check.mjs
+        working-directory: e2e
+
+  networks:
+    # The network table behind --network and --usdg, checked against the chains: each RPC's chain id, and that each
+    # Paxos USDG address holds a contract reporting symbol USDG and 6 decimals.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+        working-directory: e2e
+      - run: node verify-networks.mjs
+        working-directory: e2e
+
+  package:
+    # The package as npm would ship it: pack the tarball, run it with npx in an empty directory, scaffold every template.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: ./scripts/smoke-pack.sh
+
   probe:
     # Informational: what `doctor` reports for the public Arbitrum Sepolia endpoint (never a gate; the dev-node probe
     # in the e2e job is the one that gates).
@@ -31,6 +71,102 @@ jobs:
           node-version: 22
       - run: node bin/create-stylus-latest.js doctor --offline --rpc https://sepolia-rollup.arbitrum.io/rpc || true
 
+  e2e-flows:
+    # Real money flows on a local Nitro dev node: deploy the erc20 template as the token and the stream and escrow
+    # templates against it, then move real tokens through approve / transferFrom / transfer and check exact balances.
+    # The templates' unit tests mock the token; this is the only place the real cross-contract calls run.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: actions/cache/restore@v4
+        id: cargo-stylus
+        with:
+          path: ~/.cargo/bin/cargo-stylus
+          key: cargo-stylus-${{ runner.os }}-v1
+      - if: steps.cargo-stylus.outputs.cache-hit != 'true'
+        run: cargo install --locked cargo-stylus
+      - if: steps.cargo-stylus.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cargo/bin/cargo-stylus
+          key: cargo-stylus-${{ runner.os }}-v1
+      - run: npm install
+        working-directory: e2e
+      - name: Create a throwaway key
+        working-directory: e2e
+        run: |
+          key=0x$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')
+          echo "::add-mask::$key"
+          addr=$(node --input-type=module -e 'import { privateKeyToAddress } from "viem/accounts"; process.stdout.write(privateKeyToAddress(process.argv[1]))' "$key")
+          echo "E2E_KEY=$key" >> "$GITHUB_ENV"
+          echo "E2E_ADDR=$addr" >> "$GITHUB_ENV"
+      - name: Start a dev node that funds that key
+        run: |
+          mkdir -p "${{ runner.temp }}/node-app"
+          node bin/create-stylus-latest.js "${{ runner.temp }}/node-app" -t counter -y --no-git
+          # The generated devnode.sh prepares the node itself (installs the StylusDeployer, funds the chain owner from
+          # PRIVATE_KEY): this exercises the shipped script, on the harder path where FUND_ADDRESS leaves the owner unfunded.
+          cd "${{ runner.temp }}/node-app" && FUND_ADDRESS="$E2E_ADDR" PRIVATE_KEY="$E2E_KEY" ./scripts/devnode.sh
+      - name: Deploy the token, the stream contract and the escrow
+        run: |
+          deploy() {  # deploy <template> <constructor args...>; prints the address
+            local name="$1"; shift
+            local dir="${{ runner.temp }}/app-$name"
+            local flags=()
+            # stream and escrow also get their client, which includes the AI-agent interface that e2e/agent.mjs drives
+            if [ "${WITH_CLIENT:-}" = 1 ]; then flags+=(--with-client); fi
+            node bin/create-stylus-latest.js "$dir" -t "$name" -y --no-git ${flags[@]+"${flags[@]}"} >&2
+            if [ "${WITH_CLIENT:-}" = 1 ]; then (cd "$dir/client" && npm install --silent --no-audit --no-fund >&2); fi
+            printf 'RPC_URL=http://127.0.0.1:8547\nCHAIN_ID=412346\nPRIVATE_KEY=%s\n' "$E2E_KEY" > "$dir/.env"
+            # DOTENV_TOKEN: put the token in .env as TOKEN_ADDRESS, the way --usdg does, for an env:TOKEN_ADDRESS argument
+            if [ -n "${DOTENV_TOKEN:-}" ]; then echo "TOKEN_ADDRESS=$DOTENV_TOKEN" >> "$dir/.env"; fi
+            (cd "$dir" && ./scripts/deploy.sh -- "$@" > deploy.log 2>&1) || { sed 's/\x1b\[[0-9;]*m//g' "$dir/deploy.log" | tail -30 >&2; return 1; }
+            sed 's/\x1b\[[0-9;]*m//g' "$dir/deploy.log" | grep -iE 'deployed code at address' | grep -oE '0x[0-9a-fA-F]{40}' | head -1
+          }
+          token=$(deploy erc20 "Test Token" TST 1000000000000000000000000 "$E2E_ADDR")
+          test -n "$token" || { echo "token deploy failed"; exit 1; }
+          stream=$(WITH_CLIENT=1 DOTENV_TOKEN="$token" deploy stream env:TOKEN_ADDRESS)   # the token comes from .env
+          test -n "$stream" || { echo "stream deploy failed"; exit 1; }
+          escrow=$(WITH_CLIENT=1 deploy escrow "$token")
+          test -n "$escrow" || { echo "escrow deploy failed"; exit 1; }
+          vault=$(WITH_CLIENT=1 deploy vault "$token")
+          test -n "$vault" || { echo "vault deploy failed"; exit 1; }
+          echo "VAULT=$vault" >> "$GITHUB_ENV"
+          echo "VAULT_DIR=${{ runner.temp }}/app-vault" >> "$GITHUB_ENV"
+          faucet=$(deploy faucet "$token" 100 30)   # 100 base units per drip, 30 s cooldown
+          test -n "$faucet" || { echo "faucet deploy failed"; exit 1; }
+          echo "FAUCET=$faucet" >> "$GITHUB_ENV"
+          echo "TOKEN=$token" >> "$GITHUB_ENV"
+          echo "STREAM=$stream" >> "$GITHUB_ENV"
+          echo "ESCROW=$escrow" >> "$GITHUB_ENV"
+          echo "STREAM_DIR=${{ runner.temp }}/app-stream" >> "$GITHUB_ENV"
+          echo "ESCROW_DIR=${{ runner.temp }}/app-escrow" >> "$GITHUB_ENV"
+          echo "token $token, stream $stream, escrow $escrow"
+      - name: Run the flows
+        working-directory: e2e
+        env:
+          RPC_URL: http://127.0.0.1:8547
+          CHAIN_ID: "412346"
+        run: node flows.mjs
+      # The same contracts, driven the way an AI agent would: JSON intents through the generated agent CLI.
+      - name: Run the agent intents
+        working-directory: e2e
+        env:
+          RPC_URL: http://127.0.0.1:8547
+          CHAIN_ID: "412346"
+        run: node agent.mjs
+      - if: failure()
+        run: docker logs --tail 80 stylus-devnode || true
+
   templates:
     # Scaffold every template with live crates.io versions, then build, test and
     # validate the result against a local Nitro dev node.
@@ -38,7 +174,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        template: [counter, erc20, vault, escrow]
+        template: [counter, erc20, vault, escrow, stream, faucet]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -72,13 +208,30 @@ jobs:
         working-directory: ${{ runner.temp }}/app
       - run: cargo build --release --target wasm32-unknown-unknown --lib
         working-directory: ${{ runner.temp }}/app
-      - run: ./scripts/devnode.sh
+      # A random deploy key in .env: devnode.sh funds it and installs the StylusDeployer, like it does for a user.
+      - name: Start a dev node (the generated script prepares it)
         working-directory: ${{ runner.temp }}/app
+        run: |
+          echo "PRIVATE_KEY=0x$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')" > .env
+          ./scripts/devnode.sh
       # Catches missing Stylus.toml, size limits and activation errors.
       - run: ./scripts/deploy.sh --check-only
         working-directory: ${{ runner.temp }}/app
         env:
           RPC_URL: http://127.0.0.1:8547
+      # And a real deploy, constructor included, so the local dev node flow in the README actually works.
+      - name: Deploy to the dev node
+        working-directory: ${{ runner.temp }}/app
+        env:
+          RPC_URL: http://127.0.0.1:8547
+        run: |
+          case "${{ matrix.template }}" in
+            counter) args=() ;;
+            erc20) args=("Test Token" TST 1000 0x1111111111111111111111111111111111111111) ;;
+            faucet) args=(0x1111111111111111111111111111111111111111 100 60) ;;  # token, amount per drip, cooldown
+            *) args=(0x1111111111111111111111111111111111111111) ;;  # vault, escrow, stream: any non-zero token address
+          esac
+          if [ ${#args[@]} -gt 0 ]; then ./scripts/deploy.sh -- "${args[@]}"; else ./scripts/deploy.sh; fi
       - if: failure()
         run: docker logs --tail 60 stylus-devnode || true
 

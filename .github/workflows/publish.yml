@@ -1,0 +1,53 @@
+name: Publish to npm
+
+# Publishes when you push a version tag that matches package.json (see RELEASING.md):
+#   npm version patch && git push --follow-tags
+# Run it by hand with "dry run" ticked to pack, smoke-test and rehearse the publish without releasing anything.
+# Needs an npm automation token in the NPM_TOKEN repository secret (not needed for a dry run).
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: pack and smoke-test, but do not publish"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write # lets npm attach a provenance statement linking the package to this exact commit and workflow
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: The tag must match package.json
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version ${version}. Bump the version first (npm version ...)."
+            exit 1
+          fi
+      - run: npm test
+      # Run the tarball the way a user's npx would, for every template, before anything is published.
+      - run: ./scripts/smoke-pack.sh
+      - name: Rehearse the publish
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
+        run: npm publish --dry-run --access public
+      - name: Publish
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::error::Add an npm automation token as the NPM_TOKEN repository secret (npmjs.com > Access Tokens)."
+            exit 1
+          fi
+          npm publish --provenance --access public

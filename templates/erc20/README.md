@@ -35,3 +35,14 @@ Deploy with constructor arguments (everything after `--` goes to the constructor
 ```
 
 That mints 1,000,000 tokens (18 decimals) to your address. Then read it with the client (`--with-client`) or any tool.
+
+### Deploy locally first
+
+```bash
+cp .env.example .env     # a throwaway PRIVATE_KEY is fine; the dev node funds it
+./scripts/devnode.sh     # needs Docker and Node: starts a dev node, funds your key, installs the Stylus deployer
+RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh -- "My Token" MTK 1000000000000000000000000 0xYourAddress
+docker rm -f stylus-devnode
+```
+
+Constructor deploys need that deployer contract, which a bare dev node does not have; `devnode.sh` installs it.

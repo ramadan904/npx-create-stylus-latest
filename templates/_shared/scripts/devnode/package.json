@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "type": "module",
+  "description": "Dependencies of setup.mjs, which ./scripts/devnode.sh runs to prepare the local dev node",
+  "dependencies": {
+    "viem": "^2.57.2"
+  }
+}

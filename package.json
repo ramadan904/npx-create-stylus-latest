@@ -12,17 +12,38 @@
     "templates"
   ],
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "smoke:pack": "./scripts/smoke-pack.sh",
+    "prepublishOnly": "npm test"
   },
   "engines": {
     "node": ">=18.17"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ramadan904/npx-create-stylus-latest.git"
+  },
+  "homepage": "https://github.com/ramadan904/npx-create-stylus-latest#readme",
+  "bugs": {
+    "url": "https://github.com/ramadan904/npx-create-stylus-latest/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "keywords": [
     "arbitrum",
-    "stylus",
+    "arbitrum-stylus",
+    "cargo-stylus",
+    "create",
+    "erc20",
+    "escrow",
+    "payment-streams",
     "rust",
     "scaffold",
-    "create",
+    "smart-contracts",
+    "stablecoin",
+    "stylus",
+    "stylus-sdk",
     "web3"
   ],
   "license": "MIT"

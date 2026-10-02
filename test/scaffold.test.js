@@ -120,14 +120,16 @@ for (const template of Object.keys(TEMPLATES)) {
     const lib = fs.readFileSync(path.join(dir, "src/lib.rs"), "utf8");
     const contractFns = new Set([...lib.matchAll(/pub fn (\w+)/g)].map((m) => m[1].replace(/_(\w)/g, (_, c) => c.toUpperCase())));
     const main = fs.readFileSync(path.join(dir, "client/src/main.ts"), "utf8");
-    const abiFns = [...main.matchAll(/"function (\w+)\(/g)].map((m) => m[1]);
+    // Only the contract's own ABI (`const abi = parseAbi([...])`); a client may also call the token through another ABI.
+    const contractAbi = main.match(/const abi = parseAbi\(\[([\s\S]*?)\]\);/)?.[1] ?? "";
+    const abiFns = [...contractAbi.matchAll(/"function (\w+)\(/g)].map((m) => m[1]);
     assert.ok(abiFns.length > 0);
     for (const fn of abiFns) assert.ok(contractFns.has(fn), `client ABI lists ${fn}() which the contract does not define`);
   });
 }
 
-test("erc20, vault and escrow initialize through a constructor, not a callable init()", () => {
-  for (const template of ["erc20", "vault", "escrow"]) {
+test("erc20, vault, escrow, stream and faucet initialize through a constructor, not a callable init()", () => {
+  for (const template of ["erc20", "vault", "escrow", "stream", "faucet"]) {
     const dir = tmp();
     scaffold({ targetDir: dir, name: "my-app", template, versions });
     const lib = fs.readFileSync(path.join(dir, "src/lib.rs"), "utf8");
@@ -185,13 +187,63 @@ test("deploy.sh turns known cargo-stylus failures into plain-English hints and k
   assert.equal(run().status, 0);
 });
 
-test("erc20, vault and escrow ship property-based tests", () => {
-  for (const template of ["erc20", "vault", "escrow"]) {
+test("erc20, vault, escrow, stream and faucet ship property-based tests", () => {
+  for (const template of ["erc20", "vault", "escrow", "stream", "faucet"]) {
     const dir = tmp();
     scaffold({ targetDir: dir, name: "my-app", template, versions });
     assert.match(fs.readFileSync(path.join(dir, "Cargo.toml"), "utf8"), /proptest = /, `${template} needs proptest`);
     const lib = fs.readFileSync(path.join(dir, "src/lib.rs"), "utf8");
     assert.match(lib, /mod properties/, `${template} needs a properties test module`);
     assert.match(lib, /proptest!/, `${template} needs a proptest! block`);
+  }
+});
+
+test("devnode.sh ships the setup that constructor deploys need, and it is wired in", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const dir = tmp();
+  scaffold({ targetDir: dir, name: "my-app", template: "escrow", versions });
+  const devnode = path.join(dir, "scripts", "devnode");
+  for (const f of ["setup.mjs", "bytecode.json", "package.json"]) {
+    assert.ok(fs.existsSync(path.join(devnode, f)), `scripts/devnode/${f} is missing`);
+  }
+  const sh = fs.readFileSync(path.join(dir, "scripts/devnode.sh"), "utf8");
+  assert.match(sh, /devnode\/setup\.mjs/, "devnode.sh must run the setup");
+  assert.match(sh, /npm install/, "devnode.sh must install the setup's dependency");
+  assert.doesNotMatch(sh, /^\s*exit 0\s*$/m, "devnode.sh must not exit before the setup runs");
+  const check = spawnSync(process.execPath, ["--check", path.join(devnode, "setup.mjs")], { encoding: "utf8" });
+  assert.equal(check.status, 0, check.stderr);
+
+  const bytecode = JSON.parse(fs.readFileSync(path.join(devnode, "bytecode.json"), "utf8"));
+  for (const key of ["stylusDeployer", "create2FactoryRawTx"]) {
+    assert.match(bytecode[key], /^[0-9a-f]+$/, `${key} must be lowercase hex without a 0x prefix`);
+    assert.equal(bytecode[key].length % 2, 0, `${key} must be whole bytes`);
+  }
+  assert.equal(bytecode.create2FactoryRawTx.length / 2, 167, "the presigned CREATE2 factory transaction is 167 bytes");
+  assert.ok(bytecode.stylusDeployer.startsWith("6080604052"), "stylusDeployer must be init code");
+  const setup = fs.readFileSync(path.join(devnode, "setup.mjs"), "utf8");
+  const code = setup.split("\n").filter((line) => !line.trim().startsWith("//")).join("\n"); // comments may show checksummed addresses
+  for (const address of code.match(/0x[0-9a-fA-F]{40}\b/g) ?? []) {
+    assert.equal(address, address.toLowerCase(), `${address}: addresses must be lowercase (viem rejects a bad checksum)`);
+  }
+});
+
+test("stream, escrow and vault ship an agent interface with the client, and other templates do not", () => {
+  for (const [template, minimum] of [["stream", 5], ["escrow", 5], ["vault", 3]]) {
+    const dir = tmp();
+    scaffold({ targetDir: dir, name: "my-app", template, versions, withClient: true });
+    for (const f of ["agent.ts", "agent-cli.ts", "agent-example.ts", "agent-kit.ts"]) {
+      assert.ok(fs.existsSync(path.join(dir, "client/src", f)), `${template}: client/src/${f} is missing`);
+    }
+    const agent = fs.readFileSync(path.join(dir, "client/src/agent.ts"), "utf8");
+    // every intent an agent can call is described to the model, and every described tool has a handler
+    const tools = [...agent.matchAll(/^\s*name: "(\w+)",$/gm)].map((m) => m[1]);
+    const handlers = [...agent.matchAll(/^  async (\w+)\(input\)/gm)].map((m) => m[1]);
+    assert.ok(tools.length >= minimum, `${template}: expected at least ${minimum} tools, found ${tools.length}`);
+    assert.deepEqual([...tools].sort(), [...handlers].sort(), `${template}: tool schemas and handlers must match`);
+  }
+  const counter = tmp();
+  scaffold({ targetDir: counter, name: "my-app", template: "counter", versions, withClient: true });
+  for (const f of ["agent.ts", "agent-kit.ts", "agent-cli.ts"]) {
+    assert.ok(!fs.existsSync(path.join(counter, "client/src", f)), `counter must not ship client/src/${f}`);
   }
 });
