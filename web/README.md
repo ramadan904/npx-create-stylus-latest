@@ -14,6 +14,10 @@ test tokens from the faucet, open a payment stream and watch it pay out, fund an
   runs it against a dev node in CI and checks its JSON against the agent CLI's (same fields; identical bytes for the same
   calls). Its error hints come from `agent-kit.ts` through `abi.js`.
 - `agent-demo.js` replays `agent-demo.json`, a longer agent run that CI recorded (see `e2e/gen-agent-demo.mjs`).
+- `pg-polish.js` adds feedback to the playground and the agent demo: a card glows while its transaction waits, flashes
+  on success and shakes on an error, the pressed button spins, the stream bar shimmers while it pays out, the activity
+  list is a timeline with each transaction's state, balances flash when they change, and the connected account gets an
+  identicon. It only reads what the page already renders, so the page works the same without it; `web-check` drives it.
 - `demo.mp4` (with `demo-poster.jpg`) is the video at the top of the page. It is generated from a real run, not edited:
   `e2e/video/chain.sh <dir>` deploys the six contracts to a local Nitro dev node with the projects' own deploy scripts, then
   `node e2e/video/record.mjs <dir>` runs the real `npx` and `cargo test`, drives this page against those contracts with a

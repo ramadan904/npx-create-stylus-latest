@@ -148,7 +148,39 @@ await page.locator("#al-run").click();
 await page.waitForTimeout(300);
 check(/No browser wallet/.test(await page.locator("#al-status").textContent()), "without a wallet the demo says what is missing");
 
-// 9. the demo video at the top: present, with its poster, and a sane length and size (read from the MP4 header, since the
+// 10. one name per @keyframes: a second definition silently replaces the first (and once set the playground spinning)
+const frames = [...readFileSync(web + "index.html", "utf8").matchAll(/@keyframes ([\w-]+)/g)].map((m) => m[1]);
+check(frames.length === new Set(frames).size, "every @keyframes name is defined once", JSON.stringify(frames.filter((f, i) => frames.indexOf(f) !== i)));
+
+// 11. playground feedback (pg-polish.js): it reacts to what the page renders, so drive those renders and look.
+const fb = await page.evaluate(async () => {
+  const tick = () => new Promise((r) => setTimeout(r, 60));
+  const msg = document.getElementById("pg-faucet-msg"), card = msg.closest(".card");
+  const out = {};
+  setMsg(msg, "Confirm in your wallet…"); await tick();
+  out.busy = card.classList.contains("busy");
+  setMsg(msg, "Received test BUIDL.", "ok"); await tick();
+  out.won = card.classList.contains("won") && !card.classList.contains("busy") && !card.querySelector(".spin");
+  setMsg(msg, "Cancelled in your wallet.", "bad"); await tick();
+  out.shake = card.classList.contains("shake");
+  const list = document.getElementById("pg-activity");
+  const li = Object.assign(document.createElement("li"), { textContent: "Faucet drip: sent " });
+  list.prepend(li); await tick();
+  out.sent = li.dataset.state;
+  li.textContent = "Faucet drip: confirmed "; await tick();
+  out.confirmed = li.dataset.state;
+  document.getElementById("acct").textContent = "0x1234ab…cd5678"; await tick();
+  out.ident = !!document.querySelector(".ident") && !!document.querySelector(".netpill");
+  return out;
+});
+check(fb.busy, "a card glows while its transaction waits on the wallet");
+check(fb.won, "it flashes on success, and the busy glow and spinner clear");
+check(fb.shake, "it shakes on an error");
+check(fb.sent === "sent" && fb.confirmed === "confirmed", "the activity timeline marks each transaction's state", JSON.stringify(fb));
+check(fb.ident, "a connected account gets an identicon and its network");
+check(!(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)), "still no horizontal scroll at phone width");
+
+// 12. the demo video at the top: present, with its poster, and a sane length and size (read from the MP4 header, since the
 // test browser may lack an H.264 decoder).
 const mp4 = readFileSync(web + "demo.mp4");
 const mvhd = mp4.indexOf("mvhd");
