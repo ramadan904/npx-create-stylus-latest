@@ -125,12 +125,13 @@ tokens through approve, transferFrom and transfer, asserting exact balances: 40 
 (run: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36989741978). It covers a partial mid-stream payout
 (450 of 1000 at 18 s of a 40 s stream, exactly), a cancel split, a finished stream paying the exact deposit with no rounding dust,
 a failed `create` leaving no trace, and every escrow path (release, seller refund, buyer refund only after the deadline, arbiter),
-with unauthorized and repeated calls rejected. A second step, `e2e/agent.mjs`, drives the generated agent CLIs as subprocesses, the way a tool-using AI agent would: 63 checks
-passed (run: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37004696417). An agent opens a stream, reads it,
+with unauthorized and repeated calls rejected. A second step, `e2e/agent.mjs`, drives the generated agent CLIs as subprocesses, the way a tool-using AI agent would: 73 checks
+passed (run: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37008166877). An agent opens a stream, reads it,
 withdraws a partial amount and cancels, with paid + paid-on-cancel + refunded equal to the deposit exactly; spending limits, an
 unknown counterparty, an amount above the balance and a malformed address are all refused before anything is signed; a second
 cancel comes back as the contract's own error name (`NotActive`) with a hint; nothing is reported held after a normal cancel and
-an empty `claim_held_payment` fails with `NothingToClaim`; and for escrow, `canRelease` / `canRefund` correctly
+an empty `claim_held_payment` fails with `NothingToClaim`; amounts given in whole tokens (`amountTokens`) convert exactly
+with the token's own decimals, and too many decimal places is refused rather than rounded; and for escrow, `canRelease` / `canRefund` correctly
 predict that an early buyer refund fails with `NotAuthorized` before the agent releases the deal.
 This job found three real problems before any user did: constructor deploys cannot work on a bare dev node (now fixed in the
 shipped `devnode.sh`), gas estimation on an idle node simulates against a stale block, and a plain gas estimate can be too low
@@ -219,8 +220,11 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
 
 ## Live evidence index
 
-- Latest all-green CI run (all 12 jobs: real-token flows, the agent CLIs, a real local deploy of every template, the npm
-  package smoke test, the playground in a real browser): https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37004696417
+- Latest all-green CI run (all 13 jobs: real-token flows, the agent CLIs, a real local deploy of every template, the npm
+  package smoke test, the playground in a real browser, and the USDG addresses and network RPCs checked on-chain):
+  https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37008166877
+- USDG on-chain verification (Arbitrum One and Robinhood Chain: contract present, symbol USDG, name "Global Dollar",
+  6 decimals; all four RPC chain ids): https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37006932863/job/110837305641
 - Real-token end-to-end flows (40 checks): https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36989741978
 - Arbitrum Sepolia: escrow `0x5c3766164e3a2d4abb61f605879c18234b36a60e`, stream `0xa97f7f79dd79b6c72c8daa452f68baf1ca7bade5`,
   faucet `0x05bdd4d122896a638f7ff41ed58c7d90a84142d8` holding 500,000 BUIDL (details in the Evidence section above).
