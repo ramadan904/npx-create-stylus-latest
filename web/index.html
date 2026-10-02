@@ -138,6 +138,43 @@
   .reveal.in { opacity: 1; transform: none; }
   #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
   footer { border-image: linear-gradient(90deg, var(--c1), var(--c2), var(--c3)) 1; border-top-width: 1px; border-top-style: solid; }
+  /* ---- light: on the parts a visitor should look at first ---------------------------------------------------------- */
+  @property --ang { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+  /* the install command: a neon border that circles the terminal */
+  .term { background: conic-gradient(from var(--ang), var(--c1), var(--c2), var(--c3), var(--c4), var(--c5), var(--c1));
+    animation: spin 5s linear infinite; box-shadow: 0 0 28px -6px var(--glow), 0 10px 40px -10px var(--glow); }
+  @keyframes spin { to { --ang: 360deg; } }
+  /* the headline glows */
+  h1 .grad { filter: drop-shadow(0 0 22px color-mix(in srgb, var(--c3) 45%, transparent)); }
+  /* the first things to click pulse with light */
+  #connect:not(:disabled), #pg-drip:not(:disabled) { animation: beacon 2.4s ease-in-out infinite; }
+  @keyframes beacon {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--c2) 55%, transparent), 0 6px 22px -8px var(--glow); }
+    50% { box-shadow: 0 0 0 7px transparent, 0 0 30px 4px color-mix(in srgb, var(--c3) 45%, transparent); }
+  }
+  /* a beam of light sweeps across the verified numbers */
+  .stat { position: relative; overflow: hidden; }
+  .stat::after { content: ""; position: absolute; top: 0; bottom: 0; left: -60%; width: 50%; pointer-events: none;
+    background: linear-gradient(100deg, transparent, rgba(255,255,255,.16), transparent); transform: skewX(-18deg);
+    animation: beam 5.5s ease-in-out infinite; }
+  .stat:nth-child(2)::after { animation-delay: .35s; } .stat:nth-child(3)::after { animation-delay: .7s; }
+  .stat:nth-child(4)::after { animation-delay: 1.05s; }
+  @keyframes beam { 0%, 55% { left: -60%; } 85%, 100% { left: 130%; } }
+  .stat .n { text-shadow: 0 0 18px currentColor; }
+  /* the playground sits in a glowing frame */
+  .pg { padding: 22px 16px; margin: 18px 0; border-radius: 18px; border: 1px solid transparent;
+    --pgbg: color-mix(in srgb, var(--panel) 94%, var(--c2));
+    background: linear-gradient(var(--pgbg), var(--pgbg)) padding-box,
+      conic-gradient(from var(--ang), var(--c1), var(--c2), var(--c3), var(--c4), var(--c5), var(--c1)) border-box;
+    animation: spin 9s linear infinite; box-shadow: 0 0 60px -20px var(--glow); }
+  .pg .grid { grid-template-columns: repeat(auto-fit, minmax(min(330px, 100%), 1fr)); }
+  /* readings that come live from the chain breathe */
+  .live:not(.err) { animation: breathe 2.2s ease-in-out infinite; }
+  @keyframes breathe { 50% { text-shadow: 0 0 10px var(--ok); opacity: .75; } }
+  @media (prefers-reduced-motion: reduce) {
+    .term, .pg, #connect, #pg-drip, .live, .stat::after { animation: none !important; }
+    .stat::after { display: none; }
+  }
   @media (prefers-reduced-motion: reduce) {
     .aurora i, .grad, .tag .dot { animation: none; }
     .reveal { opacity: 1; transform: none; transition: none; }
