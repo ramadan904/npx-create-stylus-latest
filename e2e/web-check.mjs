@@ -180,21 +180,17 @@ check(fb.sent === "sent" && fb.confirmed === "confirmed", "the activity timeline
 check(fb.ident, "a connected account gets an identicon and its network");
 check(!(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)), "still no horizontal scroll at phone width");
 
-// 12. the demo video at the top: present, with its poster, and a sane length and size (read from the MP4 header, since the
-// test browser may lack an H.264 decoder).
-const mp4 = readFileSync(web + "demo.mp4");
+// 12. the demo video, submitted on its own (media/, not on the site): a sane length and size, read from the MP4 header.
+const mp4 = readFileSync(new URL("../media/demo.mp4", import.meta.url));
 const mvhd = mp4.indexOf("mvhd");
 const v1 = mp4[mvhd + 4] === 1;
 const timescale = v1 ? mp4.readUInt32BE(mvhd + 24) : mp4.readUInt32BE(mvhd + 16);
 const duration = v1 ? Number(mp4.readBigUInt64BE(mvhd + 28)) : mp4.readUInt32BE(mvhd + 20);
 const secs = duration / timescale;
 check(mvhd > 0 && secs >= 60 && secs <= 90, `the demo video is 60-90 s long (${secs.toFixed(1)} s)`);
-check(mp4.length < 8e6, `the demo video is small enough to load fast (${(mp4.length / 1e6).toFixed(2)} MB)`);
-check(mp4.indexOf("moov") < mp4.indexOf("mdat"), "the demo video starts playing before it has fully downloaded (moov before mdat)");
-check(existsSync(web + "demo-poster.jpg"), "the demo video has a poster image");
-const vid = await page.evaluate(() => { const v = document.getElementById("demo-video"); return v && { src: v.getAttribute("src"), poster: v.getAttribute("poster"), muted: v.muted, controls: v.controls, top: v.getBoundingClientRect().top + scrollY }; });
-check(vid && vid.src === "demo.mp4" && vid.poster === "demo-poster.jpg" && vid.muted && vid.controls, "the video element is muted, has controls, and points at the files");
-check(vid && vid.top < (await page.evaluate(() => document.getElementById("agent-live").getBoundingClientRect().top + scrollY)), "the video sits above the agent demo, at the top");
+check(mp4.length < 8e6, `the demo video is small enough to share (${(mp4.length / 1e6).toFixed(2)} MB)`);
+check(mp4.indexOf("moov") < mp4.indexOf("mdat"), "the demo video streams before it has fully downloaded (moov before mdat)");
+check(await page.locator("video").count() === 0, "the site itself has no video (it is submitted separately)");
 
 await browser.close(); server.close();
 console.log(fail ? `\n${fail} FAILED` : "\nall page checks passed");

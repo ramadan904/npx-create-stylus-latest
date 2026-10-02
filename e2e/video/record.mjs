@@ -1,4 +1,4 @@
-// Part 2 of the site's demo video: records the real thing, end to end, and encodes web/demo.mp4 and web/demo-poster.jpg.
+// Part 2 of the demo video: records the real thing, end to end, and encodes media/demo.mp4 and media/demo-poster.jpg.
 //
 //   e2e/video/chain.sh <dir> && node e2e/video/record.mjs <dir> [--reuse-terminal]   (after npm install in e2e/)
 //
@@ -289,10 +289,11 @@ await tickLoop;
 
 // ---- 5. encode ------------------------------------------------------------------------------------------------------------
 const raw = await video.path();
-const mp4 = join(web, "demo.mp4");
-const poster = join(web, "demo-poster.jpg");
+mkdirSync(join(repo, "media"), { recursive: true });
+const mp4 = join(repo, "media/demo.mp4");
+const poster = join(repo, "media/demo-poster.jpg");
 execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", raw, "-ss", "0.4", "-vf", "scale=1280:720:flags=lanczos", "-c:v", "libx264", "-preset", "slow", "-crf", "27", "-pix_fmt", "yuv420p", "-r", "25", "-movflags", "+faststart", "-an", mp4]);
 execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-ss", String(Math.max(0, posterAt + 0.6)), "-i", mp4, "-frames:v", "1", "-q:v", "4", poster]);
 const seconds = Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", mp4], { encoding: "utf8" }));
-say(`wrote web/demo.mp4 (${seconds.toFixed(1)} s, ${(statSync(mp4).size / 1e6).toFixed(2)} MB) and web/demo-poster.jpg`);
+say(`wrote media/demo.mp4 (${seconds.toFixed(1)} s, ${(statSync(mp4).size / 1e6).toFixed(2)} MB) and media/demo-poster.jpg`);
 process.exit(0);

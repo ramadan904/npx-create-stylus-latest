@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Part 1 of the site's demo video (see record.mjs): a local Arbitrum Nitro dev node with the six contracts the site uses,
+# Part 1 of the demo video (see record.mjs): a local Arbitrum Nitro dev node with the six contracts the site uses,
 # each scaffolded by this CLI from its template and deployed with the project's own deploy script, exactly as a user would.
 #
 #   e2e/video/chain.sh <out-dir>     # writes <out-dir>/chain.json: the deployer key and the contract addresses
