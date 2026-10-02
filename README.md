@@ -46,7 +46,36 @@ build here rather than in your project.
 - Unit tests that run with plain `cargo test` (the SDK's `TestVM`, no node needed)
 - `scripts/export-abi.sh` to print the Solidity interface
 - `scripts/deploy.sh` to validate and deploy with `cargo-stylus` (key passed via a private temp file, not argv)
-- `Stylus.toml` and a pinned `rust-toolchain.toml` (1.91.0 + wasm target) matching `cargo stylus new`, `.env.example` defaulting to Arbitrum Sepolia, `.gitignore`
+- `Stylus.toml` and a pinned `rust-toolchain.toml` (1.91.0 + wasm target) matching `cargo stylus new`, `.env.example` for the network you chose (Arbitrum Sepolia by default), `.gitignore`
+
+## Networks and USDG
+
+```bash
+npx create-stylus-latest pay -t stream --robinhood                    # Robinhood Chain testnet (chain 46630)
+npx create-stylus-latest pay -t escrow --network arbitrum-one --usdg  # Arbitrum One, wired to Paxos USDG
+```
+
+`--network` takes `arbitrum-sepolia` (default), `arbitrum-one`, `robinhood-testnet`, `robinhood` or `devnode`, and writes
+that chain's `RPC_URL` and `CHAIN_ID` into `.env.example`; `--robinhood` is short for `--network robinhood-testnet`.
+
+`--usdg` (for `vault`, `escrow` and `stream`) puts the token in `.env.example` as `TOKEN_ADDRESS`, and you deploy with
+`./scripts/deploy.sh -- env:TOKEN_ADDRESS`. The addresses are Paxos's own
+([USDG on main networks](https://docs.paxos.com/guides/stablecoin/usdg/mainnet)):
+
+| Network | Chain id | USDG (6 decimals) |
+| --- | --- | --- |
+| Arbitrum One | 42161 | `0x004B506865409877C9fA29bfb1ebA929984B9bbC` |
+| Robinhood Chain | 4663 | `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168` |
+
+Paxos publishes testnet USDG only on Ethereum Sepolia, Ink Sepolia and X Layer testnet
+([USDG on test networks](https://docs.paxos.com/guides/stablecoin/usdg/testnet)), **not on Arbitrum Sepolia or Robinhood
+Chain testnet**. On those, `--usdg` leaves `TOKEN_ADDRESS` empty with a note rather than guess: deploy the `erc20`
+template as a stand-in dollar, and switch to the real address when you go to mainnet. CI (the `networks` job,
+`e2e/verify-networks.mjs`) checks every entry against the chain: the RPC's chain id, and that each USDG address holds a
+contract reporting symbol `USDG` and 6 decimals.
+
+`deploy.sh` asks the RPC which chain it is. On a mainnet (Arbitrum One, Nova, Robinhood Chain) it refuses to deploy
+unless you set `MAINNET=1`, because these templates are unaudited; `--check-only` is always allowed.
 
 ## Optional TypeScript client
 

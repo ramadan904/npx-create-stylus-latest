@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Validate and deploy this Stylus contract.
 # Usage: ./scripts/deploy.sh [--check-only] [-- <constructor args>...]
-# Contracts with a constructor (erc20, vault) take their arguments after `--`, e.g.
+# Contracts with a constructor (erc20, vault, escrow, stream, faucet) take their arguments after `--`, e.g.
 #   ./scripts/deploy.sh -- "My Token" MTK 1000000000000000000000000 0xYourAddress
+# An argument written env:NAME is replaced by NAME from .env (or the environment), e.g. -- env:TOKEN_ADDRESS.
+# Deploying to a mainnet (Arbitrum One, Arbitrum Nova, Robinhood Chain) also needs MAINNET=1.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -60,6 +62,44 @@ if [ -f .env ]; then set -a; . ./.env; set +a; fi
 [ -z "$caller_rpc" ] || RPC_URL="$caller_rpc"
 # Defaults to Arbitrum Sepolia so `--check-only` works on a fresh project.
 RPC_URL="${RPC_URL:-https://sepolia-rollup.arbitrum.io/rpc}"
+
+# env:NAME arguments: read after .env is loaded, so the address lives in one place. An unset or empty NAME stops here.
+for ((i = 0; i < ${#ctor[@]}; i++)); do
+  case "${ctor[$i]}" in
+    env:*)
+      var="${ctor[$i]#env:}"
+      if [[ ! "$var" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then echo "Bad argument ${ctor[$i]}: expected env:NAME" >&2; exit 2; fi
+      if [ -z "${!var:-}" ]; then
+        echo "${ctor[$i]}: $var is not set. Put it in .env (see the comment above it in .env.example)." >&2
+        exit 2
+      fi
+      ctor[$i]="${!var}"
+      ;;
+  esac
+done
+
+# Which chain is this, really? Ask the RPC (curl is optional; without it, trust CHAIN_ID from .env).
+rpc_chain=""
+if command -v curl >/dev/null 2>&1; then
+  hex="$(curl -sS -m 10 -X POST -H 'content-type: application/json' \
+    --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' "$RPC_URL" 2>/dev/null |
+    sed -n 's/.*"result" *: *"0x\([0-9a-fA-F]*\)".*/\1/p')" || true
+  if [ -n "$hex" ]; then rpc_chain="$((16#$hex))"; fi
+fi
+if [ -n "$rpc_chain" ] && [ -n "${CHAIN_ID:-}" ] && [ "$rpc_chain" != "$CHAIN_ID" ]; then
+  echo "Note: RPC_URL is chain $rpc_chain but CHAIN_ID in .env says $CHAIN_ID. The client uses CHAIN_ID; update it to match." >&2
+fi
+chain="${rpc_chain:-${CHAIN_ID:-}}"
+case "$chain" in
+  42161|42170|4663)
+    if [ "$check_only" = 0 ] && [ "${MAINNET:-}" != 1 ]; then
+      echo "Chain $chain is a mainnet: this deploy would spend real ETH, and the contract would hold real money." >&2
+      echo "These templates are unaudited. Deploy to a testnet or ./scripts/devnode.sh first; to go ahead anyway, run" >&2
+      echo "  MAINNET=1 ./scripts/deploy.sh ..." >&2
+      exit 1
+    fi
+    ;;
+esac
 
 command -v cargo-stylus >/dev/null 2>&1 || {
   echo "cargo-stylus not found. Install it with: cargo install --locked cargo-stylus" >&2

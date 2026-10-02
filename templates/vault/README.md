@@ -29,8 +29,13 @@ cargo build --release --target wasm32-unknown-unknown --lib
 cargo install --locked cargo-stylus # once
 cp .env.example .env                # add a funded testnet PRIVATE_KEY
 ./scripts/deploy.sh --check-only
-./scripts/deploy.sh
+./scripts/deploy.sh -- 0xTokenAddress
 ```
+
+Scaffolded with `--usdg`? The token is already in `.env` as `TOKEN_ADDRESS` (Paxos USDG on Arbitrum One and Robinhood
+Chain; on testnets, where Paxos publishes none, put a stand-in ERC-20 there), so deploy with
+`./scripts/deploy.sh -- env:TOKEN_ADDRESS`. USDG has 6 decimals: 1 USDG = `1000000`. On a mainnet `deploy.sh` also
+needs `MAINNET=1`; these templates are unaudited, so start on a testnet.
 
 Deploy it pointed at a token (the constructor argument goes after `--`):
 

@@ -24,9 +24,16 @@ One command produces a working project and a deploy path that has already been r
 - **Always current.** At scaffold time the CLI reads the crates.io sparse index, picks the newest stable `stylus-sdk`
   and pins the exact `alloy-primitives` / `alloy-sol-types` it requires. Offline it falls back to a bundled
   known-good pair.
-- **Five templates.** `counter` (minimal), `erc20` (events, custom errors), `vault` (a stablecoin vault using
-  cross-contract ERC-20 calls), `escrow` (buyer-funded deals with an optional arbiter and a deadline refund) and `stream`
-  (linear per-second stablecoin payments with keeper-friendly `withdraw` and a `cancel` that splits earned from remaining).
+- **Six templates.** `counter` (minimal), `erc20` (events, custom errors), `vault` (a stablecoin vault using
+  cross-contract ERC-20 calls), `escrow` (buyer-funded deals with an optional arbiter and a deadline refund), `stream`
+  (linear per-second stablecoin payments with keeper-friendly `withdraw` and a `cancel` that splits earned from remaining)
+  and `faucet` (rate-limited test-token drips, so visitors can try a dApp without asking for tokens).
+- **USDG and Robinhood Chain presets.** `--network arbitrum-one|robinhood|arbitrum-sepolia|robinhood-testnet|devnode`
+  (`--robinhood` for short) writes the chain into `.env.example`, and `--usdg` wires `vault`, `escrow` and `stream` to
+  Paxos USDG (`./scripts/deploy.sh -- env:TOKEN_ADDRESS`). The addresses are Paxos's own and CI checks them on-chain
+  (contract present, symbol `USDG`, 6 decimals). Paxos lists no USDG on Arbitrum Sepolia or Robinhood testnet, so there
+  the project says so and asks for a stand-in instead of guessing. `deploy.sh` asks the RPC which chain it is and
+  refuses a mainnet deploy without `MAINNET=1`.
 - **Agent-native money contracts.** `stream` and `escrow` can tell a caller what will happen before it commits
   (`previewCancel`, `canRelease`, `canRefund`), and `--with-client` adds a JSON-in/JSON-out interface for AI agents: tool
   schemas an LLM can be given, results like `{ ok: false, error: { code: "NotAuthorized", hint } }` using the contract's own
@@ -181,6 +188,9 @@ These are templates and a scaffolder, not audited products. Read this before put
   for a real network.
 - **What the live deployments prove.** The Arbitrum Sepolia and Robinhood testnet deployments exercised construction and
   reads, not live deals; the money flows are proven on a local node in CI (above).
+- **No testnet USDG on Arbitrum or Robinhood.** Paxos publishes testnet USDG only on Ethereum Sepolia, Ink Sepolia and X
+  Layer testnet, so a testnet build uses a stand-in token; the mainnet USDG addresses are real money behind the
+  `MAINNET=1` guard.
 - **Not yet on npm.** The package is publish-ready (see `RELEASING.md`) but has not been published.
 
 ## Tech
@@ -190,11 +200,10 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
 
 ## Why we win, criterion by criterion
 
-- **Smart contract quality.** Five contracts with custom Solidity errors, checks-effects-interactions ordering, and constructor
+- **Smart contract quality.** Six contracts with custom Solidity errors, checks-effects-interactions ordering, and constructor
   initialization (nobody can front-run a public `init`). Each ships unit tests plus a model-based property test that checks
   every token movement against a reference model, and the tests are themselves tested: deliberately breaking the contracts
-  fails them. The money flows run against a real ERC-20 in CI (40 checks). Limit: unaudited, and `stream` has the blacklist
-  edge case listed above.
+  fails them. The money flows run against a real ERC-20 in CI (40 checks). Limit: unaudited (see the security model above).
 - **Product-market fit.** The users are Stylus builders, and the pain is real and measured: we hit every deploy pitfall on a real
   network and the scripts now handle them (Docker default, RPC refusal, gas-cap race, constructor deploys on a local node). The
   agent-native contracts target the Promising Products track: an agent can open a stream or an escrow deal, and ask the
@@ -220,9 +229,9 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
 1. Publish to npm so `npx create-stylus-latest` works anywhere. The package, a smoke test of the packed tarball (every template, run
    with `npx` from an empty directory) and an automated publish-on-tag workflow with provenance are in place
    (`RELEASING.md`); the first release needs an npm token added as the `NPM_TOKEN` secret and a version tag pushed.
-2. `--usdg` and `--robinhood` presets with verified Paxos USDG addresses (needs the addresses confirmed from the issuer's docs).
-3. A Foundry interop template (Solidity test calling a Stylus contract).
-4. `cargo stylus verify` support with a Docker-friendly key path.
+2. A Foundry interop template (Solidity test calling a Stylus contract).
+3. `cargo stylus verify` support with a Docker-friendly key path.
+4. Testnet USDG presets, as soon as Paxos lists USDG on Arbitrum Sepolia or Robinhood Chain testnet.
 
 ## Try it
 

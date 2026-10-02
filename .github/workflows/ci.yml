@@ -36,6 +36,20 @@ jobs:
       - run: node web-check.mjs
         working-directory: e2e
 
+  networks:
+    # The network table behind --network and --usdg, checked against the chains: each RPC's chain id, and that each
+    # Paxos USDG address holds a contract reporting symbol USDG and 6 decimals.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+        working-directory: e2e
+      - run: node verify-networks.mjs
+        working-directory: e2e
+
   package:
     # The package as npm would ship it: pack the tarball, run it with npx in an empty directory, scaffold every template.
     runs-on: ubuntu-latest

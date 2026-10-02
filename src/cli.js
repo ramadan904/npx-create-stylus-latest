@@ -6,6 +6,7 @@ import { validateName } from "./names.js";
 import { scaffold } from "./scaffold.js";
 import { DEFAULT_TEMPLATE, TEMPLATES } from "./templates.js";
 import { resolveVersions } from "./versions.js";
+import { DEFAULT_NETWORK, NETWORKS, TOKEN_TEMPLATES, resolveNetwork } from "./networks.js";
 
 const VERSION = "0.1.0";
 
@@ -21,6 +22,11 @@ Options
   -y, --yes              Skip prompts and use defaults
       --no-git           Do not run git init
       --with-client      Also generate a TypeScript (viem) client in client/
+      --network <name>   ${Object.keys(NETWORKS).join(" | ")} (default: ${DEFAULT_NETWORK})
+                         Sets RPC_URL and CHAIN_ID in .env.example
+      --robinhood        Same as --network robinhood-testnet
+      --usdg             Point ${TOKEN_TEMPLATES.join("/")} at Paxos USDG (TOKEN_ADDRESS in .env.example). Paxos lists
+                         USDG on arbitrum-one and robinhood; on testnets it has none, so you supply a stand-in
       --offline          Do not query crates.io; use the bundled known-good versions
       --rpc <url>        With "doctor": probe this endpoint (default: $RPC_URL). Only the host is printed
   -l, --list             List templates
@@ -49,6 +55,9 @@ export async function main(argv) {
       offline: { type: "boolean", default: false },
       rpc: { type: "string" },
       "with-client": { type: "boolean", default: false },
+      network: { type: "string" },
+      robinhood: { type: "boolean", default: false },
+      usdg: { type: "boolean", default: false },
       list: { type: "boolean", short: "l", default: false },
       version: { type: "boolean", short: "v", default: false },
       help: { type: "boolean", short: "h", default: false },
@@ -67,6 +76,11 @@ export async function main(argv) {
     return;
   }
 
+  if (values.robinhood && values.network && values.network !== "robinhood-testnet") {
+    throw new Error(`--robinhood means --network robinhood-testnet; it conflicts with --network ${values.network}`);
+  }
+  const network = resolveNetwork(values.robinhood ? "robinhood-testnet" : (values.network ?? DEFAULT_NETWORK));
+
   const interactive = process.stdin.isTTY && !values.yes;
   let name = positionals[0];
   if (!name) name = interactive ? await prompt("Project name", "my-stylus-app") : "my-stylus-app";
@@ -84,11 +98,28 @@ export async function main(argv) {
   }
 
   const versions = await resolveVersions({ offline: values.offline });
-  const files = scaffold({ targetDir, name, template, versions, withClient: values["with-client"] });
+  const files = scaffold({
+    targetDir,
+    name,
+    template,
+    versions,
+    withClient: values["with-client"],
+    network: network.name,
+    usdg: values.usdg,
+  });
 
   console.log(`\nCreated ${path.relative(process.cwd(), targetDir) || "."}/ from the "${template}" template (${files.length} files)`);
   console.log(`  stylus-sdk ${versions.stylusSdk}, alloy ${versions.alloy} (${versions.source})`);
   if (versions.reason) console.log(`  note: could not reach crates.io (${versions.reason}); used known-good versions`);
+  console.log(`  network: ${network.label}, chain id ${network.chainId}`);
+  if (network.mainnet) console.log("  MAINNET: real money, unaudited templates. deploy.sh needs MAINNET=1 to deploy here.");
+  if (values.usdg) {
+    console.log(
+      network.usdg
+        ? `  token: Paxos USDG ${network.usdg} (6 decimals). Deploy with ./scripts/deploy.sh -- env:TOKEN_ADDRESS`
+        : `  token: Paxos publishes no USDG on ${network.label}; set TOKEN_ADDRESS in .env to a stand-in ERC-20 (see .env.example)`,
+    );
+  }
 
   if (!values["no-git"] && gitInit(targetDir)) console.log("  initialized a git repository");
 
