@@ -8,8 +8,8 @@
 
 const PG = {
   token: "0xe4d2350d1dfd8474053a4d131e94056bdd93bb83", // Buildathon Token (BUIDL), 18 decimals
-  stream: "0xa97f7f79dd79b6c72c8daa452f68baf1ca7bade5",
-  escrow: "0x5c3766164e3a2d4abb61f605879c18234b36a60e",
+  stream: "0x8f318a966bbc75bca53d9251e86ae8b97d578712",
+  escrow: "0x91336c54f5df938fdd1ac36d0ce08bc1f6e327bb",
   vault: "0xddcf208635bfdce4379a2535f228473310995915",
   faucet: "0x05bdd4d122896a638f7ff41ed58c7d90a84142d8", // the faucet template: 100 BUIDL per drip, hourly
 };
