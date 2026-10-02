@@ -122,15 +122,27 @@ const erc20 = [
   { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ name: "spender", type: "address" }, { name: "value", type: "uint256" }], outputs: [{ type: "bool" }] },
 ] as const satisfies Abi;
 
-/** Sends a transaction and waits for it. Throws if it reverted (viem returns reverted receipts without throwing). */
+/** Sends a transaction and waits for it. Gas is the node's estimate plus a 30% margin: the work a call does can change between
+ *  the estimate and the block it lands in (a stream that has earned a little more pays a different amount), and a transaction
+ *  that runs out of gas fails after costing gas. Set GAS_LIMIT to use a fixed limit instead. */
 export async function write(
   ctx: Ctx,
   call: { address: Address; abi: Abi; functionName: string; args?: readonly unknown[] },
 ) {
-  const { wallet } = needWallet(ctx);
-  const hash = await wallet.writeContract({ ...call, gas: gasFromEnv() } as never);
+  const { wallet, account } = needWallet(ctx);
+  // Estimation also reverts with the contract's own error for a call that cannot succeed, which becomes a named error code.
+  const gas = gasFromEnv() ?? ((await ctx.publicClient.estimateContractGas({ ...call, account } as never)) * 13n) / 10n;
+  const hash = await wallet.writeContract({ ...call, gas } as never);
   const receipt = await ctx.publicClient.waitForTransactionReceipt({ hash });
-  if (receipt.status !== "success") throw new IntentError("Reverted", `transaction ${hash} reverted`, { txHash: hash });
+  if (receipt.status !== "success") {
+    const { gas: limit } = await ctx.publicClient.getTransaction({ hash });
+    const outOfGas = receipt.gasUsed >= limit;
+    throw new IntentError(
+      outOfGas ? "OutOfGas" : "Reverted",
+      outOfGas ? `transaction ${hash} ran out of gas (used all ${limit}); retry, or set a higher GAS_LIMIT` : `transaction ${hash} reverted`,
+      { txHash: hash, gasUsed: receipt.gasUsed.toString(), gasLimit: limit.toString() },
+    );
+  }
   return { hash, receipt };
 }
 
@@ -163,6 +175,7 @@ const HINTS: Record<string, string> = {
   StartInPast: "The start time had already passed when the transaction ran. Use a larger startInSeconds.",
   DeadlineInPast: "The deadline had already passed when the transaction ran. Use a larger deadlineSeconds.",
   TokenTransferFailed: "The token transfer failed: check the agent's balance and allowance.",
+  OutOfGas: "The transaction used all its gas. Nothing changed on-chain. Retry it, or set a higher GAS_LIMIT.",
 };
 
 /** Turns anything thrown into `{ ok: false, error: { code, message, hint? } }`, decoding contract custom errors by name. */

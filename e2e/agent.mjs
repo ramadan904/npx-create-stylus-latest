@@ -23,11 +23,13 @@ const wallet = createWalletClient({ account: agent, chain, transport: http(rpc) 
 const balanceOf = (who) => pub.readContract({ address: TOKEN, abi: parseAbi(["function balanceOf(address) view returns (uint256)"]), functionName: "balanceOf", args: [who] });
 
 let checks = 0;
-function check(cond, label) {
+function check(cond, label, detail) {
   checks++;
-  if (!cond) throw new Error(`FAILED: ${label}`);
+  if (!cond) throw new Error(`FAILED: ${label}${detail === undefined ? "" : `\n  ${JSON.stringify(detail)}`}`);
   console.log(`  ok  ${label}`);
 }
+/** An intent that must succeed: on failure, print the agent's own structured error so the cause is visible. */
+const succeeded = (result, label) => check(result.ok === true, label, result.error ?? result);
 const same = (a, b, label) => check(a === b, `${label} (got ${a}, want ${b})`);
 const sleep = (s) => new Promise((r) => setTimeout(r, s * 1000));
 
@@ -70,7 +72,7 @@ async function main() {
   console.log("\nstream: an agent opens, inspects, withdraws and cancels");
   const before = await balanceOf(agent.address);
   const opened = call(sdir, STREAM, { intent: "open_stream", recipient: payee, amount: "1000", durationSeconds: 90, startInSeconds: 5 });
-  check(opened.ok && /^\d+$/.test(opened.streamId), `open_stream returned a stream id (${opened.streamId})`);
+  succeeded(opened, "open_stream succeeded"); check(/^\d+$/.test(opened.streamId), `open_stream returned a stream id (${opened.streamId})`, opened);
   same(opened.amount, "1000", "the result echoes the amount as a decimal string");
   same(await balanceOf(agent.address), before - 1000n, "the agent was debited exactly the deposit");
   const id = opened.streamId;
@@ -93,12 +95,12 @@ async function main() {
   await sleep(8); // each CLI call takes seconds, so by now the stream has been running for roughly 20 s of its 90
   await tick();
   const paid = call(sdir, STREAM, { intent: "withdraw_from_stream", id });
-  check(paid.ok && BigInt(paid.paidToRecipient) > 0n && BigInt(paid.paidToRecipient) < 1000n, `withdraw_from_stream paid a partial amount (${paid.paidToRecipient} of 1000)`);
+  succeeded(paid, "withdraw_from_stream succeeded"); check(BigInt(paid.paidToRecipient) > 0n && BigInt(paid.paidToRecipient) < 1000n, `withdraw_from_stream paid a partial amount (${paid.paidToRecipient} of 1000)`);
   same(await balanceOf(payee), BigInt(paid.paidToRecipient), "the recipient holds exactly what the result says was paid");
 
   await tick();
   const cancelled = call(sdir, STREAM, { intent: "cancel_stream", id });
-  check(cancelled.ok, "cancel_stream succeeded");
+  succeeded(cancelled, "cancel_stream succeeded");
   same(BigInt(paid.paidToRecipient) + BigInt(cancelled.paidToRecipient) + BigInt(cancelled.refundedToSender), 1000n, "paid + paid on cancel + refunded equals the deposit exactly");
   same(await balanceOf(payee), BigInt(paid.paidToRecipient) + BigInt(cancelled.paidToRecipient), "the recipient's total matches the results");
   same(await balanceOf(agent.address), before - 1000n + BigInt(cancelled.refundedToSender), "the agent got the remainder back");
@@ -108,7 +110,7 @@ async function main() {
   console.log("\nescrow: an agent locks, checks permissions, and releases");
   const eBefore = await balanceOf(agent.address);
   const created = call(edir, ESCROW, { intent: "create_escrow", seller: payee, amount: "700", deadlineSeconds: 3600 });
-  check(created.ok && /^\d+$/.test(created.dealId), `create_escrow returned a deal id (${created.dealId})`);
+  succeeded(created, "create_escrow succeeded"); check(/^\d+$/.test(created.dealId), `create_escrow returned a deal id (${created.dealId})`, created);
   same(await balanceOf(agent.address), eBefore - 700n, "the agent was debited exactly the amount");
   const deal = created.dealId;
 
@@ -126,7 +128,7 @@ async function main() {
   check(!blocked.ok && blocked.error.code === "PolicyViolation", "a seller outside the allow-list is refused");
 
   const released = call(edir, ESCROW, { intent: "release_escrow", id: deal });
-  check(released.ok && released.state === "released", "release_escrow settled the deal");
+  succeeded(released, "release_escrow succeeded"); check(released.state === "released", "release_escrow settled the deal", released);
   same(await balanceOf(payee) >= 700n, true, "the seller was paid");
   const after = call(edir, ESCROW, { intent: "get_escrow", id: deal });
   check(after.permissions.canRelease === false && after.permissions.canRefund === false, "once settled the contract allows nothing");
