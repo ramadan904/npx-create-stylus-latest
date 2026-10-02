@@ -31,6 +31,78 @@ jobs:
           node-version: 22
       - run: node bin/create-stylus-latest.js doctor --offline --rpc https://sepolia-rollup.arbitrum.io/rpc || true
 
+  e2e-flows:
+    # Real money flows on a local Nitro dev node: deploy the erc20 template as the token and the stream and escrow
+    # templates against it, then move real tokens through approve / transferFrom / transfer and check exact balances.
+    # The templates' unit tests mock the token; this is the only place the real cross-contract calls run.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: actions/cache/restore@v4
+        id: cargo-stylus
+        with:
+          path: ~/.cargo/bin/cargo-stylus
+          key: cargo-stylus-${{ runner.os }}-v1
+      - if: steps.cargo-stylus.outputs.cache-hit != 'true'
+        run: cargo install --locked cargo-stylus
+      - if: steps.cargo-stylus.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cargo/bin/cargo-stylus
+          key: cargo-stylus-${{ runner.os }}-v1
+      - run: npm install
+        working-directory: e2e
+      - name: Create a throwaway key
+        working-directory: e2e
+        run: |
+          key=0x$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')
+          echo "::add-mask::$key"
+          addr=$(node --input-type=module -e 'import { privateKeyToAddress } from "viem/accounts"; process.stdout.write(privateKeyToAddress(process.argv[1]))' "$key")
+          echo "E2E_KEY=$key" >> "$GITHUB_ENV"
+          echo "E2E_ADDR=$addr" >> "$GITHUB_ENV"
+      - name: Start a dev node that funds that key
+        run: |
+          mkdir -p "${{ runner.temp }}/node-app"
+          node bin/create-stylus-latest.js "${{ runner.temp }}/node-app" -t counter -y --no-git
+          cd "${{ runner.temp }}/node-app" && FUND_ADDRESS="$E2E_ADDR" ./scripts/devnode.sh
+      - name: Deploy the token, the stream contract and the escrow
+        run: |
+          deploy() {  # deploy <template> <constructor args...>; prints the address
+            local name="$1"; shift
+            local dir="${{ runner.temp }}/app-$name"
+            node bin/create-stylus-latest.js "$dir" -t "$name" -y --no-git >&2
+            printf 'RPC_URL=http://127.0.0.1:8547\nCHAIN_ID=412346\nPRIVATE_KEY=%s\n' "$E2E_KEY" > "$dir/.env"
+            (cd "$dir" && ./scripts/deploy.sh -- "$@" > deploy.log 2>&1) || { sed 's/\x1b\[[0-9;]*m//g' "$dir/deploy.log" | tail -30 >&2; return 1; }
+            sed 's/\x1b\[[0-9;]*m//g' "$dir/deploy.log" | grep -iE 'deployed code at address' | grep -oE '0x[0-9a-fA-F]{40}' | head -1
+          }
+          token=$(deploy erc20 "Test Token" TST 1000000000000000000000000 "$E2E_ADDR")
+          test -n "$token" || { echo "token deploy failed"; exit 1; }
+          stream=$(deploy stream "$token")
+          test -n "$stream" || { echo "stream deploy failed"; exit 1; }
+          escrow=$(deploy escrow "$token")
+          test -n "$escrow" || { echo "escrow deploy failed"; exit 1; }
+          echo "TOKEN=$token" >> "$GITHUB_ENV"
+          echo "STREAM=$stream" >> "$GITHUB_ENV"
+          echo "ESCROW=$escrow" >> "$GITHUB_ENV"
+          echo "token $token, stream $stream, escrow $escrow"
+      - name: Run the flows
+        working-directory: e2e
+        env:
+          RPC_URL: http://127.0.0.1:8547
+          CHAIN_ID: "412346"
+        run: node flows.mjs
+      - if: failure()
+        run: docker logs --tail 80 stylus-devnode || true
+
   templates:
     # Scaffold every template with live crates.io versions, then build, test and
     # validate the result against a local Nitro dev node.
