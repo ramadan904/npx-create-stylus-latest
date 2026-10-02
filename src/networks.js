@@ -7,7 +7,8 @@
 // every entry on-chain: the RPC's chain id, and that each USDG address holds a contract reporting symbol USDG and 6 decimals.
 //
 // `ethUsdFeed` is Chainlink's ETH / USD data feed (8 decimals), used by the oracle template. Arbitrum One's is from
-// Chainlink's docs; CI checks each on-chain: description "ETH / USD", 8 decimals, a positive answer updated within a day.
+// Chainlink's docs; Arbitrum Sepolia's was confirmed on-chain. CI checks both on every run: description "ETH / USD",
+// 8 decimals, a positive answer updated within a day.
 export const NETWORKS = {
   "arbitrum-sepolia": {
     label: "Arbitrum Sepolia (testnet)",

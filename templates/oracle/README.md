@@ -28,7 +28,7 @@ cargo build --release --target wasm32-unknown-unknown --lib
 ## Deploy
 
 With `--network arbitrum-sepolia` (the default) or `--network arbitrum-one`, `.env.example` already holds Chainlink's
-ETH / USD feed as `FEED_ADDRESS` (checked on-chain in create-stylus-latest's CI). Everything after `--` goes to the
+ETH / USD feed as `FEED_ADDRESS` (both checked on-chain on every create-stylus-latest CI run). Everything after `--` goes to the
 constructor:
 
 ```bash
