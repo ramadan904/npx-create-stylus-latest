@@ -20,6 +20,16 @@ jobs:
           node-version: 22
       - run: npm test
 
+  package:
+    # The package as npm would ship it: pack the tarball, run it with npx in an empty directory, scaffold every template.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: ./scripts/smoke-pack.sh
+
   probe:
     # Informational: what `doctor` reports for the public Arbitrum Sepolia endpoint (never a gate; the dev-node probe
     # in the e2e job is the one that gates).

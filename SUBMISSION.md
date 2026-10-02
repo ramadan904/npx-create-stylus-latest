@@ -135,7 +135,9 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia.
 
 ## Roadmap
 
-1. Publish to npm so `npx create-stylus-latest` works anywhere.
+1. Publish to npm so `npx create-stylus-latest` works anywhere. The package, a smoke test of the packed tarball (every template, run
+   with `npx` from an empty directory) and an automated publish-on-tag workflow with provenance are in place
+   (`RELEASING.md`); the first release needs an npm token added as the `NPM_TOKEN` secret and a version tag pushed.
 2. Add Robinhood Chain and USDG presets once their RPC details are confirmed.
 3. A Foundry interop template (Solidity test calling a Stylus contract).
 4. `cargo stylus verify` support with a Docker-friendly key path.

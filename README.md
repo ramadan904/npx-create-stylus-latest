@@ -10,6 +10,15 @@ npx create-stylus-latest my-app            # prompts for a template
 npx create-stylus-latest my-token -t erc20 # skip the prompt
 ```
 
+> **Status:** the package is publish-ready and publishes automatically when a version tag is pushed (see
+> [RELEASING.md](RELEASING.md)), but it has **not been published to npm yet**, so `npx create-stylus-latest` will return a 404 until
+> the first release. Until then run it from a clone:
+>
+> ```bash
+> git clone https://github.com/ramadan904/npx-create-stylus-latest && cd npx-create-stylus-latest
+> node bin/create-stylus-latest.js ../my-app -t escrow
+> ```
+
 ## Why "latest"
 
 Stylus templates go stale quickly: SDK APIs and the `alloy` version they depend on change between releases, and a
