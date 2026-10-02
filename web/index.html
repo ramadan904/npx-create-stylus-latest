@@ -171,6 +171,27 @@
   /* readings that come live from the chain breathe */
   .live:not(.err) { animation: breathe 2.2s ease-in-out infinite; }
   @keyframes breathe { 50% { text-shadow: 0 0 10px var(--ok); opacity: .75; } }
+  /* ---- gas comparison ---- */
+  .gas { display: grid; gap: 14px; margin: 6px 0 12px; }
+  .grow { background: var(--glass); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+  .glabel { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 14px; }
+  .gchip { font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; }
+  .gchip.win { color: #04140d; background: var(--ok); box-shadow: 0 0 16px color-mix(in srgb, var(--ok) 55%, transparent); }
+  .gchip.lose { color: #1a1300; background: var(--warn); }
+  @media (prefers-color-scheme: light) { .gchip.win, .gchip.lose { color: #fff; } }
+  .gbar { display: grid; grid-template-columns: 62px 1fr minmax(76px, auto); align-items: center; gap: 10px; margin: 6px 0;
+    font-size: 12.5px; }
+  .gbar i { display: block; height: 18px; border-radius: 6px; background: var(--code); overflow: hidden; min-width: 0; }
+  .gbar i > span { display: block; height: 100%; width: var(--w); min-width: 4px; border-radius: 6px;
+    transform-origin: left; animation: grow 1.4s cubic-bezier(.2,.8,.2,1) both; }
+  .gbar.sty i > span { background: linear-gradient(90deg, var(--c1), var(--c2)); box-shadow: 0 0 14px var(--glow); }
+  .gbar.sol i > span { background: linear-gradient(90deg, var(--c4), var(--c3)); opacity: .85; }
+  .gbar b { color: var(--muted); font-weight: 600; } .gbar.sty b { color: var(--c1); }
+  .gbar em { font: 12.5px ui-monospace, Menlo, Consolas, monospace; font-style: normal; text-align: right; }
+  @keyframes grow { from { transform: scaleX(0); } }
+  #gas.reveal:not(.in) .gbar i > span { animation-play-state: paused; }
+  @media (prefers-reduced-motion: reduce) { .gbar i > span { animation: none; } }
+
   /* ---- the agent replay ---- */
   #agent-meta a { color: var(--accent); }
   ol.agent-log { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 10px; }
@@ -327,6 +348,44 @@
     <ol class="agent-log" id="agent-log" aria-live="polite"></ol>
     <pre>cd my-stream/client &amp;&amp; npx tsx --env-file=../.env src/agent-cli.ts --tools   # hand these to your LLM
 npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"open_stream","recipient":"0x…","amountTokens":"25","durationSeconds":3600}'</pre>
+  </section>
+
+  <section id="gas">
+    <h2>Stylus vs Solidity: measured gas</h2>
+    <p class="sub">The counter template and a line-for-line Solidity twin, deployed to the same Arbitrum Nitro node and sent
+      identical transactions. Execution gas from the receipts (<code>gasUsed − gasUsedForL1</code>), uncached. Stylus pays a
+      fixed cost to enter WASM, so plain storage calls cost about 2× more; real computation costs about 31× less. Pick it for
+      compute-heavy logic, not as a free win everywhere.</p>
+    <div class="gas">
+      <div class="grow" data-key="increment, first call (0 to 1)">
+        <div class="glabel"><code>increment (0 → 1)</code><span class="gchip lose">1.7× more gas</span></div>
+        <div class="gbar sty"><b>Stylus</b><i><span style="--w:100.00%"></span></i><em>72,299</em></div>
+        <div class="gbar sol"><b>Solidity</b><i><span style="--w:60.25%"></span></i><em>43,561</em></div>
+      </div>
+      <div class="grow" data-key="increment, steady state">
+        <div class="glabel"><code>increment</code><span class="gchip lose">2.1× more gas</span></div>
+        <div class="gbar sty"><b>Stylus</b><i><span style="--w:100.00%"></span></i><em>55,199</em></div>
+        <div class="gbar sol"><b>Solidity</b><i><span style="--w:47.94%"></span></i><em>26,461</em></div>
+      </div>
+      <div class="grow" data-key="addNumber">
+        <div class="glabel"><code>addNumber</code><span class="gchip lose">2.1× more gas</span></div>
+        <div class="gbar sty"><b>Stylus</b><i><span style="--w:100.00%"></span></i><em>55,360</em></div>
+        <div class="gbar sol"><b>Solidity</b><i><span style="--w:48.56%"></span></i><em>26,881</em></div>
+      </div>
+      <div class="grow" data-key="setNumber">
+        <div class="glabel"><code>setNumber</code><span class="gchip lose">2.1× more gas</span></div>
+        <div class="gbar sty"><b>Stylus</b><i><span style="--w:100.00%"></span></i><em>55,323</em></div>
+        <div class="gbar sol"><b>Solidity</b><i><span style="--w:48.07%"></span></i><em>26,596</em></div>
+      </div>
+      <div class="grow" data-key="work(20000)">
+        <div class="glabel"><code>work(20000): pure compute loop</code><span class="gchip win">31× less gas</span></div>
+        <div class="gbar sty"><b>Stylus</b><i><span style="--w:3.23%"></span></i><em>58,800</em></div>
+        <div class="gbar sol"><b>Solidity</b><i><span style="--w:100.00%"></span></i><em>1,821,893</em></div>
+      </div>
+    </div>
+    <p class="note">Both contracts return the same <code>work(20000)</code> result; the benchmark fails if they differ.
+      <a href="https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36935538361" target="_blank" rel="noopener" style="color:var(--accent)">CI run 36935538361</a> ·
+      <a href="https://github.com/ramadan904/npx-create-stylus-latest/blob/main/bench/README.md" style="color:var(--accent)">method and caveats</a></p>
   </section>
 
   <section id="deploy-your-own">

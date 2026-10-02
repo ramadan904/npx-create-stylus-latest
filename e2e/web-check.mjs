@@ -98,6 +98,16 @@ const curve = await page.evaluate(() => {
 });
 check(JSON.stringify(curve) === JSON.stringify(["0", "0", "25", "450", "975", "1000", "1000"]), "earnedAt matches the contract (450 of 1000 at 18 s of 40)", JSON.stringify(curve));
 
+// 7. the gas comparison shows exactly the numbers the benchmark measured (bench/README.md), so it cannot drift
+const bench = readFileSync(new URL("../bench/README.md", import.meta.url), "utf8");
+const measured = Object.fromEntries([...bench.matchAll(/^\| (.+?) \| ([\d,]+) \| ([\d,]+) \|$/gm)]
+  .map(([, label, sty, sol]) => [label.replaceAll("`", ""), [sty, sol]]));
+const shown = await page.evaluate(() => [...document.querySelectorAll("#gas .grow")].map((r) => [r.dataset.key, [...r.querySelectorAll("em")].map((e) => e.textContent)]));
+check(shown.length >= 4, `the gas comparison has rows (${shown.length})`);
+for (const [key, [sty, sol]] of shown) {
+  check(JSON.stringify(measured[key]) === JSON.stringify([sty, sol]), `gas row "${key}" matches bench/README.md`, `page ${sty}/${sol}, README ${measured[key]}`);
+}
+
 // 6. the recorded agent run: every step renders with its result, it links its CI run, and it fits a phone.
 // Reduced motion makes the replay render at once instead of animating.
 let demo = null;
