@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline/promises";
 import { parseArgs } from "node:util";
@@ -8,7 +9,8 @@ import { DEFAULT_TEMPLATE, TEMPLATES } from "./templates.js";
 import { resolveVersions } from "./versions.js";
 import { DEFAULT_NETWORK, NETWORKS, TOKEN_TEMPLATES, resolveNetwork } from "./networks.js";
 
-const VERSION = "0.1.0";
+// One source of truth: `npm version` bumps package.json, and --version reports it.
+const VERSION = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
 const HELP = `create-stylus-latest ${VERSION}
 Scaffold an Arbitrum Stylus (Rust) project pinned to the latest stylus-sdk.
