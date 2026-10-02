@@ -195,3 +195,32 @@ test("erc20, vault, escrow and stream ship property-based tests", () => {
     assert.match(lib, /proptest!/, `${template} needs a proptest! block`);
   }
 });
+
+test("devnode.sh ships the setup that constructor deploys need, and it is wired in", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const dir = tmp();
+  scaffold({ targetDir: dir, name: "my-app", template: "escrow", versions });
+  const devnode = path.join(dir, "scripts", "devnode");
+  for (const f of ["setup.mjs", "bytecode.json", "package.json"]) {
+    assert.ok(fs.existsSync(path.join(devnode, f)), `scripts/devnode/${f} is missing`);
+  }
+  const sh = fs.readFileSync(path.join(dir, "scripts/devnode.sh"), "utf8");
+  assert.match(sh, /devnode\/setup\.mjs/, "devnode.sh must run the setup");
+  assert.match(sh, /npm install/, "devnode.sh must install the setup's dependency");
+  assert.doesNotMatch(sh, /^\s*exit 0\s*$/m, "devnode.sh must not exit before the setup runs");
+  const check = spawnSync(process.execPath, ["--check", path.join(devnode, "setup.mjs")], { encoding: "utf8" });
+  assert.equal(check.status, 0, check.stderr);
+
+  const bytecode = JSON.parse(fs.readFileSync(path.join(devnode, "bytecode.json"), "utf8"));
+  for (const key of ["stylusDeployer", "create2FactoryRawTx"]) {
+    assert.match(bytecode[key], /^[0-9a-f]+$/, `${key} must be lowercase hex without a 0x prefix`);
+    assert.equal(bytecode[key].length % 2, 0, `${key} must be whole bytes`);
+  }
+  assert.equal(bytecode.create2FactoryRawTx.length / 2, 167, "the presigned CREATE2 factory transaction is 167 bytes");
+  assert.ok(bytecode.stylusDeployer.startsWith("6080604052"), "stylusDeployer must be init code");
+  const setup = fs.readFileSync(path.join(devnode, "setup.mjs"), "utf8");
+  const code = setup.split("\n").filter((line) => !line.trim().startsWith("//")).join("\n"); // comments may show checksummed addresses
+  for (const address of code.match(/0x[0-9a-fA-F]{40}\b/g) ?? []) {
+    assert.equal(address, address.toLowerCase(), `${address}: addresses must be lowercase (viem rejects a bad checksum)`);
+  }
+});

@@ -38,3 +38,14 @@ cp .env.example .env                # add a funded testnet PRIVATE_KEY
 ./scripts/deploy.sh --check-only
 ./scripts/deploy.sh -- 0xTokenAddress
 ```
+
+### Deploy locally first
+
+```bash
+cp .env.example .env     # a throwaway PRIVATE_KEY is fine; the dev node funds it
+./scripts/devnode.sh     # needs Docker and Node: starts a dev node, funds your key, installs the Stylus deployer
+RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh -- 0xTokenAddress
+docker rm -f stylus-devnode
+```
+
+Constructor deploys need that deployer contract, which a bare dev node does not have; `devnode.sh` installs it.

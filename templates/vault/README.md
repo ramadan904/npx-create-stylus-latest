@@ -44,3 +44,14 @@ Then use it, for example with Foundry's `cast`:
 cast send <TOKEN> "approve(address,uint256)" <VAULT> 1000000 --rpc-url $RPC_URL --private-key $PRIVATE_KEY
 cast send <VAULT> "deposit(uint256)" 1000000 --rpc-url $RPC_URL --private-key $PRIVATE_KEY
 ```
+
+### Deploy locally first
+
+```bash
+cp .env.example .env     # a throwaway PRIVATE_KEY is fine; the dev node funds it
+./scripts/devnode.sh     # needs Docker and Node: starts a dev node, funds your key, installs the Stylus deployer
+RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh -- 0xTokenAddress
+docker rm -f stylus-devnode
+```
+
+Constructor deploys need that deployer contract, which a bare dev node does not have; `devnode.sh` installs it.

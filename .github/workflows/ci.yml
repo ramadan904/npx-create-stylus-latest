@@ -73,14 +73,9 @@ jobs:
         run: |
           mkdir -p "${{ runner.temp }}/node-app"
           node bin/create-stylus-latest.js "${{ runner.temp }}/node-app" -t counter -y --no-git
-          cd "${{ runner.temp }}/node-app" && FUND_ADDRESS="$E2E_ADDR" ./scripts/devnode.sh
-      - name: Install the StylusDeployer that constructor deploys need
-        working-directory: e2e
-        env:
-          RPC_URL: http://127.0.0.1:8547
-          CHAIN_ID: "412346"
-          FUNDER_KEY: ${{ env.E2E_KEY }}
-        run: node setup-devnode.mjs
+          # The generated devnode.sh prepares the node itself (installs the StylusDeployer, funds the chain owner from
+          # PRIVATE_KEY): this exercises the shipped script, on the harder path where FUND_ADDRESS leaves the owner unfunded.
+          cd "${{ runner.temp }}/node-app" && FUND_ADDRESS="$E2E_ADDR" PRIVATE_KEY="$E2E_KEY" ./scripts/devnode.sh
       - name: Deploy the token, the stream contract and the escrow
         run: |
           deploy() {  # deploy <template> <constructor args...>; prints the address
@@ -151,13 +146,29 @@ jobs:
         working-directory: ${{ runner.temp }}/app
       - run: cargo build --release --target wasm32-unknown-unknown --lib
         working-directory: ${{ runner.temp }}/app
-      - run: ./scripts/devnode.sh
+      # A random deploy key in .env: devnode.sh funds it and installs the StylusDeployer, like it does for a user.
+      - name: Start a dev node (the generated script prepares it)
         working-directory: ${{ runner.temp }}/app
+        run: |
+          echo "PRIVATE_KEY=0x$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')" > .env
+          ./scripts/devnode.sh
       # Catches missing Stylus.toml, size limits and activation errors.
       - run: ./scripts/deploy.sh --check-only
         working-directory: ${{ runner.temp }}/app
         env:
           RPC_URL: http://127.0.0.1:8547
+      # And a real deploy, constructor included, so the local dev node flow in the README actually works.
+      - name: Deploy to the dev node
+        working-directory: ${{ runner.temp }}/app
+        env:
+          RPC_URL: http://127.0.0.1:8547
+        run: |
+          case "${{ matrix.template }}" in
+            counter) args=() ;;
+            erc20) args=("Test Token" TST 1000 0x1111111111111111111111111111111111111111) ;;
+            *) args=(0x1111111111111111111111111111111111111111) ;;  # vault, escrow, stream: any non-zero token address
+          esac
+          if [ ${#args[@]} -gt 0 ]; then ./scripts/deploy.sh -- "${args[@]}"; else ./scripts/deploy.sh; fi
       - if: failure()
         run: docker logs --tail 60 stylus-devnode || true
 
