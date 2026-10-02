@@ -186,7 +186,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        template: [counter, erc20, vault, escrow, stream, faucet]
+        template: [counter, erc20, erc721, vault, escrow, stream, oracle, faucet]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -240,7 +240,9 @@ jobs:
           case "${{ matrix.template }}" in
             counter) args=() ;;
             erc20) args=("Test Token" TST 1000 0x1111111111111111111111111111111111111111) ;;
+            erc721) args=("Test Badges" TBDG ipfs://cid/ 0x1111111111111111111111111111111111111111) ;;  # name, symbol, base URI, minter
             faucet) args=(0x1111111111111111111111111111111111111111 100 60) ;;  # token, amount per drip, cooldown
+            oracle) args=(0x1111111111111111111111111111111111111111 8 90000) ;;  # feed, its decimals, max age (s)
             *) args=(0x1111111111111111111111111111111111111111) ;;  # vault, escrow, stream: any non-zero token address
           esac
           if [ ${#args[@]} -gt 0 ]; then ./scripts/deploy.sh -- "${args[@]}"; else ./scripts/deploy.sh; fi
@@ -276,7 +278,7 @@ jobs:
         with:
           path: ~/.cargo/bin/cargo-stylus
           key: cargo-stylus-${{ runner.os }}-v1
-      - run: node bin/create-stylus-latest.js "$APP" -t counter -y --no-git --with-client
+      - run: node bin/create-stylus-latest.js "$APP" -t counter -y --no-git --with-client --with-ui
       - run: npm install
         working-directory: ${{ env.APP }}/client
       - name: Create a throwaway key
@@ -313,5 +315,11 @@ jobs:
           npm start | tee out.txt
           grep -q 'number: 0n' out.txt
           grep -q 'number: 1n' out.txt
+      # The page --with-ui generates, in a real browser: lists the functions, reads, signs with the dev node key, writes.
+      - name: Use the contract through the generated web page
+        run: |
+          (cd "$APP" && ./scripts/ui.sh 5173 > ui.log 2>&1 &)
+          for _ in $(seq 1 120); do curl -sf http://127.0.0.1:5173/config.json > /dev/null && break; sleep 2; done
+          cd e2e && npm install --silent --no-audit --no-fund && node ui-check.mjs || { cat "$APP/ui.log"; exit 1; }
       - if: failure()
         run: docker logs --tail 80 stylus-devnode || true

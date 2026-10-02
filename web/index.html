@@ -302,10 +302,10 @@
   </header>
 
   <section class="stats" aria-label="Verified in CI">
-    <div class="stat"><div class="n" data-count="6">6</div><div class="l">contract templates, each with property tests</div></div>
+    <div class="stat"><div class="n" data-count="8">8</div><div class="l">contract templates, tested on a real node</div></div>
     <div class="stat"><div class="n" data-count="98">98</div><div class="l">agent end-to-end checks on a real node</div></div>
     <div class="stat"><div class="n" data-count="13">13</div><div class="l">CI jobs green on every change</div></div>
-    <div class="stat"><div class="n" data-count="12">12</div><div class="l">on-chain checks of USDG and RPCs</div></div>
+    <div class="stat"><div class="n" data-count="20">20</div><div class="l">on-chain checks: USDG, Chainlink feeds, RPCs</div></div>
   </section>
 
   <section class="pg" id="agent-live">
@@ -485,7 +485,7 @@ RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh -- 0xYourTokenAddress</pre>
     <h2>What you get</h2>
     <div class="grid four">
       <div class="card"><div class="ico" style="--a:var(--c4);--b:var(--c3)" aria-hidden="true">&#9889;</div><h3>Always current</h3><p>Reads the crates.io index at scaffold time and pins the newest stable SDK with the exact alloy version it needs. Works offline with a known-good fallback.</p></div>
-      <div class="card"><div class="ico" style="--a:var(--c1);--b:var(--c2)" aria-hidden="true">&#129521;</div><h3>Six templates</h3><p><code>counter</code>, <code>erc20</code>, <code>vault</code>, <code>escrow</code>, <code>stream</code> and <code>faucet</code>, each with unit tests and a model-based property test that checks every token movement.</p></div>
+      <div class="card"><div class="ico" style="--a:var(--c1);--b:var(--c2)" aria-hidden="true">&#129521;</div><h3>Eight templates</h3><p><code>counter</code>, <code>erc20</code>, <code>erc721</code>, <code>vault</code>, <code>escrow</code>, <code>stream</code>, <code>oracle</code> (Chainlink) and <code>faucet</code>. Every one except the counter has unit tests and a model-based property test that checks every token movement.</p></div>
       <div class="card"><div class="ico" style="--a:var(--c2);--b:var(--c3)" aria-hidden="true">&#129302;</div><h3>Agent-native</h3><p>Stream, escrow and vault ship a JSON tool interface an AI agent can call, with spending limits enforced before signing and the contract's own error names in every failure.</p></div>
       <div class="card"><div class="ico" style="--a:var(--c5);--b:var(--c1)" aria-hidden="true">&#128640;</div><h3>Deploy that works</h3><p><code>deploy.sh</code> handles the lockfile, RPC override, gas cap and key hand-off. <code>devnode.sh</code> starts a local Nitro node for free validation.</p></div>
       <div class="card"><div class="ico" style="--a:var(--c3);--b:var(--c4)" aria-hidden="true">&#128187;</div><h3>Typed client</h3><p><code>--with-client</code> adds a viem script that fails loudly on reverted transactions.</p></div>

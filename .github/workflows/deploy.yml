@@ -19,7 +19,7 @@ on:
       template:
         description: Template to scaffold and deploy
         type: choice
-        options: [counter, erc20, vault, escrow, stream, faucet]
+        options: [counter, erc20, erc721, vault, escrow, stream, oracle, faucet]
         default: counter
       rpc_url:
         description: RPC endpoint (ignored if the RPC_URL secret is set)

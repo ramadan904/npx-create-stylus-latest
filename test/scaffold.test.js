@@ -119,6 +119,8 @@ for (const template of Object.keys(TEMPLATES)) {
     // Every function the client calls must exist in the contract (snake_case there, camelCase in the ABI).
     const lib = fs.readFileSync(path.join(dir, "src/lib.rs"), "utf8");
     const contractFns = new Set([...lib.matchAll(/pub fn (\w+)/g)].map((m) => m[1].replace(/_(\w)/g, (_, c) => c.toUpperCase())));
+    // Functions renamed with #[selector(name = "...")] (tokenURI, the safeTransferFrom overloads) keep their ABI name.
+    for (const m of lib.matchAll(/#\[selector\(name = "(\w+)"\)\]/g)) contractFns.add(m[1]);
     const main = fs.readFileSync(path.join(dir, "client/src/main.ts"), "utf8");
     // Only the contract's own ABI (`const abi = parseAbi([...])`); a client may also call the token through another ABI.
     const contractAbi = main.match(/const abi = parseAbi\(\[([\s\S]*?)\]\);/)?.[1] ?? "";
@@ -128,8 +130,8 @@ for (const template of Object.keys(TEMPLATES)) {
   });
 }
 
-test("erc20, vault, escrow, stream and faucet initialize through a constructor, not a callable init()", () => {
-  for (const template of ["erc20", "vault", "escrow", "stream", "faucet"]) {
+test("erc20, erc721, vault, escrow, stream, oracle and faucet initialize through a constructor, not a callable init()", () => {
+  for (const template of ["erc20", "erc721", "vault", "escrow", "stream", "oracle", "faucet"]) {
     const dir = tmp();
     scaffold({ targetDir: dir, name: "my-app", template, versions });
     const lib = fs.readFileSync(path.join(dir, "src/lib.rs"), "utf8");
@@ -187,8 +189,8 @@ test("deploy.sh turns known cargo-stylus failures into plain-English hints and k
   assert.equal(run().status, 0);
 });
 
-test("erc20, vault, escrow, stream and faucet ship property-based tests", () => {
-  for (const template of ["erc20", "vault", "escrow", "stream", "faucet"]) {
+test("erc20, erc721, vault, escrow, stream, oracle and faucet ship property-based tests", () => {
+  for (const template of ["erc20", "erc721", "vault", "escrow", "stream", "oracle", "faucet"]) {
     const dir = tmp();
     scaffold({ targetDir: dir, name: "my-app", template, versions });
     assert.match(fs.readFileSync(path.join(dir, "Cargo.toml"), "utf8"), /proptest = /, `${template} needs proptest`);

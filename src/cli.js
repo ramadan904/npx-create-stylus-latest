@@ -23,6 +23,8 @@ Options
   -y, --yes              Skip prompts and use defaults
       --no-git           Do not run git init
       --with-client      Also generate a TypeScript (viem) client in client/
+      --with-ui          Also generate a web page for the deployed contract (./scripts/ui.sh): every function as a
+                         form, errors decoded by name, and a burner key on the local dev node
       --network <name>   ${Object.keys(NETWORKS).join(" | ")} (default: ${DEFAULT_NETWORK})
                          Sets RPC_URL and CHAIN_ID in .env.example
       --robinhood        Same as --network robinhood-testnet
@@ -57,6 +59,7 @@ export async function main(argv) {
       offline: { type: "boolean", default: false },
       rpc: { type: "string" },
       "with-client": { type: "boolean", default: false },
+      "with-ui": { type: "boolean", default: false },
       network: { type: "string" },
       robinhood: { type: "boolean", default: false },
       usdg: { type: "boolean", default: false },
@@ -108,6 +111,7 @@ export async function main(argv) {
     template,
     versions,
     withClient: values["with-client"],
+    withUi: values["with-ui"],
     network: network.name,
     usdg: values.usdg,
   });
@@ -135,6 +139,10 @@ export async function main(argv) {
   if (values["with-client"]) {
     console.log("\nClient: set CONTRACT_ADDRESS in .env after deploying, then");
     console.log("  cd client && npm install && npm start");
+  }
+  if (values["with-ui"]) {
+    console.log("\nUI: set CONTRACT_ADDRESS in .env after deploying, then");
+    console.log("  ./scripts/ui.sh        # http://127.0.0.1:5173");
   }
   console.log(`\nNext:\n${path.relative(process.cwd(), targetDir) ? `  cd ${path.relative(process.cwd(), targetDir)}\n` : ""}  cargo test\n  ./scripts/deploy.sh --check-only\n`);
 }

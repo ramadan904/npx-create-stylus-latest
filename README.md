@@ -39,15 +39,33 @@ requires. If you are offline it falls back to a bundled known-good pair (`--offl
 Every template is built, tested and validated with `cargo stylus check` against a local Nitro dev node in CI, using live crates.io versions, so a broken release shows up as a red
 build here rather than in your project.
 
+## How it compares
+
+Not to be confused with `npx create-stylus` (Scaffold-Stylus): a different tool, with a different job.
+
+| | `cargo stylus new` | [Scaffold-Stylus](https://github.com/Arb-Stylus/scaffold-stylus) (`npx create-stylus`) | **create-stylus-latest** |
+| --- | --- | --- | --- |
+| Focus | The official minimal starter | A full-stack dApp: Next.js frontend, wallet connect, contract hot reload | The contract and its path to a live deploy: payments and AI agents |
+| Contracts | A counter | A sample contract; ERC-20, ERC-721 and Chainlink extensions | Eight templates: counter, ERC-20, ERC-721, vault, escrow, stream, Chainlink oracle, faucet |
+| Tests | Example tests | `yarn stylus:test` | Unit tests plus reference-model property tests; every template deployed to a Nitro node in CI |
+| AI agents | – | – | JSON tool interface with operator spending limits, checked against real contracts in CI |
+| Stablecoins and chains | – | Arbitrum Sepolia, mainnet, Orbit | Paxos USDG presets checked on-chain; Arbitrum One, Robinhood Chain and their testnets |
+| Frontend | – | Full Next.js app | A generated contract page (`--with-ui`) and a typed TypeScript client (`--with-client`) |
+
+Pick Scaffold-Stylus for a ready-made dApp frontend; pick this when the contract has to move money correctly and an
+agent has to drive it. They combine: the contracts here are plain Stylus projects that any frontend can call.
+
 ## Templates
 
 | Name | What you get |
 | --- | --- |
 | `counter` | Minimal storage contract with unit tests. Best first step. |
 | `erc20` | ERC-20 token with events, custom Solidity errors and tests. |
+| `erc721` | ERC-721 NFT with metadata (`tokenURI`), safe transfers that ask a receiving contract, a minter, `burn`, and the standard ERC-6093 errors. Unit tests plus a model-based property test of every mint, approval, transfer and burn. |
 | `vault` | Stablecoin vault for any ERC-20 (USDC, USDG): deposits and withdrawals through cross-contract calls, with mocked-token tests. |
 | `escrow` | Stablecoin escrow for payments between parties or agents: buyer-funded deals, release by buyer or arbiter, refund by seller or arbiter, and a buyer-side refund after a deadline. Unit tests plus a model-based property test. |
 | `stream` | Stablecoin payment streams (payroll, vesting, agent subscriptions): linear per-second payouts, keeper-friendly `withdraw`, and `cancel` that splits earned from remaining. Unit tests plus a model-based property test that tracks every token movement. |
+| `oracle` | Reads a Chainlink price feed safely: refuses stale, zero, negative or incomplete prices with named errors, and values amounts in USD with both decimals handled. `--network` presets Chainlink's ETH / USD feed (checked on-chain in CI). Unit tests plus a model-based property test. |
 | `faucet` | Rate-limited ERC-20 faucet for testnets and demos: anyone can `drip` once per cooldown, and `availableAt(who)` says when. Lets visitors try your dApp without asking you for tokens. Unit tests plus a model-based property test. |
 
 ## What you get in the generated project
@@ -87,6 +105,16 @@ contract reporting symbol `USDG` and 6 decimals.
 `deploy.sh` asks the RPC which chain it is. On a mainnet (Arbitrum One, Nova, Robinhood Chain) it refuses to deploy
 unless you set `MAINNET=1`, because these templates are unaudited; `--check-only` is always allowed.
 
+## Optional web page for your contract
+
+`--with-ui` adds `./scripts/ui.sh`: it exports the contract's interface and serves a page on `http://127.0.0.1:5173`
+(in a Codespace, the forwarded port) with every function as a form. Reads run on load; writes are simulated first, so a
+revert shows the contract's own error by name (`StalePrice(...)`, `ERC721NonexistentToken(...)`) before you sign, then
+sent through your browser wallet with the emitted events shown. On the local dev node only, it can also sign with the
+throwaway key in `.env`, like a burner wallet; on any other chain the page never sees a key. It reads `.env` on each
+load, so after a redeploy update `CONTRACT_ADDRESS` and reload. One HTML file and a small Node server, no build step;
+CI drives it in a browser against a deployed counter.
+
 ## Optional TypeScript client
 
 `--with-client` adds a `client/` folder with a small [viem](https://viem.sh) script wired to the template's ABI,
@@ -105,7 +133,7 @@ the contract does not define.
 ## Options
 
 ```
--t, --template <name>  counter | erc20 | vault | escrow | stream | faucet (default: counter)
+-t, --template <name>  counter | erc20 | erc721 | vault | escrow | stream | oracle | faucet (default: counter)
 -y, --yes              Skip prompts and use defaults
     --no-git           Do not run git init
     --with-client      Also generate a TypeScript (viem) client in client/

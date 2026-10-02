@@ -32,7 +32,7 @@ function copyDir(src, dest, vars, written) {
   }
 }
 
-export function scaffold({ targetDir, name, template, versions, withClient = false, network = DEFAULT_NETWORK, usdg = false }) {
+export function scaffold({ targetDir, name, template, versions, withClient = false, withUi = false, network = DEFAULT_NETWORK, usdg = false }) {
   const nameError = validateName(name);
   if (nameError) throw new Error(nameError);
   if (!(template in TEMPLATES)) {
@@ -51,7 +51,7 @@ export function scaffold({ targetDir, name, template, versions, withClient = fal
     crate_name: toCrateName(name),
     stylus_sdk_version: versions.stylusSdk,
     alloy_version: versions.alloy,
-    network_env: envBlock(net, { usdg }),
+    network_env: envBlock(net, { usdg, feed: template === "oracle" }),
   };
   const written = [];
   written.root = targetDir;
@@ -64,5 +64,6 @@ export function scaffold({ targetDir, name, template, versions, withClient = fal
       copyDir(path.join(TEMPLATES_DIR, "_client", "_agent"), path.join(targetDir, "client", "src"), vars, written);
     }
   }
+  if (withUi) copyDir(path.join(TEMPLATES_DIR, "_ui"), targetDir, vars, written);
   return written.sort();
 }
