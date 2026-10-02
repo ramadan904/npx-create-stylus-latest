@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Live site** | https://npx-create-stylus-latest-web-mocha.vercel.app/ (a 69-second demo video at the top, the playground, and a live AI-agent demo you run with your wallet) |
+| **Live site** | https://npx-create-stylus-latest-web-mocha.vercel.app/ (the playground, and a live AI-agent demo you run with your wallet) |
 | **npm** | https://www.npmjs.com/package/create-stylus-latest: `npx create-stylus-latest my-app`. Published from CI with provenance ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37043469397)) |
 | **Latest CI** | All 13 jobs green: [main](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37056631397), and [with the live agent demo](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37059195125) (29/29 browser checks against the agent CLI). [All runs](https://github.com/ramadan904/npx-create-stylus-latest/actions/workflows/ci.yml) |
 | **Zero install** | [Open in Codespaces](https://codespaces.new/ramadan904/npx-create-stylus-latest?quickstart=1), then `.devcontainer/quickstart.sh`: a Stylus contract deployed and called on a local Arbitrum chain in 105 s, measured inside that container in CI ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37061245097)) |
@@ -274,7 +274,7 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
 - The Codespace, built and used in CI: the published package scaffolds, tests and builds inside it, and the one-command
   quickstart deploys and calls a contract on a local Nitro node in 105 s:
   https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37061245097
-- The demo video at the top of the site is generated from a real run (`e2e/video/chain.sh` + `e2e/video/record.mjs`):
+- The demo video (submitted separately; also [`media/demo.mp4`](media/demo.mp4)) is generated from a real run (`e2e/video/chain.sh` + `e2e/video/record.mjs`):
   real `npx` and `cargo test` output, and real transactions to contracts the tool deployed on a local Nitro node.
 - USDG on-chain verification (Arbitrum One and Robinhood Chain: contract present, symbol USDG, name "Global Dollar",
   6 decimals; all four RPC chain ids): https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37006932863/job/110837305641

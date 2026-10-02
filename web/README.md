@@ -18,10 +18,6 @@ test tokens from the faucet, open a payment stream and watch it pay out, fund an
   on success and shakes on an error, the pressed button spins, the stream bar shimmers while it pays out, the activity
   list is a timeline with each transaction's state, balances flash when they change, and the connected account gets an
   identicon. It only reads what the page already renders, so the page works the same without it; `web-check` drives it.
-- `demo.mp4` (with `demo-poster.jpg`) is the video at the top of the page. It is generated from a real run, not edited:
-  `e2e/video/chain.sh <dir>` deploys the six contracts to a local Nitro dev node with the projects' own deploy scripts, then
-  `node e2e/video/record.mjs <dir>` runs the real `npx` and `cargo test`, drives this page against those contracts with a
-  stand-in wallet, and encodes the result with ffmpeg. `web-check` checks its length (60–90 s), size and poster.
 - The faucet address goes in `PG.faucet` at the top of `playground.js`; until it is set the faucet button is disabled.
 
 ## Deploy on Vercel
