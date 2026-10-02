@@ -30,7 +30,8 @@ One command produces a working project and a deploy path that has already been r
 - **Agent-native money contracts.** `stream` and `escrow` can tell a caller what will happen before it commits
   (`previewCancel`, `canRelease`, `canRefund`), and `--with-client` adds a JSON-in/JSON-out interface for AI agents: tool
   schemas an LLM can be given, results like `{ ok: false, error: { code: "NotAuthorized", hint } }` using the contract's own
-  error names, and spending limits the operator sets in the environment, enforced before anything is signed.
+  error names, spending limits the operator sets in the environment, enforced before anything is signed, and a
+  `claim_held_payment` intent for a cancel payout the token refused (a blocked address) and the stream now holds instead.
 - **A local dev node that really deploys.** `scripts/devnode.sh` also funds your key and installs the Stylus deployer that
   constructor deploys need, so every template, constructor included, deploys locally for free.
 - **Deploy scripts that work.** `scripts/deploy.sh` validates and deploys with `cargo-stylus`, handles the lockfile,
@@ -206,8 +207,8 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
 
 ## Live evidence index
 
-- Latest all-green CI run (all 10 jobs: real-token flows, the agent CLIs, a real local deploy of every template, the npm
-  package smoke test): https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36998181283
+- Latest all-green CI run (all 12 jobs: real-token flows, the agent CLIs, a real local deploy of every template, the npm
+  package smoke test, the playground in a real browser): https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37003128557
 - Real-token end-to-end flows (40 checks): https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36989741978
 - Arbitrum Sepolia: escrow `0x5c3766164e3a2d4abb61f605879c18234b36a60e`, stream `0xa97f7f79dd79b6c72c8daa452f68baf1ca7bade5`,
   faucet `0x05bdd4d122896a638f7ff41ed58c7d90a84142d8` holding 500,000 BUIDL (details in the Evidence section above).

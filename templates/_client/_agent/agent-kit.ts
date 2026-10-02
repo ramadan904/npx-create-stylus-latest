@@ -176,6 +176,7 @@ export async function ensureFunds(ctx: Ctx, token: Address, spender: Address, am
 const HINTS: Record<string, string> = {
   NotAuthorized: "This account is not allowed to do this right now. Check the permission or status intent to see who can.",
   NothingToWithdraw: "Nothing has been earned since the last withdrawal. Try again later.",
+  NothingToClaim: "Nothing is held for this account. Check with claim_held_payment and checkOnly, or get_stream's heldForClaim.",
   NotActive: "This stream was already cancelled.",
   NotFunded: "This deal was already released or refunded.",
   NoSuchStream: "No stream has this id.",

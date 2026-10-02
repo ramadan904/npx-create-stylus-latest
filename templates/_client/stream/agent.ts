@@ -1,4 +1,4 @@
-// Agent-native interface to the stream contract: five intents an AI agent can call with JSON. See agent-kit.ts for the
+// Agent-native interface to the stream contract: six intents an AI agent can call with JSON. See agent-kit.ts for the
 // conventions (decimal-string amounts, `{ ok, ... }` results, operator-set safety limits).
 //
 //   npx tsx --env-file=../.env src/agent-cli.ts --tools                                   # tool schemas for an LLM
@@ -10,6 +10,7 @@ import {
   checkAmount,
   checkCounterparty,
   ensureFunds,
+  IntentError,
   parseAddress,
   parseUint,
   policyFromEnv,
@@ -28,10 +29,15 @@ const abi = parseAbi([
   "function create(address recipient, uint256 amount, uint256 start, uint256 stop) returns (uint256)",
   "function withdraw(uint256 id) returns (uint256)",
   "function cancel(uint256 id)",
+  "function claimable(address who) view returns (uint256)",
+  "function claim() returns (uint256)",
   "event Withdrawn(uint256 indexed id, address indexed recipient, uint256 amount)",
   "event Cancelled(uint256 indexed id, uint256 toRecipient, uint256 toSender)",
+  "event PaymentHeld(address indexed to, uint256 amount)",
+  "event Claimed(address indexed to, uint256 amount)",
   "event StreamCreated(uint256 indexed id, address indexed sender, address indexed recipient, uint256 amount, uint256 start, uint256 stop)",
   "error NothingToWithdraw(uint256 id)",
+  "error NothingToClaim()",
   "error NoSuchStream(uint256 id)",
   "error NotActive(uint256 id)",
   "error NotAuthorized()",
@@ -77,8 +83,23 @@ export const tools: ToolSpec[] = [
   },
   {
     name: "cancel_stream",
-    description: "Stop the stream. The recipient receives what is earned and not yet withdrawn; the sender gets the rest back. Only the sender or the recipient can do this.",
+    description:
+      "Stop the stream. The recipient receives what is earned and not yet withdrawn; the sender gets the rest back. Only the sender or the recipient can do this. " +
+      "If the token refuses to pay one side (for example a blocked address), that share is held in the contract for them to claim later; the result lists it under `held`.",
     input_schema: { type: "object", properties: { id: idSchema }, required: ["id"] },
+  },
+  {
+    name: "claim_held_payment",
+    description:
+      "Collect tokens the contract is holding for the agent's own account because the token refused a payout when a stream was cancelled. " +
+      "Set `checkOnly` to just read how much is held, for the agent or for any `who`, without sending anything.",
+    input_schema: {
+      type: "object",
+      properties: {
+        checkOnly: { type: "boolean", description: "Only report the held amount; send nothing. Default false." },
+        who: { type: "string", description: "With checkOnly: the 0x address to check. Default: the agent's own address." },
+      },
+    },
   },
 ];
 
@@ -94,6 +115,8 @@ async function readStream(id: bigint) {
     ctx.publicClient.readContract({ address: contract, abi, functionName, args: [id] } as never) as Promise<never>;
   const [sender, recipient, deposit, start, stop, withdrawn, state] = (await read("stream")) as unknown as [Address, Address, bigint, bigint, bigint, bigint, number];
   const [streamed, withdrawable, preview] = (await Promise.all([read("streamed"), read("withdrawable"), read("previewCancel")])) as unknown as [bigint, bigint, [bigint, bigint]];
+  const held = (who: Address) => ctx.publicClient.readContract({ address: contract, abi, functionName: "claimable", args: [who] });
+  const [heldForSender, heldForRecipient] = await Promise.all([held(sender), held(recipient)]);
   return {
     id,
     state: STATES[state] ?? String(state),
@@ -106,6 +129,8 @@ async function readStream(id: bigint) {
     streamed,
     withdrawable,
     cancelPreview: { toRecipient: preview[0], toSender: preview[1] },
+    // Held for each party across all their streams, from payouts the token refused (see claim_held_payment).
+    heldForClaim: { sender: heldForSender, recipient: heldForRecipient },
     youAre: ctx.account ? (ctx.account.address === sender ? "sender" : ctx.account.address === recipient ? "recipient" : "neither") : "read-only",
   };
 }
@@ -152,6 +177,23 @@ export const handlers: Record<string, Handler> = {
     const { hash, receipt } = await write(ctx, { address: contract, abi, functionName: "cancel", args: [id] });
     // The exact split comes from the contract's own event, not from a preview taken before the transaction ran.
     const [event] = parseEventLogs({ abi, logs: receipt.logs, eventName: "Cancelled" });
-    return { id, txHash: hash, paidToRecipient: event?.args.toRecipient, refundedToSender: event?.args.toSender };
+    // A share the token refused to send is held for its owner instead; it is still theirs, collected with claim_held_payment.
+    const held = parseEventLogs({ abi, logs: receipt.logs, eventName: "PaymentHeld" }).map((e) => ({ to: e.args.to, amount: e.args.amount }));
+    return { id, txHash: hash, paidToRecipient: event?.args.toRecipient, refundedToSender: event?.args.toSender, held };
+  },
+
+  async claim_held_payment(input) {
+    if (input.checkOnly !== true && input.who !== undefined) {
+      throw new IntentError("InvalidInput", "claim always pays the caller; `who` is only for checkOnly");
+    }
+    const { ctx, contract } = await setup();
+    if (input.checkOnly === true) {
+      const who = input.who !== undefined ? parseAddress("who", input.who) : ctx.account?.address;
+      if (!who) throw new IntentError("InvalidInput", "Without PRIVATE_KEY there is no own address: pass `who`");
+      return { who, claimable: await ctx.publicClient.readContract({ address: contract, abi, functionName: "claimable", args: [who] }) };
+    }
+    const { hash, receipt } = await write(ctx, { address: contract, abi, functionName: "claim" });
+    const [event] = parseEventLogs({ abi, logs: receipt.logs, eventName: "Claimed" });
+    return { txHash: hash, claimed: event?.args.amount, to: event?.args.to };
   },
 };

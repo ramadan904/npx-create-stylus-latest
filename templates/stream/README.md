@@ -42,7 +42,8 @@ npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"get_stream","id":"1"}'
 npx tsx --env-file=../.env src/agent-example.ts               # a runnable example agent
 ```
 
-Five intents: `open_stream`, `get_stream`, `withdraw_from_stream`, `preview_cancel_stream`, `cancel_stream`. Amounts are decimal
+Six intents: `open_stream`, `get_stream`, `withdraw_from_stream`, `preview_cancel_stream`, `cancel_stream`, `claim_held_payment`
+(collect a cancel payout the token refused at the time; `{"checkOnly":true}` only reads it). Amounts are decimal
 strings in the token's base units. Every call prints one JSON object, `{ "ok": true, ... }` or
 `{ "ok": false, "error": { "code": "NotAuthorized", "message": "...", "hint": "..." } }`, where `code` is the contract's own custom
 error name, so an agent can branch on it.

@@ -62,7 +62,7 @@ async function main() {
   const stranger = privateKeyToAccount(generatePrivateKey()).address;
 
   console.log("\nthe tool schemas an LLM would be given");
-  for (const [dir, expected] of [[sdir, ["open_stream", "get_stream", "withdraw_from_stream", "preview_cancel_stream", "cancel_stream"]], [edir, ["create_escrow", "get_escrow", "check_escrow_permissions", "release_escrow", "refund_escrow"]]]) {
+  for (const [dir, expected] of [[sdir, ["open_stream", "get_stream", "withdraw_from_stream", "preview_cancel_stream", "cancel_stream", "claim_held_payment"]], [edir, ["create_escrow", "get_escrow", "check_escrow_permissions", "release_escrow", "refund_escrow"]]]) {
     const r = spawnSync("npx", ["tsx", "src/agent-cli.ts", "--tools"], { cwd: `${dir}/client`, encoding: "utf8" });
     const tools = JSON.parse(r.stdout);
     check(JSON.stringify(tools.map((t) => t.name).sort()) === JSON.stringify([...expected].sort()), `tools: ${expected.join(", ")}`);
@@ -80,6 +80,7 @@ async function main() {
   const got = call(sdir, STREAM, { intent: "get_stream", id });
   check(got.ok && got.state === "active" && got.deposit === "1000" && got.recipient === payee && got.youAre === "sender", "get_stream describes the stream and who the agent is in it");
   same(BigInt(got.cancelPreview.toRecipient) + BigInt(got.cancelPreview.toSender) + BigInt(got.withdrawn), 1000n, "the cancel preview plus what is withdrawn always equals the deposit");
+  check(got.heldForClaim?.sender === "0" && got.heldForClaim?.recipient === "0", "get_stream reports nothing held for either party", got.heldForClaim);
 
   // the limits the operator sets in the environment, enforced before anything is signed
   const capped = call(sdir, STREAM, { intent: "open_stream", recipient: payee, amount: "1000", durationSeconds: 40 }, { AGENT_MAX_AMOUNT: "500" });
@@ -106,6 +107,14 @@ async function main() {
   same(await balanceOf(agent.address), before - 1000n + BigInt(cancelled.refundedToSender), "the agent got the remainder back");
   const again = call(sdir, STREAM, { intent: "cancel_stream", id });
   check(!again.ok && again.error.code === "NotActive" && again.error.hint, `a second cancel fails with the contract's own error name (${again.error?.code}) and a hint`);
+  // The erc20 template never refuses a transfer, so nothing is held; the refusal path itself is covered by the contract's tests.
+  check(Array.isArray(cancelled.held) && cancelled.held.length === 0, "cancel_stream reports no held payouts when the token paid both sides", cancelled.held);
+  const owed = call(sdir, STREAM, { intent: "claim_held_payment", checkOnly: true, who: payee });
+  check(owed.ok && owed.who === payee && owed.claimable === "0", "claim_held_payment checkOnly reads what is held for any address", owed);
+  const empty = call(sdir, STREAM, { intent: "claim_held_payment" });
+  check(!empty.ok && empty.error.code === "NothingToClaim" && empty.error.hint, `claiming with nothing held fails with ${empty.error?.code} and a hint`);
+  const wrong = call(sdir, STREAM, { intent: "claim_held_payment", who: payee });
+  check(!wrong.ok && wrong.error.code === "InvalidInput", "claiming for someone else is refused before signing (claim always pays the caller)");
 
   console.log("\nescrow: an agent locks, checks permissions, and releases");
   const eBefore = await balanceOf(agent.address);
