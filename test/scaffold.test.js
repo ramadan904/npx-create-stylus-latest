@@ -126,8 +126,8 @@ for (const template of Object.keys(TEMPLATES)) {
   });
 }
 
-test("erc20, vault and escrow initialize through a constructor, not a callable init()", () => {
-  for (const template of ["erc20", "vault", "escrow"]) {
+test("erc20, vault, escrow and stream initialize through a constructor, not a callable init()", () => {
+  for (const template of ["erc20", "vault", "escrow", "stream"]) {
     const dir = tmp();
     scaffold({ targetDir: dir, name: "my-app", template, versions });
     const lib = fs.readFileSync(path.join(dir, "src/lib.rs"), "utf8");
@@ -185,8 +185,8 @@ test("deploy.sh turns known cargo-stylus failures into plain-English hints and k
   assert.equal(run().status, 0);
 });
 
-test("erc20, vault and escrow ship property-based tests", () => {
-  for (const template of ["erc20", "vault", "escrow"]) {
+test("erc20, vault, escrow and stream ship property-based tests", () => {
+  for (const template of ["erc20", "vault", "escrow", "stream"]) {
     const dir = tmp();
     scaffold({ targetDir: dir, name: "my-app", template, versions });
     assert.match(fs.readFileSync(path.join(dir, "Cargo.toml"), "utf8"), /proptest = /, `${template} needs proptest`);

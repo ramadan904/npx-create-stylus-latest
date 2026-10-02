@@ -28,6 +28,7 @@ build here rather than in your project.
 | `erc20` | ERC-20 token with events, custom Solidity errors and tests. |
 | `vault` | Stablecoin vault for any ERC-20 (USDC, USDG): deposits and withdrawals through cross-contract calls, with mocked-token tests. |
 | `escrow` | Stablecoin escrow for payments between parties or agents: buyer-funded deals, release by buyer or arbiter, refund by seller or arbiter, and a buyer-side refund after a deadline. Unit tests plus a model-based property test. |
+| `stream` | Stablecoin payment streams (payroll, vesting, agent subscriptions): linear per-second payouts, keeper-friendly `withdraw`, and `cancel` that splits earned from remaining. Unit tests plus a model-based property test that tracks every token movement. |
 
 ## What you get in the generated project
 
@@ -55,7 +56,7 @@ the contract does not define.
 ## Options
 
 ```
--t, --template <name>  counter | erc20 | vault | escrow (default: counter)
+-t, --template <name>  counter | erc20 | vault | escrow | stream (default: counter)
 -y, --yes              Skip prompts and use defaults
     --no-git           Do not run git init
     --with-client      Also generate a TypeScript (viem) client in client/
