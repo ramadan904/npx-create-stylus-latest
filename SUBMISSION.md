@@ -2,8 +2,9 @@
 
 **Arbitrum Open House Singapore Online Buildathon**
 
-**The only developer tool in the field.** At least nine public entries in this buildathon ship Rust/Stylus code, and
-every one of them starts where this tool starts: a Stylus project, its tests and a path to a live deploy. Nine
+**The only developer tool in the field.** At least fourteen public entries in this buildathon ship Rust/Stylus code,
+and every one of them starts where this tool starts: a Stylus project, its tests and a path to a live deploy
+([the evidence](#product-market-fit-the-evidence)). Nine
 production-shaped templates, one command, CI that deploys every template to a real Arbitrum node on every change.
 
 | | |
@@ -26,7 +27,7 @@ production-shaped templates, one command, CI that deploys every template to a re
 | Criterion | What we built | Proof |
 |---|---|---|
 | **Smart contract quality** | Nine Rust/Stylus templates. Eight have a property test against a reference model (every token movement, every oracle answer, every 512-bit `mulDiv`). All use custom errors, checks-effects-interactions and `#[constructor]` init (no front-runnable `init`). Not audited. | The tests caught a real partial-state bug. Every template is linted, tested, built and deployed to a Nitro node on every change ([CI](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37148028874)). |
-| **Product-market fit** | The users are builders: every Stylus dApp starts as a scaffold, and end users meet this tool through what builders ship (the playground shows exactly that: real streams, escrows and a vault anyone can use from a wallet). One command for every new Stylus builder: a project pinned to the newest `stylus-sdk`, deploy scripts already run on Arbitrum Sepolia, USDG presets for Arbitrum One and Robinhood Chain. | The demand is in this buildathon: Stylus code ships in [Strike](https://github.com/Prashant-thakur77/Strike), [Equinox](https://github.com/nodesproof/equinox), [AfterHours](https://github.com/bchuazw/afterhours), [Zeus Guard](https://github.com/clebson-scott/zeus-guard), [Arboretum](https://github.com/mupengzi/arboretum), [OrbitRepo](https://github.com/Prestige14/OrbitRepo), [PichiFi Yieldy](https://github.com/zzzbedream/pichifi-yieldy), [ArbiScore](https://github.com/olasmi02/arbiscore) and [Juno](https://github.com/nickthelegend/juno-arbitrum), each with its own setup. [Published on npm](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37127822293) with provenance (6 releases). Zero-install Codespace: deploy and call in 105 s. |
+| **Product-market fit** | The users are builders: every Stylus dApp starts as a scaffold, and end users meet this tool through what builders ship (the playground shows exactly that: real streams, escrows and a vault anyone can use from a wallet). One command for every new Stylus builder: a project pinned to the newest `stylus-sdk`, deploy scripts already run on Arbitrum Sepolia, USDG presets for Arbitrum One and Robinhood Chain. | The demand is in this buildathon: [at least 14 entries ship Stylus code](#product-market-fit-the-evidence), and they rebuilt by hand the same pieces our templates generate (Solidity calling a Rust engine, 512-bit math, Stylus-vs-Solidity gas benchmarks, reproducible builds). [Published on npm](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37127822293) with provenance (6 releases). Zero-install Codespace: deploy and call in 105 s. |
 | **Innovation & creativity** | Contracts built for AI agents. Every template ships a JSON tool interface and an MCP server, so Claude, Cursor or any MCP client can use the contract. Spending limits are enforced before signing, and errors come back by the contract's own names. | 147 on-chain MCP checks across all nine templates ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37125566134)). On the site, a visitor's wallet runs the agent demo, which CI holds byte-for-byte to the CLI. |
 | **Real problem solving** | Every pitfall we hit on a real deploy is now handled by the generated scripts: Docker-only builds, an RPC refusing activation, a gas cap racing the base fee, dev nodes that can't run constructors, reproducible verification. | Each one is covered in CI. Measured gas, reported honestly: Stylus about 2× on plain storage and about 31× cheaper on compute ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36935538361)). |
 
@@ -41,6 +42,42 @@ production-shaped templates, one command, CI that deploys every template to a re
 
 They combine. Use Scaffold-Stylus for a frontend and these contracts for the money: they are plain Stylus projects any
 frontend can call.
+
+### Product-market fit: the evidence
+
+**Who the users are.** Teams writing Stylus contracts. This buildathon alone has at least fourteen of them in public
+repos: [Strike](https://github.com/Prashant-thakur77/Strike), [Equinox](https://github.com/nodesproof/equinox),
+[Juno](https://github.com/nickthelegend/juno-arbitrum), [VeraKey](https://github.com/veraKey/veraKey),
+[CortexRails](https://github.com/anjolagithub/ledgerline-cor), [EarnX](https://github.com/big14way/earnx),
+[ArbiScore](https://github.com/olasmi02/arbiscore), [Zeus Guard](https://github.com/clebson-scott/zeus-guard),
+[vetted_](https://github.com/dujar/vetted), [Baraza](https://github.com/James-wasonga/baraza-protocal),
+[AfterHours](https://github.com/bchuazw/afterhours), [Arboretum](https://github.com/mupengzi/arboretum),
+[OrbitRepo](https://github.com/Prestige14/OrbitRepo) and [PichiFi Yieldy](https://github.com/zzzbedream/pichifi-yieldy).
+
+**What they built by hand, that this tool generates on day one** (from their own READMEs):
+
+| What the teams built themselves | Who | What `create-stylus-latest` ships |
+|---|---|---|
+| A Solidity contract that calls a Rust/Stylus engine | Strike (Solidity vaults + Stylus pricer), ArbiScore (Solidity vault + Stylus scorer), CortexRails (Solidity policy + two Stylus engines), Equinox (Solidity pools + Stylus pricer) | The `interop` template: a Stylus library, a Solidity contract that calls it, and errors caught by name, tested on a Nitro node in CI |
+| Exact fixed-point and 512-bit math in Rust | Juno (512-bit curve math), Arboretum (integer-only fixed point), Equinox (`no_std` pricing library) | `interop`'s `mulDiv`, `mulDivUp` and `isqrt`, property-tested against their 512-bit definitions |
+| A Stylus vs Solidity gas benchmark | Strike, Equinox, ArbiScore, OrbitRepo | A measured method with a line-for-line Solidity twin ([bench/](bench/README.md)): about 31× cheaper on compute, about 2× dearer on plain storage, reported honestly |
+| A reproducible, verifiable Stylus build | Juno (byte-for-byte reproducible build) | `VERIFY=1 ./scripts/deploy.sh` and `./scripts/verify.sh <tx>` in every project |
+| Stablecoin vaults, escrows and payment flows in USDG | Strike, AfterHours, PichiFi (vaults), Kajota, Creator Foundry (escrow) | `vault`, `escrow` and `stream` templates with Paxos USDG presets for Arbitrum One and Robinhood Chain |
+| A way to keep building while Stylus activations are paused | PichiFi (fell back to an ABI-identical Solidity build) | `./scripts/devnode.sh`: the full deploy path on a local Nitro node, which our CI runs for every template on every change |
+
+**Who pays for it.** The Arbitrum DAO already funds Stylus developer tooling: Scaffold-Stylus was funded through the
+DAO's domain allocator ([final report](https://forum.arbitrum.foundation/t/scaffold-stylus-final-report/30267)), and
+SmartCache Stylus received a grant from the DAO Developer Tooling Program. That is the sustainability path: ecosystem
+grants for a public good, then Founder House for the teams it helps start.
+
+**How it reaches users.** It is already where builders look: `npm create stylus-latest` and a one-click Codespace.
+Next: a listing in [awesome-stylus](https://github.com/OffchainLabs/awesome-stylus), a quickstart proposal for the
+Arbitrum docs, and the templates the teams above needed most (fixed-point math, Solidity-to-Rust calls) promoted
+to the front of the README.
+
+**Honest status.** Six npm releases since 2 October, published from CI with provenance. Every contract on the site,
+on two chains, was deployed with this tool's own scripts. We have not yet measured outside adoption: the buildathon is
+where it starts.
 
 ### First five minutes, no wallet needed
 
