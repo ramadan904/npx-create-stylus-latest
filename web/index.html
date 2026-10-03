@@ -578,8 +578,11 @@ if (NFT_ADDRESS) CONTRACTS.push({
   read: async (to) => {
     const name = str(await call(to, SEL.name));
     if (!name) return [["Status", "Deployed, not initialized yet"]];
-    return [["Name", name], ["Symbol", str(await call(to, SEL.symbol))],
-      ["Minted", (await uint(to, SEL.totalSupply)).toString()], ["Minter", short(addr(await call(to, SEL.minter)))]];
+    const minted = await uint(to, SEL.totalSupply);
+    const rows = [["Name", name], ["Symbol", str(await call(to, SEL.symbol))],
+      ["Minted", minted.toString()], ["Minter", short(addr(await call(to, SEL.minter)))]];
+    if (minted === 0n) rows.push(["Badges", "None minted yet: only the minter can mint (try the button to see the refusal)"]);
+    return rows;
   },
   // Every badge, newest first: its owner from ownerOf, its image from the JSON its tokenURI points at.
   gallery: async (to, box) => {
