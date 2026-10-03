@@ -75,7 +75,36 @@ agent has to drive it. They combine: the contracts here are plain Stylus project
 - Unit tests that run with plain `cargo test` (the SDK's `TestVM`, no node needed)
 - `scripts/export-abi.sh` to print the Solidity interface
 - `scripts/deploy.sh` to validate and deploy with `cargo-stylus` (key passed via a private temp file, not argv)
+- `scripts/verify.sh` to prove a deployment was built from your source (see below)
 - `Stylus.toml` and a pinned `rust-toolchain.toml` (1.91.0 + wasm target) matching `cargo stylus new`, `.env.example` for the network you chose (Arbitrum Sepolia by default), `.gitignore`
+
+## Verifiable deploys
+
+Anyone can check that a contract deployed this way was built from your source:
+
+```bash
+VERIFY=1 ./scripts/deploy.sh        # builds and deploys inside cargo-stylus's pinned Docker image
+./scripts/verify.sh 0x<deploy tx>   # rebuilds the source there and compares it, byte for byte, with the deployed code
+```
+
+`deploy.sh` prints the exact `verify.sh` command after a reproducible deploy.
+
+**Why it needs `VERIFY=1`:** by default `deploy.sh` builds locally (`--no-verify`), which needs no Docker but isn't
+reproducible. Such a deployment won't verify: in our test, a local build of the counter came out 15 bytes different
+from the reproducible one.
+
+**How the key reaches Docker:** the container sees only the project directory, so with `VERIFY=1` the key is written
+to `.stylus-deploy-key` inside the project. It is readable only by you, git-ignored, passed by a relative path, and
+deleted when the script exits.
+
+**Exit codes can't be trusted here:** cargo-stylus doesn't pass Docker's exit code on. So `deploy.sh` treats a run with
+no reported deployment as a failure, and `verify.sh` decides from cargo-stylus's printed verdict, not its exit status.
+
+**Proven in CI:** the `verify` job deploys reproducibly to a Nitro dev node, verifies, then changes one line of the
+source and requires verification to fail.
+
+**On Linux:** the build runs as root inside the container, so `target/` may end up root-owned. Fix it with
+`sudo chown -R "$USER" target`.
 
 ## Networks and USDG
 

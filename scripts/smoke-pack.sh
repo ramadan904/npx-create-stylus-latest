@@ -25,7 +25,7 @@ for t in $templates; do
            scripts/devnode/setup.mjs scripts/devnode/bytecode.json scripts/devnode/package.json; do
     [ -e "$dir/$f" ] || { echo "FAIL: $t is missing $f" >&2; exit 1; }
   done
-  for f in scripts/deploy.sh scripts/devnode.sh scripts/export-abi.sh; do
+  for f in scripts/deploy.sh scripts/devnode.sh scripts/export-abi.sh scripts/verify.sh; do
     [ -x "$dir/$f" ] || { echo "FAIL: $t/$f lost its executable bit" >&2; exit 1; }
   done
   if [ "$t" = interop ]; then

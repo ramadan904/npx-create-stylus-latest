@@ -311,7 +311,10 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
 
 1. Done, shipping in the next npm release: the `interop` template (Solidity calling a Stylus contract, on a real Nitro node rather than in
    Foundry, whose EVM cannot run Stylus code).
-2. `cargo stylus verify` support with a Docker-friendly key path.
+2. Done, shipping in the next npm release: verifiable deploys. `VERIFY=1 ./scripts/deploy.sh` builds in cargo-stylus's
+   pinned Docker image (the key goes in a git-ignored file inside the project, which the container can read), and
+   `./scripts/verify.sh <tx>` proves the deployed code matches the source. A CI job verifies a deploy, then shows a
+   one-line source change fails verification.
 3. Testnet USDG presets, as soon as Paxos lists USDG on Arbitrum Sepolia or Robinhood Chain testnet.
 
 ## Try it

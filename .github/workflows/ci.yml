@@ -271,6 +271,67 @@ jobs:
       - if: failure()
         run: docker logs --tail 60 stylus-devnode || true
 
+  verify:
+    # Reproducible deploys: VERIFY=1 deploy.sh builds inside cargo-stylus's pinned Docker image, verify.sh rebuilds the
+    # source and proves it matches the deployed code, and a one-line change to the source must then fail verification.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      APP: ${{ github.workspace }}/../verify-app
+      RPC_URL: http://127.0.0.1:8547
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: actions/cache/restore@v4
+        id: cargo-stylus
+        with:
+          path: ~/.cargo/bin/cargo-stylus
+          key: cargo-stylus-${{ runner.os }}-v1
+      - if: steps.cargo-stylus.outputs.cache-hit != 'true'
+        run: cargo install --locked cargo-stylus
+      - if: steps.cargo-stylus.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cargo/bin/cargo-stylus
+          key: cargo-stylus-${{ runner.os }}-v1
+      - run: node bin/create-stylus-latest.js "$APP" -t counter -y --no-git
+      - name: Start a dev node that funds a throwaway key
+        working-directory: ${{ env.APP }}
+        run: |
+          echo "PRIVATE_KEY=0x$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')" > .env
+          ./scripts/devnode.sh
+      - name: Reproducible deploy (VERIFY=1)
+        working-directory: ${{ env.APP }}
+        run: |
+          set -o pipefail
+          VERIFY=1 ./scripts/deploy.sh | tee deploy.log
+          [ ! -e .stylus-deploy-key ] || { echo "::error::the key file was left in the project"; exit 1; }
+          tx="$(sed 's/\x1b\[[0-9;]*m//g' deploy.log | grep -oE 'verify.sh 0x[0-9a-fA-F]{64}' | cut -d' ' -f2)"
+          [ -n "$tx" ] || { echo "::error::deploy.sh printed no verify command"; exit 1; }
+          echo "DEPLOY_TX=$tx" >> "$GITHUB_ENV"
+      - name: verify.sh proves the deployed code is this source
+        working-directory: ${{ env.APP }}
+        run: ./scripts/verify.sh "$DEPLOY_TX"
+      - name: verify.sh rejects a one-line change to the source
+        working-directory: ${{ env.APP }}
+        run: |
+          sed -i '0,/self.number.set(new_number);/s//self.number.set(new_number + U256::from(1));/' src/lib.rs
+          grep -q 'new_number + U256::from(1)' src/lib.rs || { echo "::error::the source change did not apply"; exit 1; }
+          if ./scripts/verify.sh "$DEPLOY_TX"; then
+            echo "::error::verify.sh accepted source that differs from the deployed code"
+            exit 1
+          fi
+          echo "verify.sh refused the changed source, as it must."
+      - if: failure()
+        run: docker logs --tail 60 stylus-devnode || true
+
   e2e:
     # Full flow on a local Nitro dev node: deploy the counter with a throwaway key, then call it
     # through the generated TypeScript client and check that the state actually changed.

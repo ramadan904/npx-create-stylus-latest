@@ -3,3 +3,4 @@
 *.wasm
 node_modules/
 ui/abi.sol
+.stylus-deploy-key
