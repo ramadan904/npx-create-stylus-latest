@@ -46,3 +46,20 @@ docker rm -f stylus-devnode
 ```
 
 Constructor deploys need that deployer contract, which a bare dev node does not have; `devnode.sh` installs it.
+
+## Let an AI agent use the token
+
+`--with-client` adds a JSON-in/JSON-out agent interface in `client/src`, and an MCP server for Claude Desktop, Claude
+Code or Cursor:
+
+```bash
+cd client && npm install
+npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"get_token"}'
+npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"send_tokens","to":"0x...","amountTokens":"2.5"}'
+npx tsx src/agent-mcp.ts --config      # prints the MCP setup, with absolute paths
+```
+
+The tools are `get_token`, `send_tokens` and `approve_spender`. Set `AGENT_MAX_AMOUNT` (base units) and
+`AGENT_ALLOWED_COUNTERPARTIES` in `.env` before giving a model the key. They are checked before anything is signed, and
+they also cap allowances, because an allowance can be spent. Sends to the zero address or to the token contract are
+refused, and so is a send larger than the balance. Each refusal has a stable error code and a hint.

@@ -5,8 +5,8 @@
 | | |
 |---|---|
 | **Live site** | https://npx-create-stylus-latest-web-mocha.vercel.app/ (the playground, and a live AI-agent demo you run with your wallet) |
-| **npm** | https://www.npmjs.com/package/create-stylus-latest: `npx create-stylus-latest my-app`. Version 0.3.0, published from CI with provenance ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37113382826)) |
-| **Latest CI** | All 17 jobs green: [main](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37112629420), and [with the live agent demo](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37059195125) (29/29 browser checks against the agent CLI). [All runs](https://github.com/ramadan904/npx-create-stylus-latest/actions/workflows/ci.yml) |
+| **npm** | https://www.npmjs.com/package/create-stylus-latest: `npx create-stylus-latest my-app`. Version 0.4.0, published from CI with provenance ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37124529773)) |
+| **Latest CI** | All 17 jobs green: [main](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37123819211), and [with the live agent demo](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37059195125) (29/29 browser checks against the agent CLI). [All runs](https://github.com/ramadan904/npx-create-stylus-latest/actions/workflows/ci.yml) |
 | **Zero install** | [Open in Codespaces](https://codespaces.new/ramadan904/npx-create-stylus-latest?quickstart=1), then `.devcontainer/quickstart.sh`: a Stylus contract deployed and called on a local Arbitrum chain in 105 s, measured inside that container in CI ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37061245097)) |
 | **Source** | https://github.com/ramadan904/npx-create-stylus-latest |
 
@@ -36,11 +36,19 @@ Each claim links to its proof, with the limit after it.
 - *Limit:* published on 2026-10-02, so no adoption data yet.
 
 **3. Innovation: contracts and tooling built for AI agents, proven rather than promised.**
-- `--with-client` adds a JSON tool interface: schemas an LLM can be handed, results using the contract's own error
-  names, whole-token amounts converted with the token's decimals, and operator spending limits enforced before signing.
+- For all nine templates, `--with-client` adds a JSON tool interface: schemas an LLM can be handed, results using the
+  contract's own error names, whole-token amounts converted with the token's decimals, and operator spending limits
+  enforced before signing.
 - The same tools are an MCP server (`src/agent-mcp.ts`), so Claude Desktop, Claude Code or Cursor can use the contracts
-  directly; `--config` prints the setup. CI drives it with the official MCP SDK client against a real stream: the tools
-  match the CLI's, the spending limit refuses with the CLI's exact JSON, and errors come back by the contract's names.
+  directly; `--config` prints the setup. CI drives it with the official MCP SDK client against real contracts on a
+  Nitro node. It checks that:
+  - the tools match the CLI's;
+  - the spending limit and the allow-list refuse with the CLI's exact JSON;
+  - tokens and NFTs move exactly as reported, with balances checked on-chain;
+  - an NFT sent to a contract that can't hold it is refused;
+  - a payment is priced through the oracle, and the price feed being stale, zero or incomplete is refused by name;
+  - the Rust math library returns exact results past 256-bit products, and its errors come back by name;
+  - errors come back by the contract's names.
 - The contracts answer "what would happen" before an agent commits (`previewCancel`, `canRelease`, `canRefund`), using
   the same logic as the real call.
 - 98 agent checks run the CLI against real contracts on every change.
@@ -286,15 +294,15 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
 
 ## Live evidence index
 
-- On npm: https://www.npmjs.com/package/create-stylus-latest (`npx create-stylus-latest my-app`). Version 0.3.0 was published by the publish workflow after
-  `npm test` and the packed-tarball smoke test, with a provenance statement: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37113382826 (0.2.0: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37107595453; 0.1.0:
+- On npm: https://www.npmjs.com/package/create-stylus-latest (`npx create-stylus-latest my-app`). Version 0.4.0 was published by the publish workflow after
+  `npm test` and the packed-tarball smoke test, with a provenance statement: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37124529773 (0.3.0: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37113382826; 0.2.0: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37107595453; 0.1.0:
   https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37043469397)
 
 - Latest all-green CI on main (17 jobs: real-token flows, the agent CLIs, a real local deploy of every template,
   Solidity calling the Rust interop library, a reproducible deploy verified against its source (and a one-line change
   rejected), the generated contract page driven in a real browser, the npm package smoke test, the site in a real browser, the live
   agent demo against the agent CLI, and the USDG addresses, Chainlink feeds and network RPCs checked on-chain):
-  https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37112629420
+  https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37123819211
 - The Codespace, built and used in CI: the published package scaffolds, tests and builds inside it, and the one-command
   quickstart deploys and calls a contract on a local Nitro node in 105 s:
   https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37061245097

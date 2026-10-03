@@ -11,7 +11,7 @@ npx create-stylus-latest my-token -t erc20 # skip the prompt
 ```
 
 Published on npm as [`create-stylus-latest`](https://www.npmjs.com/package/create-stylus-latest), with a provenance statement linking the package to the
-commit and workflow that built it ([0.3.0 publish run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37113382826)). New versions publish automatically from a version tag
+commit and workflow that built it ([0.4.0 publish run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37124529773)). New versions publish automatically from a version tag
 (see [RELEASING.md](RELEASING.md)).
 
 ### Try it without installing anything
@@ -60,13 +60,13 @@ agent has to drive it. They combine: the contracts here are plain Stylus project
 | Name | What you get |
 | --- | --- |
 | `counter` | Minimal storage contract with unit tests. Best first step. |
-| `erc20` | ERC-20 token with events, custom Solidity errors and tests. |
-| `erc721` | ERC-721 NFT with metadata (`tokenURI`), safe transfers that ask a receiving contract, a minter, `burn`, and the standard ERC-6093 errors. Unit tests plus a model-based property test of every mint, approval, transfer and burn. |
+| `erc20` | ERC-20 token with events, custom Solidity errors and tests. With `--with-client`, an agent can `get_token`, `send_tokens` and `approve_spender` (CLI or MCP): sends to the zero address or the token itself, and anything over the operator's limits, are refused before signing; revoking an allowance is always allowed. |
+| `erc721` | ERC-721 NFT with metadata (`tokenURI`), safe transfers that ask a receiving contract, a minter, `burn`, and the standard ERC-6093 errors. Unit tests plus a model-based property test of every mint, approval, transfer and burn. With `--with-client`, an agent can `get_nft`, `mint_nft` and `transfer_nft` (CLI or MCP); a send to a contract that cannot hold NFTs is refused as `ERC721InvalidReceiver` instead of locking the token. |
 | `vault` | Stablecoin vault for any ERC-20 (USDC, USDG): deposits and withdrawals through cross-contract calls, with mocked-token tests. |
 | `escrow` | Stablecoin escrow for payments between parties or agents: buyer-funded deals, release by buyer or arbiter, refund by seller or arbiter, and a buyer-side refund after a deadline. Unit tests plus a model-based property test. |
 | `stream` | Stablecoin payment streams (payroll, vesting, agent subscriptions): linear per-second payouts, keeper-friendly `withdraw`, and `cancel` that splits earned from remaining. Unit tests plus a model-based property test that tracks every token movement. |
 | `interop` | Rust and Solidity on one chain: a Stylus math library (`mulDiv` with a 512-bit intermediate, `isqrt`) and a Solidity contract that calls it, catching its custom errors by name. `./scripts/interop.sh` compiles the Solidity (solc-js, no Foundry needed), deploys it and checks every answer and error on a real Nitro node, in CI too. Property tests check each result against its definition. |
-| `oracle` | Reads a Chainlink price feed safely: refuses stale, zero, negative or incomplete prices with named errors, and values amounts in USD with both decimals handled. `--network` presets Chainlink's ETH / USD feed (checked on-chain in CI). Unit tests plus a model-based property test. |
+| `oracle` | Reads a Chainlink price feed safely: refuses stale, zero, negative or incomplete prices with named errors, and values amounts in USD with both decimals handled. `--network` presets Chainlink's ETH / USD feed (checked on-chain in CI). With `--with-client`, an agent can `get_price`, `value_of` and `amount_for_value` ("how much ETH is $50", rounded up so a payment is never short), and a stale or zero price is refused by name instead of used. Unit tests plus a model-based property test. |
 | `faucet` | Rate-limited ERC-20 faucet for testnets and demos: anyone can `drip` once per cooldown, and `availableAt(who)` says when. Lets visitors try your dApp without asking you for tokens. With `--with-client`, an agent can `get_faucet` and `request_tokens` (CLI or MCP), refused early as `TooSoon` or `FaucetEmpty`. Unit tests plus a model-based property test. |
 
 ## What you get in the generated project
@@ -162,8 +162,9 @@ the contract does not define.
 
 ### Use the contract from Claude, Cursor or any MCP client
 
-For `stream`, `escrow`, `vault` and `faucet`, the client also includes an MCP server (`src/agent-mcp.ts`). It serves the same tools
-as the agent CLI, so an assistant can open, read and cancel streams, or use the escrow or vault, by itself:
+For every template, the client also includes an MCP server (`src/agent-mcp.ts`). It serves the same tools as the agent CLI,
+so an assistant can send tokens or NFTs, price a payment, do exact 256-bit math in Rust, open, read and cancel streams, or
+use the escrow or vault, by itself:
 
 ```bash
 cd my-app/client && npm install
@@ -178,7 +179,10 @@ Every call goes through the same code as the CLI:
 
 It speaks MCP over stdio with no extra dependencies. CI drives it with the official MCP SDK client: it checks the tools
 match the CLI's, opens and cancels a real stream on a Nitro node, refuses an amount over the limit with the CLI's exact
-JSON, and returns the contract's errors by name.
+JSON, sends, approves and revokes the real ERC-20 with exact balances checked, mints and transfers an NFT (refusing a contract that
+cannot hold it), refuses to wrap the counter past 2^256 - 1, gets exact `mulDiv` results and named errors from the Rust
+library, prices amounts through the oracle against a
+feed it then makes stale, zero and incomplete (each refused by name), and returns the contract's errors by name.
 
 ## Options
 

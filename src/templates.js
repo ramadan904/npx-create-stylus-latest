@@ -12,5 +12,6 @@ export const TEMPLATES = {
 
 export const DEFAULT_TEMPLATE = "counter";
 
-// Templates that ship an AI-agent interface (tool schemas + JSON intents) in their client; see templates/_client/_agent.
-export const AGENT_TEMPLATES = ["stream", "escrow", "vault", "faucet"];
+// Templates that ship an AI-agent interface (tool schemas + JSON intents) and an MCP server in their client: all of them.
+// See templates/_client/_agent.
+export const AGENT_TEMPLATES = ["counter", "erc20", "erc721", "vault", "escrow", "stream", "interop", "oracle", "faucet"];

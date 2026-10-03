@@ -283,8 +283,10 @@ test("devnode.sh ships the setup that constructor deploys need, and it is wired 
   }
 });
 
-test("stream, escrow and vault ship an agent interface with the client, and other templates do not", () => {
-  for (const [template, minimum] of [["stream", 5], ["escrow", 5], ["vault", 3]]) {
+test("every template ships an agent interface with the client, and none without it", () => {
+  const minimums = { counter: 4, erc20: 3, erc721: 3, vault: 3, escrow: 5, stream: 5, interop: 3, oracle: 3, faucet: 2 };
+  assert.deepEqual(Object.keys(minimums).sort(), Object.keys(TEMPLATES).sort(), "a minimum for every template");
+  for (const [template, minimum] of Object.entries(minimums)) {
     const dir = tmp();
     scaffold({ targetDir: dir, name: "my-app", template, versions, withClient: true });
     for (const f of ["agent.ts", "agent-cli.ts", "agent-example.ts", "agent-kit.ts"]) {
@@ -293,13 +295,11 @@ test("stream, escrow and vault ship an agent interface with the client, and othe
     const agent = fs.readFileSync(path.join(dir, "client/src/agent.ts"), "utf8");
     // every intent an agent can call is described to the model, and every described tool has a handler
     const tools = [...agent.matchAll(/^\s*name: "(\w+)",$/gm)].map((m) => m[1]);
-    const handlers = [...agent.matchAll(/^  async (\w+)\(input\)/gm)].map((m) => m[1]);
+    const handlers = [...agent.matchAll(/^  async (\w+)\((?:input)?\)/gm)].map((m) => m[1]);
     assert.ok(tools.length >= minimum, `${template}: expected at least ${minimum} tools, found ${tools.length}`);
     assert.deepEqual([...tools].sort(), [...handlers].sort(), `${template}: tool schemas and handlers must match`);
   }
-  const counter = tmp();
-  scaffold({ targetDir: counter, name: "my-app", template: "counter", versions, withClient: true });
-  for (const f of ["agent.ts", "agent-kit.ts", "agent-cli.ts"]) {
-    assert.ok(!fs.existsSync(path.join(counter, "client/src", f)), `counter must not ship client/src/${f}`);
-  }
+  const bare = tmp();
+  scaffold({ targetDir: bare, name: "my-app", template: "counter", versions });
+  assert.ok(!fs.existsSync(path.join(bare, "client")), "without --with-client there is no client, so no agent");
 });

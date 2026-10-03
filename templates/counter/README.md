@@ -38,3 +38,16 @@ RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh --check-only
 RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh      # a real deploy, for free
 docker rm -f stylus-devnode             # when done
 ```
+
+## Let an AI agent use it
+
+`--with-client` also adds a JSON-in/JSON-out agent interface and an MCP server (Claude Desktop, Claude Code, Cursor):
+
+```bash
+cd client && npm install
+npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"increment"}'
+npx tsx src/agent-mcp.ts --config      # prints the MCP setup, with absolute paths
+```
+
+The tools are `get_number`, `increment`, `add_number` and `set_number`. A change that would overflow 256 bits is refused
+before signing. Every other template has the same interface, with tools for its own contract.
