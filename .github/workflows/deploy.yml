@@ -22,8 +22,12 @@ on:
         options: [counter, erc20, erc721, vault, escrow, stream, oracle, interop, faucet]
         default: counter
       rpc_url:
-        description: RPC endpoint (ignored if the RPC_URL secret is set)
+        description: RPC endpoint (ignored if the RPC_URL secret is set, unless public_rpc is on)
         default: https://sepolia-rollup.arbitrum.io/rpc
+      public_rpc:
+        description: Use the rpc_url input even if the RPC_URL secret is set (for when a provider rejects cargo-stylus's simulation calls)
+        type: boolean
+        default: false
       chain_id:
         description: Expected chain id (blank = trust the RPC; 421614 = Arbitrum Sepolia). A mismatch stops the run.
         default: ""
@@ -54,7 +58,7 @@ jobs:
       NETWORK: ${{ inputs.network }}
       CHECK_ONLY: ${{ inputs.check_only }}
       ROBINHOOD_SECRET_SET: ${{ secrets.ROBINHOOD_RPC_URL != '' }}
-      RPC_URL: ${{ inputs.network == 'robinhood-testnet' && secrets.ROBINHOOD_RPC_URL || secrets.RPC_URL || inputs.rpc_url }}
+      RPC_URL: ${{ inputs.network == 'robinhood-testnet' && secrets.ROBINHOOD_RPC_URL || (!inputs.public_rpc && secrets.RPC_URL) || inputs.rpc_url }}
       INPUT_CHAIN_ID: ${{ inputs.chain_id }}
       MAX_FEE_GWEI: ${{ inputs.max_fee_gwei }}
       PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
