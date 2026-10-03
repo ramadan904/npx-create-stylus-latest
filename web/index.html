@@ -279,6 +279,29 @@
   .nft-gallery figure { margin: 0; }
   .nft-gallery img { width: 100%; aspect-ratio: 1; border-radius: 12px; display: block; background: var(--bg, #0b1020); }
   .nft-gallery figcaption { font-size: 12px; color: var(--muted, #9aa4bf); margin-top: 4px; overflow-wrap: anywhere; }
+  .cs-cta { display: flex; align-items: center; gap: 16px; margin: 0 0 16px; padding: 16px 18px; border-radius: 14px;
+    text-decoration: none; color: var(--text); border: 2px solid transparent; box-shadow: 0 6px 24px rgba(0,0,0,.08);
+    background: linear-gradient(var(--panel), var(--panel)) padding-box,
+      linear-gradient(90deg, var(--c1), var(--c2), var(--c3)) border-box; }
+  .cs-cta:hover { transform: translateY(-1px); }
+  .cs-cta .cs-ico { font-size: 30px; line-height: 1; }
+  .cs-cta b { display: block; font-size: 17px; }
+  .cs-cta small { display: block; color: var(--muted); font-size: 13.5px; margin-top: 4px; }
+  .cs-cta .cs-go { margin-left: auto; white-space: nowrap; font-weight: 600; color: #fff; padding: 10px 14px; border-radius: 10px;
+    background: linear-gradient(90deg, var(--c1), var(--c2)); }
+  @media (max-width: 640px) { .cs-cta { flex-wrap: wrap; } .cs-cta .cs-go { margin-left: 0; width: 100%; text-align: center; } }
+  .cmp-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+  table.cmp { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 640px; }
+  @media (max-width: 640px) { table.cmp { font-size: 13px; } table.cmp th, table.cmp td { padding: 9px 8px; } table.cmp td:first-child { white-space: normal; width: 78px; min-width: 78px; } table.cmp .us { width: 220px; min-width: 220px; } }
+  table.cmp th, table.cmp td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  table.cmp tr:last-child td { border-bottom: 0; }
+  table.cmp th { font-size: 13px; color: var(--muted); font-weight: 600; }
+  table.cmp td:first-child { color: var(--muted); white-space: nowrap; }
+  table.cmp .us { background: color-mix(in srgb, var(--c2) 9%, transparent); font-weight: 500; }
+  table.cmp th.us { color: var(--text); font-size: 14px; font-weight: 700; }
+  .verdict { margin: 12px 0 0; }
+  .swipe { display: none; margin: 8px 0 0; } @media (max-width: 640px) { .swipe { display: block; } }
+  ul.sec { margin: 0; padding-left: 20px; } ul.sec li { margin: 6px 0; }
 </style>
 </head>
 <body>
@@ -289,13 +312,19 @@
     <h1>Scaffold a Stylus project that <span class="grad">deploys on the first try.</span></h1>
     <p class="lead">create-stylus-latest generates a Rust smart contract project for Arbitrum, pinned to the newest
       <code>stylus-sdk</code> and its matching <code>alloy</code> version, with deploy scripts that have been run on a live network.</p>
-    <div class="term"><div class="bar3" aria-hidden="true"><b></b><b></b><b></b></div><pre><span class="p">$ </span>npx create-stylus-latest my-app -t stream --with-client
+    <div class="term"><div class="bar3" aria-hidden="true"><b></b><b></b><b></b></div><pre><span class="p">$ </span>npm create stylus-latest my-app -- -t stream --with-client
 <span class="p">$ </span>npx create-stylus-latest pay -t escrow --usdg --network arbitrum-one</pre></div>
+    <a class="cs-cta" href="https://codespaces.new/ramadan904/npx-create-stylus-latest?quickstart=1" target="_blank" rel="noopener">
+      <span class="cs-ico" aria-hidden="true">&#9729;&#65039;</span>
+      <span><b>Try it in your browser: one click, nothing to install</b>
+        <small>Opens a GitHub Codespace with Rust, cargo-stylus and a local Arbitrum chain ready. Run <code>.devcontainer/quickstart.sh</code>: a contract is deployed and called in about 105 s. No wallet, no faucet.</small></span>
+      <span class="cs-go">Open in Codespaces &rarr;</span>
+    </a>
     <div class="btns">
       <a class="btn primary" href="#agent-live">&#9654; Run the AI agent demo</a>
       <a class="btn" href="https://github.com/ramadan904/npx-create-stylus-latest">View on GitHub</a>
       <a class="btn" href="https://github.com/ramadan904/npx-create-stylus-latest/blob/main/README.md">Read the docs</a>
-      <a class="btn" href="https://codespaces.new/ramadan904/npx-create-stylus-latest?quickstart=1">Open in Codespaces</a>
+      <a class="btn" href="#compare">Why not the official tools?</a>
     </div>
     <div class="chips">
       <span class="chip" style="--k:var(--c1)"><b>Arbitrum Sepolia</b> live</span>
@@ -311,6 +340,24 @@
     <div class="stat"><div class="n" data-count="147">147</div><div class="l">on-chain MCP checks across all nine templates</div></div>
     <div class="stat"><div class="n" data-count="17">17</div><div class="l">CI jobs green on every change</div></div>
     <div class="stat"><div class="n" data-count="20">20</div><div class="l">on-chain checks: USDG, Chainlink feeds, RPCs</div></div>
+  </section>
+
+  <section id="compare">
+    <h2>Why this, and not <code>cargo stylus new</code> or Scaffold-Stylus?</h2>
+    <p class="sub">The official starter gives you a counter. Scaffold-Stylus gives you a frontend. This gives you contracts that move money correctly, the path to deploy them, and an interface an AI agent can drive.</p>
+    <div class="cmp-wrap"><table class="cmp">
+      <thead><tr><th></th><th class="us">create-stylus-latest &#10022;</th><th><code>cargo stylus new</code></th><th>Scaffold-Stylus <small>(<code>npx create-stylus</code>)</small></th></tr></thead>
+      <tbody>
+        <tr><td>Focus</td><td class="us">The contract and its path to a live deploy: payments and AI agents</td><td>The official minimal starter</td><td>A full-stack dApp: Next.js frontend, wallet connect, contract hot reload</td></tr>
+        <tr><td>Contracts</td><td class="us">Nine: counter, ERC-20, ERC-721, vault, escrow, payment stream, Chainlink oracle, Rust&ndash;Solidity interop, faucet</td><td>A counter</td><td>A sample contract; ERC-20, ERC-721 and Chainlink extensions</td></tr>
+        <tr><td>Tests</td><td class="us">Unit tests plus reference-model property tests; every template deployed to a Nitro node on every change</td><td>Example tests</td><td><code>yarn stylus:test</code></td></tr>
+        <tr><td>AI agents</td><td class="us">A JSON tool interface and an MCP server on every template: 147 on-chain checks</td><td>&ndash;</td><td>&ndash;</td></tr>
+        <tr><td>Stablecoins, chains</td><td class="us">Paxos USDG presets checked on-chain; Arbitrum One, Robinhood Chain and their testnets</td><td>&ndash;</td><td>Arbitrum Sepolia, mainnet, Orbit</td></tr>
+        <tr><td>Staying current</td><td class="us">Pins the newest <code>stylus-sdk</code> at scaffold time, and CI re-checks every template against crates.io weekly</td><td>&ndash;</td><td>&ndash;</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note swipe">Swipe the table to compare with <code>cargo stylus new</code> and Scaffold-Stylus &rarr;</p>
+    <p class="note verdict">They combine: pick Scaffold-Stylus for a ready-made frontend, and these contracts when the money has to move correctly. They are plain Stylus projects that any frontend can call.</p>
   </section>
 
   <section class="pg" id="agent-live">
@@ -499,6 +546,19 @@ RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh -- 0xYourTokenAddress</pre>
       <div class="card"><div class="ico" style="--a:var(--c2);--b:var(--c5)" aria-hidden="true">&#9729;&#65039;</div><h3>Zero install</h3><p>One click opens a Codespace with Rust, cargo-stylus and Docker ready; <code>quickstart.sh</code> deploys and calls a contract on a local Arbitrum chain in about 105 s. CI builds that container and times it.</p></div>
       <div class="card"><div class="ico" style="--a:var(--c4);--b:var(--c1)" aria-hidden="true">&#128274;</div><h3>Provenance</h3><p>Every npm release is published by CI with a signed provenance statement, so anyone can check which commit and workflow built the package they run with <code>npx</code>.</p></div>
     </div>
+  </section>
+
+  <section id="security">
+    <h2>Security &amp; limitations</h2>
+    <p class="sub">Templates, not audited products. Here is what that means before real funds are involved.</p>
+    <div class="card"><ul class="sec">
+      <li><b>Not audited.</b> Tested hard (property tests against a model, deploys to a real Nitro node on every change), but get an independent review before holding real money.</li>
+      <li><b>No admin keys, no upgrades.</b> The vault, escrow and stream have no owner, no pause and no proxy: a bug means a redeploy, not a patch.</li>
+      <li><b>Known gaps.</b> Fee-on-transfer and rebasing tokens are not supported; the oracle does not check Arbitrum's sequencer-uptime feed; the faucet is not anti-sybil.</li>
+      <li><b>Agent limits are client-side.</b> <code>AGENT_MAX_AMOUNT</code> and the allow-list stop a model from overspending, not someone holding the key. Give an agent a dedicated key with only what it may spend.</li>
+      <li><b>Mainnet is opt-in.</b> <code>deploy.sh</code> refuses Arbitrum One, Nova and Robinhood Chain unless you set <code>MAINNET=1</code>.</li>
+    </ul>
+    <p class="note" style="margin:10px 0 0">Per-template details and a pre-mainnet checklist: <a href="https://github.com/ramadan904/npx-create-stylus-latest/blob/main/SECURITY.md" style="color:var(--accent)">SECURITY.md</a>.</p></div>
   </section>
 
   <section>
