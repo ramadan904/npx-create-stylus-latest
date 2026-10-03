@@ -67,7 +67,7 @@ agent has to drive it. They combine: the contracts here are plain Stylus project
 | `stream` | Stablecoin payment streams (payroll, vesting, agent subscriptions): linear per-second payouts, keeper-friendly `withdraw`, and `cancel` that splits earned from remaining. Unit tests plus a model-based property test that tracks every token movement. |
 | `interop` | Rust and Solidity on one chain: a Stylus math library (`mulDiv` with a 512-bit intermediate, `isqrt`) and a Solidity contract that calls it, catching its custom errors by name. `./scripts/interop.sh` compiles the Solidity (solc-js, no Foundry needed), deploys it and checks every answer and error on a real Nitro node, in CI too. Property tests check each result against its definition. |
 | `oracle` | Reads a Chainlink price feed safely: refuses stale, zero, negative or incomplete prices with named errors, and values amounts in USD with both decimals handled. `--network` presets Chainlink's ETH / USD feed (checked on-chain in CI). Unit tests plus a model-based property test. |
-| `faucet` | Rate-limited ERC-20 faucet for testnets and demos: anyone can `drip` once per cooldown, and `availableAt(who)` says when. Lets visitors try your dApp without asking you for tokens. Unit tests plus a model-based property test. |
+| `faucet` | Rate-limited ERC-20 faucet for testnets and demos: anyone can `drip` once per cooldown, and `availableAt(who)` says when. Lets visitors try your dApp without asking you for tokens. With `--with-client`, an agent can `get_faucet` and `request_tokens` (CLI or MCP), refused early as `TooSoon` or `FaucetEmpty`. Unit tests plus a model-based property test. |
 
 ## What you get in the generated project
 
@@ -162,7 +162,7 @@ the contract does not define.
 
 ### Use the contract from Claude, Cursor or any MCP client
 
-For `stream`, `escrow` and `vault`, the client also includes an MCP server (`src/agent-mcp.ts`). It serves the same tools
+For `stream`, `escrow`, `vault` and `faucet`, the client also includes an MCP server (`src/agent-mcp.ts`). It serves the same tools
 as the agent CLI, so an assistant can open, read and cancel streams, or use the escrow or vault, by itself:
 
 ```bash

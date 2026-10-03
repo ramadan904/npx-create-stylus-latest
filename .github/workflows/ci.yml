@@ -142,9 +142,10 @@ jobs:
           test -n "$vault" || { echo "vault deploy failed"; exit 1; }
           echo "VAULT=$vault" >> "$GITHUB_ENV"
           echo "VAULT_DIR=${{ runner.temp }}/app-vault" >> "$GITHUB_ENV"
-          faucet=$(deploy faucet "$token" 100 30)   # 100 base units per drip, 30 s cooldown
+          faucet=$(WITH_CLIENT=1 deploy faucet "$token" 100 30)   # 100 base units per drip, 30 s cooldown
           test -n "$faucet" || { echo "faucet deploy failed"; exit 1; }
           echo "FAUCET=$faucet" >> "$GITHUB_ENV"
+          echo "FAUCET_DIR=${{ runner.temp }}/app-faucet" >> "$GITHUB_ENV"
           echo "TOKEN=$token" >> "$GITHUB_ENV"
           echo "STREAM=$stream" >> "$GITHUB_ENV"
           echo "ESCROW=$escrow" >> "$GITHUB_ENV"

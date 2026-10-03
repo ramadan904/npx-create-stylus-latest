@@ -2,7 +2,7 @@
 // Claude Code would: launched with the command its own `--config` prints, from another directory, over stdio. Then
 // uses it against the real contracts on the dev node, and compares its results with the agent CLI's.
 //
-// Env: RPC_URL, CHAIN_ID, E2E_KEY (the funded agent key), TOKEN, STREAM, ESCROW, VAULT, STREAM_DIR, ESCROW_DIR, VAULT_DIR.
+// Env: RPC_URL, CHAIN_ID, E2E_KEY (the funded agent key), TOKEN, STREAM, ESCROW, VAULT, FAUCET, and their *_DIR projects.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -58,11 +58,11 @@ function cli(dir, contract, intent, extraEnv = {}) {
   return JSON.parse(r.stdout);
 }
 
-const [sdir, edir, vdir] = [need("STREAM_DIR"), need("ESCROW_DIR"), need("VAULT_DIR")];
-const [STREAM, ESCROW, VAULT] = [need("STREAM"), need("ESCROW"), need("VAULT")];
+const [sdir, edir, vdir, fdir] = [need("STREAM_DIR"), need("ESCROW_DIR"), need("VAULT_DIR"), need("FAUCET_DIR")];
+const [STREAM, ESCROW, VAULT, FAUCET] = [need("STREAM"), need("ESCROW"), need("VAULT"), need("FAUCET")];
 
 console.log("\nevery agent template serves its CLI's tools over MCP");
-for (const [dir, contract] of [[sdir, STREAM], [edir, ESCROW], [vdir, VAULT]]) {
+for (const [dir, contract] of [[sdir, STREAM], [edir, ESCROW], [vdir, VAULT], [fdir, FAUCET]]) {
   const client = await connect(dir, contract);
   check(client.getServerCapabilities()?.tools !== undefined, `${dir.split("/").pop()}: the server offers tools`);
   const { tools } = await client.listTools();
@@ -105,5 +105,26 @@ check(!again.ok && again.error.code === "NotActive" && again.error.hint, `a seco
 const unknown = await call(client, "no_such_tool", {});
 check(!unknown.ok && unknown.error.code === "UnknownIntent", "an unknown tool is a structured error, not a crash");
 await client.close();
+
+console.log("\nfaucet, through MCP: read it, find it empty, refill it, take a drip, be refused within the cooldown");
+const tokenAbi = parseAbi(["function transfer(address to, uint256 amount) returns (bool)"]);
+const faucet = await connect(fdir, FAUCET);
+const info = await call(faucet, "get_faucet", {});
+check(info.ok && info.amountPerDrip === "100" && info.cooldownSeconds === "30" && info.token?.symbol === "TST", "get_faucet reads the drip, the cooldown and the token", info);
+const infoCli = cli(fdir, FAUCET, { intent: "get_faucet" });
+check(infoCli.amountPerDrip === info.amountPerDrip && infoCli.faucetHolds === info.faucetHolds && infoCli.account === info.account, "the CLI reads the faucet identically");
+// The flows above leave the faucet holding less than one drip, so the agent's first request finds it empty.
+check(info.empty === true && info.canDripNow === false, `the faucet holds ${info.faucetHolds}, less than one drip`, info);
+const dry = await call(faucet, "request_tokens", {});
+check(!dry.ok && dry.error.code === "FaucetEmpty" && dry.error.hint, "request_tokens on an empty faucet is refused before sending, with a hint", dry);
+await pub.waitForTransactionReceipt({ hash: await wallet.writeContract({ address: TOKEN, abi: tokenAbi, functionName: "transfer", args: [FAUCET, 250n] }) });
+const mine = await balanceOf(agent.address);
+const drip = await call(faucet, "request_tokens", {});
+check(drip.ok && drip.received === "100", "after a refill, request_tokens takes one drip of 100", drip);
+check((await balanceOf(agent.address)) === mine + 100n && drip.balanceNow === String(mine + 100n), "the agent holds exactly 100 more, as the result says");
+const soon = await call(faucet, "request_tokens", {});
+check(!soon.ok && soon.error.code === "TooSoon" && Number(soon.error.details.secondsUntilNext) > 0 && soon.error.hint, `a second request is refused as TooSoon, ${soon.error?.details?.secondsUntilNext} s left`, soon);
+check((await balanceOf(agent.address)) === mine + 100n, "the refusal moved nothing");
+await faucet.close();
 
 console.log(`\nMCP: ${checks} checks passed`);

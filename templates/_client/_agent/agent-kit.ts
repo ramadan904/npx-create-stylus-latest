@@ -246,6 +246,8 @@ const HINTS: Record<string, string> = {
   NotFunded: "This deal was already released or refunded.",
   NoSuchStream: "No stream has this id.",
   NoSuchDeal: "No deal has this id.",
+  TooSoon: "This account already dripped within the cooldown. get_faucet shows secondsUntilNext.",
+  FaucetEmpty: "The faucet holds less than one drip. Someone has to send it tokens first.",
   StartInPast: "The start time had already passed when the transaction ran. Use a larger startInSeconds.",
   DeadlineInPast: "The deadline had already passed when the transaction ran. Use a larger deadlineSeconds.",
   TokenTransferFailed: "The token transfer failed: check the agent's balance and allowance.",
