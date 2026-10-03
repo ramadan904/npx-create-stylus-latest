@@ -193,7 +193,7 @@
   @media (prefers-reduced-motion: reduce) { .gbar i > span { animation: none; } }
 
   /* ---- playground feedback (pg-polish.js) ---- */
-  .card.busy, #agent-live.busy { animation: busy 1.5s ease-in-out infinite; }
+  .card.busy { animation: busy 1.5s ease-in-out infinite; }
   @keyframes busy { 50% { box-shadow: 0 0 0 1px var(--c1), 0 0 28px var(--glow); } }
   .card.won { animation: won 1.3s ease-out; }
   @keyframes won { 0% { box-shadow: 0 0 0 2px var(--ok), 0 0 34px color-mix(in srgb, var(--ok) 55%, transparent); } 100% { box-shadow: none; } }
@@ -221,50 +221,10 @@
   .netpill { font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px; color: var(--ok);
     border: 1px solid color-mix(in srgb, var(--ok) 45%, var(--line)); background: color-mix(in srgb, var(--ok) 10%, transparent); }
   @media (prefers-reduced-motion: reduce) {
-    .card.busy, #agent-live.busy, .card.won, .card.shake, .bar.flowing > span, ol.activity li, .bump, button.btn.spin::before { animation: none !important; }
-    .card.busy, #agent-live.busy { box-shadow: 0 0 0 1px var(--c1); }
+    .card.busy, .card.won, .card.shake, .bar.flowing > span, ol.activity li, .bump, button.btn.spin::before { animation: none !important; }
+    .card.busy { box-shadow: 0 0 0 1px var(--c1); }
   }
-  /* ---- the live agent demo ---- */
-  .al-plan { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 6px; font-size: 13px; }
-  .al-plan code { padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--glass); color: var(--c5); }
-  .al-plan i { color: var(--muted); font-style: normal; }
-  #agent-live .agent-log { margin-top: 14px; }
-  #agent-live .astep .out { word-break: break-word; }
-  .astep .txs a, .al-sum a { color: var(--accent); }
-  .al-sum { margin: 4px 0 0; padding: 12px 14px; border-radius: 12px; font-size: 14px; word-break: break-word;
-    border: 1px solid color-mix(in srgb, var(--ok) 45%, var(--line)); background: color-mix(in srgb, var(--ok) 8%, transparent); }
-  #al-run:not(:disabled) { animation: beacon 2.4s ease-in-out infinite; }
-  @media (prefers-reduced-motion: reduce) { #al-run { animation: none !important; } }
-  /* ---- the agent replay ---- */
-  #agent-meta a { color: var(--accent); }
-  ol.agent-log { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 10px; }
-  .astep { background: var(--glass); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0;
-    animation: rise .35s ease both; }
   @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
-  .astep .say { font-size: 14px; margin-bottom: 8px; }
-  .astep .call { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; min-width: 0; }
-  .astep .fn { color: var(--c5); word-break: break-all; min-width: 0; }
-  .astep .fn::after { content: "▍"; color: var(--c3); animation: blink 1s steps(1) infinite; }
-  .astep.done .fn::after { content: ""; }
-  @keyframes blink { 50% { opacity: 0; } }
-  .who { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px;
-    color: #fff; background: var(--c1); }
-  .who.escrow { background: var(--c2); } .who.vault { background: var(--c4); }
-  .pol { font: 11.5px ui-monospace, Menlo, Consolas, monospace; color: var(--warn); border: 1px dashed var(--warn);
-    border-radius: 6px; padding: 1px 6px; max-width: 100%; word-break: break-all; }
-  .astep .out { display: none; margin-top: 8px; font-size: 13.5px; }
-  .astep.done .out { display: block; animation: rise .3s ease both; }
-  .astep .mark { font-weight: 800; margin-right: 6px; }
-  .astep.good .mark { color: var(--ok); text-shadow: 0 0 10px var(--ok); }
-  .astep.bad .mark { color: var(--warn); text-shadow: 0 0 10px var(--warn); }
-  .astep.bad { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
-  .astep.good.done { border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); }
-  .astep .sum { word-break: break-word; }
-  .astep details { margin-top: 6px; } .astep summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
-  .astep details pre { margin-top: 6px; font-size: 12px; max-height: 260px; overflow: auto; }
-  @media (prefers-reduced-motion: reduce) {
-    .astep, .astep.done .out { animation: none; } .astep .fn::after { content: ""; }
-  }
   @media (prefers-reduced-motion: reduce) {
     .term, .pg, #connect, #pg-drip, .live, .stat::after { animation: none !important; }
     .stat::after { display: none; }
@@ -321,7 +281,7 @@
       <span class="cs-go">Open in Codespaces &rarr;</span>
     </a>
     <div class="btns">
-      <a class="btn primary" href="#agent-live">&#9654; Run the AI agent demo</a>
+      <a class="btn primary" href="#playground">&#9654; Try the live playground</a>
       <a class="btn" href="https://github.com/ramadan904/npx-create-stylus-latest">View on GitHub</a>
       <a class="btn" href="https://github.com/ramadan904/npx-create-stylus-latest/blob/main/README.md">Read the docs</a>
       <a class="btn" href="#compare">Why not the official tools?</a>
@@ -330,51 +290,32 @@
       <span class="chip" style="--k:var(--c1)"><b>Arbitrum Sepolia</b> live</span>
       <span class="chip" style="--k:var(--c4)"><b>Robinhood Chain</b> testnet</span>
       <span class="chip" style="--k:var(--c5)"><b>Paxos USDG</b> on-chain verified</span>
-      <span class="chip" style="--k:var(--c3)"><b>AI-agent</b> ready</span>
     </div>
     <p class="note" style="margin-top:12px">On npm as <a href="https://www.npmjs.com/package/create-stylus-latest" style="color:var(--accent)"><code>create-stylus-latest</code></a>, published from CI with provenance. Nothing to install first: <code>npx</code> fetches it.</p>
   </header>
 
   <section class="stats" aria-label="Verified in CI">
     <div class="stat"><div class="n" data-count="9">9</div><div class="l">contract templates, tested on a real node</div></div>
-    <div class="stat"><div class="n" data-count="147">147</div><div class="l">on-chain MCP checks across all nine templates</div></div>
+    <div class="stat"><div class="n" data-count="8">8</div><div class="l">templates property-tested against a reference model</div></div>
     <div class="stat"><div class="n" data-count="17">17</div><div class="l">CI jobs green on every change</div></div>
     <div class="stat"><div class="n" data-count="20">20</div><div class="l">on-chain checks: USDG, Chainlink feeds, RPCs</div></div>
   </section>
 
   <section id="compare">
     <h2>Why this, and not <code>cargo stylus new</code> or Scaffold-Stylus?</h2>
-    <p class="sub">The official starter gives you a counter. Scaffold-Stylus gives you a frontend. This gives you contracts that move money correctly, the path to deploy them, and an interface an AI agent can drive.</p>
+    <p class="sub">The official starter gives you a counter. Scaffold-Stylus gives you a frontend. This gives you contracts that move money correctly, and the path to deploy them.</p>
     <div class="cmp-wrap"><table class="cmp">
       <thead><tr><th></th><th class="us">create-stylus-latest &#10022;</th><th><code>cargo stylus new</code></th><th>Scaffold-Stylus <small>(<code>npx create-stylus</code>)</small></th></tr></thead>
       <tbody>
-        <tr><td>Focus</td><td class="us">The contract and its path to a live deploy: payments and AI agents</td><td>The official minimal starter</td><td>A full-stack dApp: Next.js frontend, wallet connect, contract hot reload</td></tr>
+        <tr><td>Focus</td><td class="us">The contract and its path to a live deploy: tokens, payments and price feeds</td><td>The official minimal starter</td><td>A full-stack dApp: Next.js frontend, wallet connect, contract hot reload</td></tr>
         <tr><td>Contracts</td><td class="us">Nine: counter, ERC-20, ERC-721, vault, escrow, payment stream, Chainlink oracle, Rust&ndash;Solidity interop, faucet</td><td>A counter</td><td>A sample contract; ERC-20, ERC-721 and Chainlink extensions</td></tr>
         <tr><td>Tests</td><td class="us">Unit tests plus reference-model property tests; every template deployed to a Nitro node on every change</td><td>Example tests</td><td><code>yarn stylus:test</code></td></tr>
-        <tr><td>AI agents</td><td class="us">A JSON tool interface and an MCP server on every template: 147 on-chain checks</td><td>&ndash;</td><td>&ndash;</td></tr>
         <tr><td>Stablecoins, chains</td><td class="us">Paxos USDG presets checked on-chain; Arbitrum One, Robinhood Chain and their testnets</td><td>&ndash;</td><td>Arbitrum Sepolia, mainnet, Orbit</td></tr>
         <tr><td>Staying current</td><td class="us">Pins the newest <code>stylus-sdk</code> at scaffold time, and CI re-checks every template against crates.io weekly</td><td>&ndash;</td><td>&ndash;</td></tr>
       </tbody>
     </table></div>
     <p class="note swipe">Swipe the table to compare with <code>cargo stylus new</code> and Scaffold-Stylus &rarr;</p>
     <p class="note verdict">They combine: pick Scaffold-Stylus for a ready-made frontend, and these contracts when the money has to move correctly. They are plain Stylus projects that any frontend can call.</p>
-  </section>
-
-  <section class="pg" id="agent-live">
-    <h2>Run the AI agent demo</h2>
-    <p class="sub">The stream template ships a JSON tool interface for AI agents. Press the button and its three tool calls run
-      for real from your wallet on Arbitrum Sepolia: <b>open a stream</b> of 10 test BUIDL, <b>pay out</b> what has been earned
-      after a few seconds, then <b>cancel</b> and split the rest. Under each call is the exact JSON the agent gets back, with the
-      transaction on Arbiscan. The page runs a port of the agent's own code, and CI checks every result against the agent CLI's
-      output, field by field.</p>
-    <div class="al-plan" aria-hidden="true"><code>open_stream</code><i>&rarr;</i><code>wait</code><i>&rarr;</i><code>withdraw_from_stream</code><i>&rarr;</i><code>cancel_stream</code></div>
-    <label for="al-to">Recipient (anyone but you; test tokens sent here are gone)</label>
-    <input id="al-to" autocomplete="off" spellcheck="false">
-    <div class="wallet" style="margin-top:12px"><button class="btn primary" id="al-run" disabled>&#9654; Run the agent demo</button>
-      <span class="note" id="al-status">Needs a wallet with a little Arbitrum Sepolia ETH and 10 BUIDL (free from the
-        <a href="#playground" style="color:var(--accent)">faucet</a>). Your wallet asks 3 or 4 times; about a minute in all.</span></div>
-    <ol class="agent-log" id="al-log" aria-live="polite"></ol>
-    <p class="al-sum" id="al-summary" hidden></p>
   </section>
 
   <section>
@@ -449,18 +390,6 @@
     </div>
     <h3 style="margin:22px 0 0;font-size:16px">Your activity</h3>
     <ol class="activity" id="pg-activity"><li id="pg-activity-empty">Transactions you send from this page appear here, with links to Arbiscan.</li></ol>
-  </section>
-
-  <section id="agent">
-    <h2>Replay: a longer agent run</h2>
-    <p class="sub">No wallet needed. All nine templates ship a JSON tool interface and an MCP server that an AI agent can call.
-      This is a real run of it on a local Arbitrum node, recorded in CI and replayed: each tool call the agent sent and the result it got back. The overspend and the early refund were
-      refused before anything was signed, by limits the operator set and permission checks the contract answers.</p>
-    <div class="wallet"><button class="btn primary" id="agent-play" disabled>Replay</button>
-      <span class="note" id="agent-meta">Loading the recorded run…</span></div>
-    <ol class="agent-log" id="agent-log" aria-live="polite"></ol>
-    <pre>cd my-stream/client &amp;&amp; npx tsx --env-file=../.env src/agent-cli.ts --tools   # hand these to your LLM
-npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"open_stream","recipient":"0x…","amountTokens":"25","durationSeconds":3600}'</pre>
   </section>
 
   <section id="gas">
@@ -538,8 +467,7 @@ RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh -- 0xYourTokenAddress</pre>
     <div class="grid four">
       <div class="card"><div class="ico" style="--a:var(--c4);--b:var(--c3)" aria-hidden="true">&#9889;</div><h3>Always current</h3><p>Reads the crates.io index at scaffold time and pins the newest stable SDK with the exact alloy version it needs. Works offline with a known-good fallback.</p></div>
       <div class="card"><div class="ico" style="--a:var(--c1);--b:var(--c2)" aria-hidden="true">&#129521;</div><h3>Nine templates</h3><p><code>counter</code>, <code>erc20</code>, <code>erc721</code>, <code>vault</code>, <code>escrow</code>, <code>stream</code>, <code>oracle</code> (Chainlink), <code>interop</code> (Solidity calling Rust) and <code>faucet</code>. Every one except the counter has unit tests and a property test: every token movement against a reference model, every price against the oracle rules, every <code>mulDiv</code> against its 512-bit definition.</p></div>
-      <div class="card"><div class="ico" style="--a:var(--c3);--b:var(--c1)" aria-hidden="true">&#127912;</div><h3>NFTs in Rust</h3><p>The <code>erc721</code> template: metadata through <code>tokenURI</code>, safe transfers that ask a receiving contract first, a minter, <code>burn</code>, and the standard ERC-6093 errors, in about 20 KB of WASM (the limit is 24 KB). A property test checks every mint, approval, transfer and burn against a model. Its agent tools mint and send NFTs, and refuse a send that would lock the token in a contract.</p></div>
-      <div class="card"><div class="ico" style="--a:var(--c2);--b:var(--c3)" aria-hidden="true">&#129302;</div><h3>Agent-native</h3><p>All nine templates ship a JSON tool interface an AI agent can call, with spending limits enforced before signing and the contract's own error names in every failure. The same tools are an MCP server, so Claude Desktop, Claude Code or Cursor can use the contract directly.</p></div>
+      <div class="card"><div class="ico" style="--a:var(--c3);--b:var(--c1)" aria-hidden="true">&#127912;</div><h3>NFTs in Rust</h3><p>The <code>erc721</code> template: metadata through <code>tokenURI</code>, safe transfers that ask a receiving contract first, a minter, <code>burn</code>, and the standard ERC-6093 errors, in about 20 KB of WASM (the limit is 24 KB). A property test checks every mint, approval, transfer and burn against a model.</p></div>
       <div class="card"><div class="ico" style="--a:var(--c5);--b:var(--c1)" aria-hidden="true">&#128640;</div><h3>Deploy that works</h3><p><code>deploy.sh</code> handles the lockfile, RPC override, gas cap and key hand-off. <code>devnode.sh</code> starts a local Nitro node for free validation. <code>VERIFY=1</code> deploys reproducibly, and <code>verify.sh</code> proves the deployed code is your source.</p></div>
       <div class="card"><div class="ico" style="--a:var(--c3);--b:var(--c4)" aria-hidden="true">&#128187;</div><h3>Typed client</h3><p><code>--with-client</code> adds a viem script that fails loudly on reverted transactions.</p></div>
       <div class="card"><div class="ico" style="--a:var(--c5);--b:var(--c2)" aria-hidden="true">&#128181;</div><h3>USDG &amp; Robinhood</h3><p><code>--usdg</code> wires vault, escrow and stream to Paxos USDG; <code>--network</code> targets Arbitrum or Robinhood Chain. Addresses checked on-chain in CI; mainnet deploys need <code>MAINNET=1</code>.</p></div>
@@ -555,7 +483,6 @@ RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh -- 0xYourTokenAddress</pre>
       <li><b>Not audited.</b> Tested hard (property tests against a model, deploys to a real Nitro node on every change), but get an independent review before holding real money.</li>
       <li><b>No admin keys, no upgrades.</b> The vault, escrow and stream have no owner, no pause and no proxy: a bug means a redeploy, not a patch.</li>
       <li><b>Known gaps.</b> Fee-on-transfer and rebasing tokens are not supported; the oracle does not check Arbitrum's sequencer-uptime feed; the faucet is not anti-sybil.</li>
-      <li><b>Agent limits are client-side.</b> <code>AGENT_MAX_AMOUNT</code> and the allow-list stop a model from overspending, not someone holding the key. Give an agent a dedicated key with only what it may spend.</li>
       <li><b>Mainnet is opt-in.</b> <code>deploy.sh</code> refuses Arbitrum One, Nova and Robinhood Chain unless you set <code>MAINNET=1</code>.</li>
     </ul>
     <p class="note" style="margin:10px 0 0">Per-template details and a pre-mainnet checklist: <a href="https://github.com/ramadan904/npx-create-stylus-latest/blob/main/SECURITY.md" style="color:var(--accent)">SECURITY.md</a>.</p></div>
@@ -569,7 +496,6 @@ RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh -- 0xYourTokenAddress</pre>
       <li>The same flow was then run against Arbitrum Sepolia, producing the contracts above.</li>
       <li>A Solidity contract calls the <code>interop</code> template's Rust library on a Nitro node, and catches its errors by name.</li>
       <li>A reproducible deploy is verified against its source, and a one-line change to that source must fail verification.</li>
-      <li>The official MCP SDK client drives the MCP server of all nine templates against real contracts: 147 checks, covering streams, tokens and NFTs that move exactly as reported, payments priced through an oracle that refuses a stale or zero price, and spending limits that refuse with the CLI's exact JSON.</li>
     </ol>
     <p class="note">These are templates, not audited contracts. Do not hold real funds in them.</p>
   </section>
@@ -802,7 +728,7 @@ CONTRACTS.forEach(build);
 if (!NFT_ADDRESS) {
   const pending = el("div", { className: "card" });
   pending.append(el("h3", {}, "ERC-721 badges (Rust)"),
-    el("p", {}, "Pending network reactivation: Arbitrum Sepolia has paused new Stylus activations, so this collection deploys as soon as they resume. The erc721 template itself is deployed and exercised on a local Nitro node in CI on every change, including minting and transfers through its MCP tools."),
+    el("p", {}, "Pending network reactivation: Arbitrum Sepolia has paused new Stylus activations, so this collection deploys as soon as they resume. The erc721 template itself is deployed and exercised on a local Nitro node in CI on every change, including minting and transfers."),
     el("span", { className: "live err" }, "\u25CB PENDING"));
   document.getElementById("contracts").append(pending);
 }
@@ -810,8 +736,6 @@ if (!NFT_ADDRESS) {
 <script src="abi.js"></script>
 <script src="playground.js"></script>
 <script src="fx.js"></script>
-<script src="agent-demo.js"></script>
-<script src="agent-live.js"></script>
 <script src="pg-polish.js"></script>
 </body>
 </html>
