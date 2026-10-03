@@ -48,7 +48,7 @@ Not to be confused with `npx create-stylus` (Scaffold-Stylus): a different tool,
 | Focus | The official minimal starter | A full-stack dApp: Next.js frontend, wallet connect, contract hot reload | The contract and its path to a live deploy: payments and AI agents |
 | Contracts | A counter | A sample contract; ERC-20, ERC-721 and Chainlink extensions | Nine templates: counter, ERC-20, ERC-721, vault, escrow, stream, Chainlink oracle, Rust-Solidity interop, faucet |
 | Tests | Example tests | `yarn stylus:test` | Unit tests plus reference-model property tests; every template deployed to a Nitro node in CI |
-| AI agents | – | – | JSON tool interface with operator spending limits, checked against real contracts in CI |
+| AI agents | – | – | JSON tool interface and an MCP server, with operator spending limits, checked against real contracts in CI |
 | Stablecoins and chains | – | Arbitrum Sepolia, mainnet, Orbit | Paxos USDG presets checked on-chain; Arbitrum One, Robinhood Chain and their testnets |
 | Frontend | – | Full Next.js app | A generated contract page (`--with-ui`) and a typed TypeScript client (`--with-client`) |
 
@@ -159,6 +159,26 @@ cd my-app/client && npm install && npm start
 It defaults to Arbitrum Sepolia and reads `RPC_URL`, `CONTRACT_ADDRESS` and `PRIVATE_KEY` from the project's `.env`.
 CI type-checks the generated client for every template, and a unit test fails if the client's ABI lists a function
 the contract does not define.
+
+### Use the contract from Claude, Cursor or any MCP client
+
+For `stream`, `escrow` and `vault`, the client also includes an MCP server (`src/agent-mcp.ts`). It serves the same tools
+as the agent CLI, so an assistant can open, read and cancel streams, or use the escrow or vault, by itself:
+
+```bash
+cd my-app/client && npm install
+npx tsx src/agent-mcp.ts --config   # prints `claude mcp add ...` and the JSON for Claude Desktop, Cursor or .mcp.json
+```
+
+Every call goes through the same code as the CLI:
+
+- The operator's limits in `.env` (`AGENT_MAX_AMOUNT`, `AGENT_ALLOWED_COUNTERPARTIES`) are enforced before anything is
+  signed.
+- Errors arrive by the contract's own names, with a hint.
+
+It speaks MCP over stdio with no extra dependencies. CI drives it with the official MCP SDK client: it checks the tools
+match the CLI's, opens and cancels a real stream on a Nitro node, refuses an amount over the limit with the CLI's exact
+JSON, and returns the contract's errors by name.
 
 ## Options
 
