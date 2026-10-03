@@ -5,8 +5,8 @@
 | | |
 |---|---|
 | **Live site** | https://npx-create-stylus-latest-web-mocha.vercel.app/ (the playground, and a live AI-agent demo you run with your wallet) |
-| **npm** | https://www.npmjs.com/package/create-stylus-latest: `npx create-stylus-latest my-app`. Published from CI with provenance ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37043469397)) |
-| **Latest CI** | All 13 jobs green: [main](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37056631397), and [with the live agent demo](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37059195125) (29/29 browser checks against the agent CLI). [All runs](https://github.com/ramadan904/npx-create-stylus-latest/actions/workflows/ci.yml) |
+| **npm** | https://www.npmjs.com/package/create-stylus-latest: `npx create-stylus-latest my-app`. Version 0.2.0, published from CI with provenance ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37107595453)) |
+| **Latest CI** | All 15 jobs green: [main](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37077712045), and [with the live agent demo](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37059195125) (29/29 browser checks against the agent CLI). [All runs](https://github.com/ramadan904/npx-create-stylus-latest/actions/workflows/ci.yml) |
 | **Zero install** | [Open in Codespaces](https://codespaces.new/ramadan904/npx-create-stylus-latest?quickstart=1), then `.devcontainer/quickstart.sh`: a Stylus contract deployed and called on a local Arbitrum chain in 105 s, measured inside that container in CI ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37061245097)) |
 | **Source** | https://github.com/ramadan904/npx-create-stylus-latest |
 
@@ -14,11 +14,12 @@
 
 Each claim links to its proof, with the limit after it.
 
-**1. Smart contract quality: seven contracts checked against a reference model, all eight run on real nodes.**
-- `counter`, `erc20`, `erc721`, `vault`, `escrow`, `stream`, `oracle` and `faucet` use custom Solidity errors, checks-effects-interactions,
+**1. Smart contract quality: eight contracts checked against a reference model, all nine run on real nodes.**
+- `counter`, `erc20`, `erc721`, `vault`, `escrow`, `stream`, `oracle`, `interop` and `faucet` use custom Solidity errors, checks-effects-interactions,
   and `#[constructor]` initialization where they have state to set, so nobody can front-run an `init`.
 - All but the counter have unit tests plus a property test against a reference model (every token movement for the
-  six that move tokens; every answer, age and decimals for the Chainlink oracle) (the stream: 15 tests). The tests are tested: deliberately broken contracts fail them. They also found a real
+  six that move tokens; every answer, age and decimals for the Chainlink oracle; every `mulDiv` and `isqrt` result
+  against its definition in 512-bit math for the interop library) (the stream: 15 tests). The tests are tested: deliberately broken contracts fail them. They also found a real
   bug: a failed `transfer_from` left partial state behind (see below).
 - Every template is formatted, linted, tested, built to WASM and deployed to a Nitro dev node on every change. The
   cross-contract money flows run against a real ERC-20 in CI.
@@ -90,7 +91,9 @@ One command produces a working project and a deploy path that has already been r
 - **Always current.** At scaffold time the CLI reads the crates.io sparse index, picks the newest stable `stylus-sdk`
   and pins the exact `alloy-primitives` / `alloy-sol-types` it requires. Offline it falls back to a bundled
   known-good pair.
-- **Eight templates.** `counter` (minimal), `erc20` (events, custom errors), `erc721` (NFT with metadata, receiver-checked safe
+- **Nine templates.** `counter` (minimal), `interop` (a Rust math library that a Solidity contract calls, its
+  custom errors caught by name in Solidity; `./scripts/interop.sh` compiles, deploys and checks both on a real Nitro
+  node, in CI too), `erc20` (events, custom errors), `erc721` (NFT with metadata, receiver-checked safe
   transfers and the standard ERC-6093 errors), `oracle` (a Chainlink price-feed consumer that refuses stale or bad
   prices; `--network` presets the ETH / USD feed, checked on-chain in CI), `vault` (a stablecoin vault using
   cross-contract ERC-20 calls), `escrow` (buyer-funded deals with an optional arbiter and a deadline refund), `stream`
@@ -280,13 +283,14 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
 
 ## Live evidence index
 
-- On npm: https://www.npmjs.com/package/create-stylus-latest (`npx create-stylus-latest my-app`). Version 0.1.0 was published by the tag-triggered workflow after
-  `npm test` and the packed-tarball smoke test, with a provenance statement: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37043469397
+- On npm: https://www.npmjs.com/package/create-stylus-latest (`npx create-stylus-latest my-app`). Version 0.2.0 was published by the publish workflow after
+  `npm test` and the packed-tarball smoke test, with a provenance statement: https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37107595453 (0.1.0:
+  https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37043469397)
 
-- Latest all-green CI on main (15 jobs: real-token flows, the agent CLIs, a real local deploy of all eight templates,
+- Latest all-green CI on main (15 jobs: real-token flows, the agent CLIs, a real local deploy of every template,
   the generated contract page driven in a real browser, the npm package smoke test, the site in a real browser, the live
   agent demo against the agent CLI, and the USDG addresses, Chainlink feeds and network RPCs checked on-chain):
-  https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37073563769
+  https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37077712045
 - The Codespace, built and used in CI: the published package scaffolds, tests and builds inside it, and the one-command
   quickstart deploys and calls a contract on a local Nitro node in 105 s:
   https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37061245097
@@ -305,7 +309,8 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
 
 ## Roadmap
 
-1. A Foundry interop template (Solidity test calling a Stylus contract).
+1. Done, shipping in the next npm release: the `interop` template (Solidity calling a Stylus contract, on a real Nitro node rather than in
+   Foundry, whose EVM cannot run Stylus code).
 2. `cargo stylus verify` support with a Docker-friendly key path.
 3. Testnet USDG presets, as soon as Paxos lists USDG on Arbitrum Sepolia or Robinhood Chain testnet.
 

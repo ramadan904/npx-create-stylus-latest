@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "type": "module",
+  "description": "Dependencies of interop.mjs, which ./scripts/interop.sh runs: the Solidity compiler (solc-js, no binary download) and viem",
+  "dependencies": {
+    "solc": "0.8.30",
+    "viem": "^2.57.2"
+  }
+}

@@ -189,8 +189,8 @@ test("deploy.sh turns known cargo-stylus failures into plain-English hints and k
   assert.equal(run().status, 0);
 });
 
-test("erc20, erc721, vault, escrow, stream, oracle and faucet ship property-based tests", () => {
-  for (const template of ["erc20", "erc721", "vault", "escrow", "stream", "oracle", "faucet"]) {
+test("erc20, erc721, vault, escrow, stream, oracle, interop and faucet ship property-based tests", () => {
+  for (const template of ["erc20", "erc721", "vault", "escrow", "stream", "oracle", "interop", "faucet"]) {
     const dir = tmp();
     scaffold({ targetDir: dir, name: "my-app", template, versions });
     assert.match(fs.readFileSync(path.join(dir, "Cargo.toml"), "utf8"), /proptest = /, `${template} needs proptest`);
@@ -198,6 +198,27 @@ test("erc20, erc721, vault, escrow, stream, oracle and faucet ship property-base
     assert.match(lib, /mod properties/, `${template} needs a properties test module`);
     assert.match(lib, /proptest!/, `${template} needs a proptest! block`);
   }
+});
+
+test("interop ships the Solidity side, and its IMathLib names every public function and error of lib.rs", () => {
+  const dir = tmp();
+  const files = scaffold({ targetDir: dir, name: "my-app", template: "interop", versions });
+  for (const f of ["solidity/Consumer.sol", "scripts/interop.sh", "scripts/interop/interop.mjs", "scripts/interop/package.json"]) {
+    assert.ok(files.includes(f), f);
+  }
+  assert.ok(fs.statSync(path.join(dir, "scripts/interop.sh")).mode & 0o100, "interop.sh is executable");
+  const sol = fs.readFileSync(path.join(dir, "solidity/Consumer.sol"), "utf8");
+  const iface = /interface IMathLib \{([\s\S]*?)\n\}/.exec(sol)?.[1] ?? "";
+  const lib = fs.readFileSync(path.join(dir, "src/lib.rs"), "utf8");
+  // Rust snake_case `pub fn` in the #[public] impl is camelCase in the ABI.
+  const camel = (name) => name.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+  const publicImpl = /#\[public\]\s*impl MathLib \{([\s\S]*?)\n\}/.exec(lib)?.[1] ?? "";
+  const fns = [...publicImpl.matchAll(/pub fn (\w+)/g)].map((m) => camel(m[1]));
+  assert.deepEqual(fns, ["mulDiv", "mulDivUp", "isqrt"]);
+  for (const fn of fns) assert.match(iface, new RegExp(`function ${fn}\\(`), `IMathLib lacks ${fn}`);
+  const errors = [...(/sol! \{([\s\S]*?)\n\}/.exec(lib)?.[1] ?? "").matchAll(/error (\w+)\(/g)].map((m) => m[1]);
+  assert.deepEqual(errors, ["DivisionByZero", "MulDivOverflow"]);
+  for (const e of errors) assert.match(iface, new RegExp(`error ${e}\\(`), `IMathLib lacks error ${e}`);
 });
 
 test("devnode.sh ships the setup that constructor deploys need, and it is wired in", async () => {

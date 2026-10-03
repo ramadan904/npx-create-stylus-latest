@@ -107,6 +107,11 @@ const ABI = {
       "types": [],
       "names": []
     },
+    "0x23d359a3": {
+      "name": "DivisionByZero",
+      "types": [],
+      "names": []
+    },
     "0x25c3f46e": {
       "name": "InsufficientDeposit",
       "types": [
@@ -218,6 +223,19 @@ const ABI = {
       ],
       "names": [
         "id"
+      ]
+    },
+    "0x6c59da12": {
+      "name": "MulDivOverflow",
+      "types": [
+        "uint256",
+        "uint256",
+        "uint256"
+      ],
+      "names": [
+        "a",
+        "b",
+        "denominator"
       ]
     },
     "0x702d6859": {
