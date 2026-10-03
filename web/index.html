@@ -486,8 +486,8 @@ RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh -- 0xYourTokenAddress</pre>
     <div class="grid four">
       <div class="card"><div class="ico" style="--a:var(--c4);--b:var(--c3)" aria-hidden="true">&#9889;</div><h3>Always current</h3><p>Reads the crates.io index at scaffold time and pins the newest stable SDK with the exact alloy version it needs. Works offline with a known-good fallback.</p></div>
       <div class="card"><div class="ico" style="--a:var(--c1);--b:var(--c2)" aria-hidden="true">&#129521;</div><h3>Nine templates</h3><p><code>counter</code>, <code>erc20</code>, <code>erc721</code>, <code>vault</code>, <code>escrow</code>, <code>stream</code>, <code>oracle</code> (Chainlink), <code>interop</code> (Solidity calling Rust) and <code>faucet</code>. Every one except the counter has unit tests and a property test: every token movement against a reference model, every price against the oracle rules, every <code>mulDiv</code> against its 512-bit definition.</p></div>
-      <div class="card"><div class="ico" style="--a:var(--c2);--b:var(--c3)" aria-hidden="true">&#129302;</div><h3>Agent-native</h3><p>Stream, escrow and vault ship a JSON tool interface an AI agent can call, with spending limits enforced before signing and the contract's own error names in every failure.</p></div>
-      <div class="card"><div class="ico" style="--a:var(--c5);--b:var(--c1)" aria-hidden="true">&#128640;</div><h3>Deploy that works</h3><p><code>deploy.sh</code> handles the lockfile, RPC override, gas cap and key hand-off. <code>devnode.sh</code> starts a local Nitro node for free validation.</p></div>
+      <div class="card"><div class="ico" style="--a:var(--c2);--b:var(--c3)" aria-hidden="true">&#129302;</div><h3>Agent-native</h3><p>Stream, escrow and vault ship a JSON tool interface an AI agent can call, with spending limits enforced before signing and the contract's own error names in every failure. The same tools are an MCP server, so Claude Desktop, Claude Code or Cursor can use the contract directly.</p></div>
+      <div class="card"><div class="ico" style="--a:var(--c5);--b:var(--c1)" aria-hidden="true">&#128640;</div><h3>Deploy that works</h3><p><code>deploy.sh</code> handles the lockfile, RPC override, gas cap and key hand-off. <code>devnode.sh</code> starts a local Nitro node for free validation. <code>VERIFY=1</code> deploys reproducibly, and <code>verify.sh</code> proves the deployed code is your source.</p></div>
       <div class="card"><div class="ico" style="--a:var(--c3);--b:var(--c4)" aria-hidden="true">&#128187;</div><h3>Typed client</h3><p><code>--with-client</code> adds a viem script that fails loudly on reverted transactions.</p></div>
       <div class="card"><div class="ico" style="--a:var(--c5);--b:var(--c2)" aria-hidden="true">&#128181;</div><h3>USDG &amp; Robinhood</h3><p><code>--usdg</code> wires vault, escrow and stream to Paxos USDG; <code>--network</code> targets Arbitrum or Robinhood Chain. Addresses checked on-chain in CI; mainnet deploys need <code>MAINNET=1</code>.</p></div>
     </div>
@@ -499,6 +499,9 @@ RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh -- 0xYourTokenAddress</pre>
       <li>Every template is built, tested and validated against a local Nitro node in CI, using live crates.io versions.</li>
       <li>An end-to-end CI job deploys a generated contract and calls it through the generated client.</li>
       <li>The same flow was then run against Arbitrum Sepolia, producing the contracts above.</li>
+      <li>A Solidity contract calls the <code>interop</code> template's Rust library on a Nitro node, and catches its errors by name.</li>
+      <li>A reproducible deploy is verified against its source, and a one-line change to that source must fail verification.</li>
+      <li>The official MCP SDK client drives the MCP server against real contracts: it opens and cancels a stream, and a spending limit refuses with the CLI's exact JSON.</li>
     </ol>
     <p class="note">These are templates, not audited contracts. Do not hold real funds in them.</p>
   </section>
