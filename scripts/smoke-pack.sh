@@ -37,10 +37,11 @@ for t in $templates; do
   fi
   echo "ok  $t"
 done
-run "app-ui" -t counter -y --no-git --offline --with-ui --with-client >/dev/null
-for f in ui/index.html ui/serve.mjs client/package.json; do
+out=$(run "app-ui" -t counter -y --no-git --offline --with-ui --with-client)
+for f in ui/index.html ui/serve.mjs client/package.json client/src/agent-cli.ts client/src/agent-mcp.ts; do
   [ -e "$work/app-ui/$f" ] || { echo "FAIL: --with-ui/--with-client is missing $f" >&2; exit 1; }
 done
 [ -x "$work/app-ui/scripts/ui.sh" ] || { echo "FAIL: scripts/ui.sh lost its executable bit" >&2; exit 1; }
+grep -q "agent-mcp.ts --config" <<<"$out" || { echo "FAIL: the next steps do not mention the MCP server" >&2; exit 1; }
 echo "ok  --with-ui --with-client"
 echo "smoke test passed for: $templates (version $version)"
