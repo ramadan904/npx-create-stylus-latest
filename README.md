@@ -11,7 +11,7 @@ npx create-stylus-latest my-token -t erc20 # skip the prompt
 ```
 
 Published on npm as [`create-stylus-latest`](https://www.npmjs.com/package/create-stylus-latest), with a provenance statement linking the package to the
-commit and workflow that built it ([0.3.0 publish run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37113382826)). New versions publish automatically from a version tag
+commit and workflow that built it ([0.4.0 publish run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37124529773)). New versions publish automatically from a version tag
 (see [RELEASING.md](RELEASING.md)).
 
 ### Try it without installing anything
