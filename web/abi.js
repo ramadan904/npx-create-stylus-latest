@@ -363,6 +363,8 @@ const ABI = {
     "NotFunded": "This deal was already released or refunded.",
     "NoSuchStream": "No stream has this id.",
     "NoSuchDeal": "No deal has this id.",
+    "InsufficientBalance": "The account holds less than that. get_token (or the template's get_ intent) shows its balance.",
+    "InsufficientAllowance": "The spender may not take that much from the account. The owner has to approve a larger amount first.",
     "TooSoon": "This account already dripped within the cooldown. get_faucet shows secondsUntilNext.",
     "FaucetEmpty": "The faucet holds less than one drip. Someone has to send it tokens first.",
     "StartInPast": "The start time had already passed when the transaction ran. Use a larger startInSeconds.",

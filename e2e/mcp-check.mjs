@@ -2,7 +2,8 @@
 // Claude Code would: launched with the command its own `--config` prints, from another directory, over stdio. Then
 // uses it against the real contracts on the dev node, and compares its results with the agent CLI's.
 //
-// Env: RPC_URL, CHAIN_ID, E2E_KEY (the funded agent key), TOKEN, STREAM, ESCROW, VAULT, FAUCET, and their *_DIR projects.
+// Env: RPC_URL, CHAIN_ID, E2E_KEY (the funded agent key), TOKEN, STREAM, ESCROW, VAULT, FAUCET, and their *_DIR projects
+// (TOKEN_DIR for the token).
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -58,11 +59,11 @@ function cli(dir, contract, intent, extraEnv = {}) {
   return JSON.parse(r.stdout);
 }
 
-const [sdir, edir, vdir, fdir] = [need("STREAM_DIR"), need("ESCROW_DIR"), need("VAULT_DIR"), need("FAUCET_DIR")];
+const [tdir, sdir, edir, vdir, fdir] = [need("TOKEN_DIR"), need("STREAM_DIR"), need("ESCROW_DIR"), need("VAULT_DIR"), need("FAUCET_DIR")];
 const [STREAM, ESCROW, VAULT, FAUCET] = [need("STREAM"), need("ESCROW"), need("VAULT"), need("FAUCET")];
 
 console.log("\nevery agent template serves its CLI's tools over MCP");
-for (const [dir, contract] of [[sdir, STREAM], [edir, ESCROW], [vdir, VAULT], [fdir, FAUCET]]) {
+for (const [dir, contract] of [[tdir, TOKEN], [sdir, STREAM], [edir, ESCROW], [vdir, VAULT], [fdir, FAUCET]]) {
   const client = await connect(dir, contract);
   check(client.getServerCapabilities()?.tools !== undefined, `${dir.split("/").pop()}: the server offers tools`);
   const { tools } = await client.listTools();
@@ -126,5 +127,42 @@ const soon = await call(faucet, "request_tokens", {});
 check(!soon.ok && soon.error.code === "TooSoon" && Number(soon.error.details.secondsUntilNext) > 0 && soon.error.hint, `a second request is refused as TooSoon, ${soon.error?.details?.secondsUntilNext} s left`, soon);
 check((await balanceOf(agent.address)) === mine + 100n, "the refusal moved nothing");
 await faucet.close();
+
+console.log("\nerc20, through MCP: read, send, refuse mistakes and the operator's limits, approve and revoke");
+// Fresh accounts: the stream above paid its recipient, and these checks count exact balances.
+const [recipient, stranger] = [privateKeyToAccount(generatePrivateKey()).address, privateKeyToAccount(generatePrivateKey()).address];
+const token = await connect(tdir, TOKEN);
+const tinfo = await call(token, "get_token", {});
+check(tinfo.ok && tinfo.token?.name === "Test Token" && tinfo.token.symbol === "TST" && tinfo.token.decimals === 18, "get_token reads the name, the symbol and the decimals", tinfo);
+check(tinfo.account === agent.address && tinfo.balance === String(await balanceOf(agent.address)), "and the agent's balance, as the chain has it", tinfo);
+check(JSON.stringify(cli(tdir, TOKEN, { intent: "get_token" })) === JSON.stringify(tinfo), "the CLI reads the token with the identical JSON");
+const tBefore = await balanceOf(agent.address);
+const sent = await call(token, "send_tokens", { to: recipient, amountTokens: "0.5" });
+check(sent.ok && sent.sent === String(5n * 10n ** 17n) && sent.to === recipient, "send_tokens sends 0.5 TST, converted exactly to 5e17 base units", sent);
+check((await balanceOf(recipient)) === 5n * 10n ** 17n && (await balanceOf(agent.address)) === tBefore - 5n * 10n ** 17n, "the recipient holds exactly that, and the agent holds exactly that less");
+check(sent.balanceNow === String(tBefore - 5n * 10n ** 17n), "as the result says");
+const zero = await call(token, "send_tokens", { to: "0x0000000000000000000000000000000000000000", amount: "1" });
+check(!zero.ok && zero.error.code === "InvalidInput" && zero.error.details?.field === "to", "sending to the zero address is refused before signing", zero);
+const self = await call(token, "send_tokens", { to: TOKEN, amount: "1" });
+check(!self.ok && self.error.code === "InvalidInput", "so is sending to the token contract itself", self);
+const tooMuch = await call(token, "send_tokens", { to: recipient, amount: String(tBefore) });
+check(!tooMuch.ok && tooMuch.error.code === "InsufficientBalance" && tooMuch.error.hint, "sending more than the agent holds is refused as InsufficientBalance, with a hint", tooMuch);
+const fenced = await connect(tdir, TOKEN, { AGENT_ALLOWED_COUNTERPARTIES: stranger });
+const notAllowed = await call(fenced, "send_tokens", { to: recipient, amount: "1" });
+check(!notAllowed.ok && notAllowed.error.code === "PolicyViolation", "with AGENT_ALLOWED_COUNTERPARTIES set, a recipient not on it is refused", notAllowed);
+check(JSON.stringify(cli(tdir, TOKEN, { intent: "send_tokens", to: recipient, amount: "1" }, { AGENT_ALLOWED_COUNTERPARTIES: stranger })) === JSON.stringify(notAllowed), "and the CLI refuses it with the identical JSON");
+await fenced.close();
+check((await balanceOf(recipient)) === 5n * 10n ** 17n && (await balanceOf(agent.address)) === tBefore - 5n * 10n ** 17n, "none of the refusals moved anything");
+const approved = await call(token, "approve_spender", { spender: recipient, amount: "1000" });
+check(approved.ok && approved.previousAllowance === "0" && approved.allowance === "1000", "approve_spender sets an allowance of exactly 1000", approved);
+const withSpender = await call(token, "get_token", { spender: recipient });
+check(withSpender.ok && withSpender.allowance === "1000", "get_token with a spender reads it back", withSpender);
+const capped20 = await connect(tdir, TOKEN, { AGENT_MAX_AMOUNT: "100" });
+const overCap = await call(capped20, "approve_spender", { spender: recipient, amount: "1000" });
+check(!overCap.ok && overCap.error.code === "PolicyViolation", "with AGENT_MAX_AMOUNT=100, an allowance of 1000 is refused: it could be spent", overCap);
+const revoked = await call(capped20, "approve_spender", { spender: recipient, amount: "0" });
+check(revoked.ok && revoked.previousAllowance === "1000" && revoked.allowance === "0", "but revoking (0) is always allowed, and does revoke", revoked);
+await capped20.close();
+await token.close();
 
 console.log(`\nMCP: ${checks} checks passed`);

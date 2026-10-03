@@ -283,8 +283,8 @@ test("devnode.sh ships the setup that constructor deploys need, and it is wired 
   }
 });
 
-test("stream, escrow and vault ship an agent interface with the client, and other templates do not", () => {
-  for (const [template, minimum] of [["stream", 5], ["escrow", 5], ["vault", 3]]) {
+test("erc20, stream, escrow and vault ship an agent interface with the client, and other templates do not", () => {
+  for (const [template, minimum] of [["erc20", 3], ["stream", 5], ["escrow", 5], ["vault", 3]]) {
     const dir = tmp();
     scaffold({ targetDir: dir, name: "my-app", template, versions, withClient: true });
     for (const f of ["agent.ts", "agent-cli.ts", "agent-example.ts", "agent-kit.ts"]) {

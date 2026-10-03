@@ -60,7 +60,7 @@ agent has to drive it. They combine: the contracts here are plain Stylus project
 | Name | What you get |
 | --- | --- |
 | `counter` | Minimal storage contract with unit tests. Best first step. |
-| `erc20` | ERC-20 token with events, custom Solidity errors and tests. |
+| `erc20` | ERC-20 token with events, custom Solidity errors and tests. With `--with-client`, an agent can `get_token`, `send_tokens` and `approve_spender` (CLI or MCP): sends to the zero address or the token itself, and anything over the operator's limits, are refused before signing; revoking an allowance is always allowed. |
 | `erc721` | ERC-721 NFT with metadata (`tokenURI`), safe transfers that ask a receiving contract, a minter, `burn`, and the standard ERC-6093 errors. Unit tests plus a model-based property test of every mint, approval, transfer and burn. |
 | `vault` | Stablecoin vault for any ERC-20 (USDC, USDG): deposits and withdrawals through cross-contract calls, with mocked-token tests. |
 | `escrow` | Stablecoin escrow for payments between parties or agents: buyer-funded deals, release by buyer or arbiter, refund by seller or arbiter, and a buyer-side refund after a deadline. Unit tests plus a model-based property test. |
@@ -162,8 +162,8 @@ the contract does not define.
 
 ### Use the contract from Claude, Cursor or any MCP client
 
-For `stream`, `escrow`, `vault` and `faucet`, the client also includes an MCP server (`src/agent-mcp.ts`). It serves the same tools
-as the agent CLI, so an assistant can open, read and cancel streams, or use the escrow or vault, by itself:
+For `erc20`, `stream`, `escrow`, `vault` and `faucet`, the client also includes an MCP server (`src/agent-mcp.ts`). It serves the
+same tools as the agent CLI, so an assistant can send tokens, open, read and cancel streams, or use the escrow or vault, by itself:
 
 ```bash
 cd my-app/client && npm install
@@ -178,7 +178,7 @@ Every call goes through the same code as the CLI:
 
 It speaks MCP over stdio with no extra dependencies. CI drives it with the official MCP SDK client: it checks the tools
 match the CLI's, opens and cancels a real stream on a Nitro node, refuses an amount over the limit with the CLI's exact
-JSON, and returns the contract's errors by name.
+JSON, sends, approves and revokes the real ERC-20 with exact balances checked, and returns the contract's errors by name.
 
 ## Options
 
