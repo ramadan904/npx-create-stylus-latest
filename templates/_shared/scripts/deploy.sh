@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Validate and deploy this Stylus contract.
 # Usage: ./scripts/deploy.sh [--check-only] [-- <constructor args>...]
+# VERIFY=1 deploys reproducibly (needs Docker), so anyone can later check the code with ./scripts/verify.sh <tx>.
 # Contracts with a constructor (erc20, vault, escrow, stream, faucet) take their arguments after `--`, e.g.
 #   ./scripts/deploy.sh -- "My Token" MTK 1000000000000000000000000 0xYourAddress
 # An argument written env:NAME is replaced by NAME from .env (or the environment), e.g. -- env:TOKEN_ADDRESS.
@@ -36,15 +37,17 @@ hints() {
   esac
 }
 
+# The last command's output, kept so the deploy step can read what it reported.
+last_output="$(mktemp)"
+trap 'rm -f "$last_output"' EXIT
+
 run_with_hints() {
-  local log status
-  log="$(mktemp)"
+  local status
   set +e
-  "$@" 2>&1 | tee "$log"
+  "$@" 2>&1 | tee "$last_output"
   status="${PIPESTATUS[0]}"
   set -e
-  if [ "$status" -ne 0 ]; then hints "$log"; rm -f "$log"; exit "$status"; fi
-  rm -f "$log"
+  if [ "$status" -ne 0 ]; then hints "$last_output"; exit "$status"; fi
 }
 
 check_only=0
@@ -115,15 +118,25 @@ run_with_hints cargo stylus check --endpoint "$RPC_URL"
 if [ "$check_only" = 1 ]; then exit 0; fi
 : "${PRIVATE_KEY:?Set PRIVATE_KEY in .env to deploy}"
 
-# Hand the key over via a private temp file so it never shows up in `ps`.
-keyfile="$(mktemp)"
-trap 'rm -f "$keyfile"' EXIT
-chmod 600 "$keyfile"
-printf '%s' "${PRIVATE_KEY#0x}" > "$keyfile"
+# By default (--no-verify) cargo-stylus builds and deploys here: no Docker needed, but the deployment cannot be
+# checked against the source later. With VERIFY=1 it re-runs this deploy inside its pinned build image, so the code
+# is reproducible and ./scripts/verify.sh <deployment tx> can prove it came from this source. That container sees only
+# the project directory (mounted at /source, as its working directory), so the key file must live in the project
+# and be passed by a relative path; it is git-ignored, readable only by you, and deleted when this script exits.
+verify_args=(--no-verify)
+keyfile=""
+if [ "${VERIFY:-}" = 1 ]; then
+  command -v docker >/dev/null 2>&1 || { echo "VERIFY=1 needs Docker: cargo-stylus builds inside a pinned image." >&2; exit 1; }
+  verify_args=()
+  keyfile=".stylus-deploy-key"
+else
+  keyfile="$(mktemp)"
+fi
+# Hand the key over via a private file so it never shows up in `ps`.
+trap 'rm -f "$keyfile" "$last_output"' EXIT
+rm -f .stylus-deploy-key   # a fresh file, so its permissions are always the ones set here
+(umask 077 && printf '%s' "${PRIVATE_KEY#0x}" > "$keyfile")
 
-# --no-verify skips cargo-stylus's default Docker "reproducible build". That mode re-runs the command
-# inside a container that cannot read the key file above, and it needs Docker installed. The trade-off is
-# that the deployment cannot be checked later with `cargo stylus verify`; drop the flag if you need that.
 # Optional gas-price cap in gwei, e.g. MAX_FEE_GWEI=0.5. cargo-stylus otherwise picks a cap equal to the
 # current base fee, and the deploy fails with "max fee per gas less than block base fee" if it ticks up
 # before the transaction lands. You only ever pay the actual base fee, never the cap.
@@ -133,6 +146,23 @@ if [ -n "${MAX_FEE_GWEI:-}" ]; then fee_args+=(--max-fee-per-gas-gwei "$MAX_FEE_
 ctor_args=()
 if [ ${#ctor[@]} -gt 0 ]; then ctor_args=(--constructor-args "${ctor[@]}"); fi
 
-echo "==> Deploying"
-run_with_hints cargo stylus deploy --no-verify --endpoint "$RPC_URL" --private-key-path "$keyfile" \
-  ${fee_args[@]+"${fee_args[@]}"} ${ctor_args[@]+"${ctor_args[@]}"}
+if [ "${VERIFY:-}" = 1 ]; then
+  echo "==> Deploying reproducibly, inside cargo-stylus's Docker image (the first run builds that image)"
+else
+  echo "==> Deploying"
+fi
+run_with_hints cargo stylus deploy ${verify_args[@]+"${verify_args[@]}"} --endpoint "$RPC_URL" \
+  --private-key-path "$keyfile" ${fee_args[@]+"${fee_args[@]}"} ${ctor_args[@]+"${ctor_args[@]}"}
+
+if [ "${VERIFY:-}" = 1 ]; then
+  # cargo-stylus does not pass the container's exit code on, so a failed deploy inside Docker can still exit 0 here.
+  # Trust only a deployment it actually reported.
+  tx="$(sed 's/\x1b\[[0-9;]*m//g' "$last_output" | grep -i 'deployment tx hash' | grep -oE '0x[0-9a-fA-F]{64}' | tail -1)"
+  if [ -z "$tx" ]; then
+    echo "The reproducible deploy did not report a deployment transaction; see the output above for what failed." >&2
+    exit 1
+  fi
+  echo
+  echo "Reproducible deploy. Anyone with this source can check the deployed code with:"
+  echo "  ./scripts/verify.sh $tx"
+fi

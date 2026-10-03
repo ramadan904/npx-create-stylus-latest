@@ -66,14 +66,16 @@ test("shipped shell scripts parse and deploy.sh needs no .env to validate", asyn
   const { spawnSync } = await import("node:child_process");
   const dir = tmp();
   scaffold({ targetDir: dir, name: "my-app", template: "counter", versions });
-  for (const script of ["deploy.sh", "export-abi.sh", "devnode.sh"]) {
+  for (const script of ["deploy.sh", "export-abi.sh", "devnode.sh", "verify.sh"]) {
     const r = spawnSync("bash", ["-n", path.join(dir, "scripts", script)], { encoding: "utf8" });
     assert.equal(r.status, 0, `${script}: ${r.stderr}`);
   }
   const deploy = fs.readFileSync(path.join(dir, "scripts/deploy.sh"), "utf8");
   assert.match(deploy, /RPC_URL="\$\{RPC_URL:-https:\/\/sepolia-rollup\.arbitrum\.io\/rpc\}"/);
   assert.doesNotMatch(deploy, /RPC_URL:\?/);
-  assert.match(deploy, /cargo stylus deploy --no-verify/, "deploy must not require Docker or hide the key file from it");
+  // By default deploy must not require Docker; VERIFY=1 is the opt-in to the reproducible (Docker) build.
+  assert.match(deploy, /^verify_args=\(--no-verify\)$/m, "the default deploy must not require Docker");
+  assert.match(deploy, /cargo stylus deploy \$\{verify_args\[@\]\+"\$\{verify_args\[@\]\}"\}/, "deploy must use verify_args");
   assert.match(deploy, /MAX_FEE_GWEI/, "deploy.sh must let callers cap the gas price");
   assert.match(deploy, /cargo generate-lockfile/, "deploy.sh must create Cargo.lock for cargo-stylus --locked builds");
 });
@@ -219,6 +221,19 @@ test("interop ships the Solidity side, and its IMathLib names every public funct
   const errors = [...(/sol! \{([\s\S]*?)\n\}/.exec(lib)?.[1] ?? "").matchAll(/error (\w+)\(/g)].map((m) => m[1]);
   assert.deepEqual(errors, ["DivisionByZero", "MulDivOverflow"]);
   for (const e of errors) assert.match(iface, new RegExp(`error ${e}\\(`), `IMathLib lacks error ${e}`);
+});
+
+test("every project can deploy reproducibly and verify: verify.sh, VERIFY=1 in deploy.sh, the key file git-ignored", () => {
+  for (const template of Object.keys(TEMPLATES)) {
+    const dir = tmp();
+    scaffold({ targetDir: dir, name: "my-app", template, versions });
+    assert.ok(fs.statSync(path.join(dir, "scripts/verify.sh")).mode & 0o100, `${template}: verify.sh is executable`);
+    const deploy = fs.readFileSync(path.join(dir, "scripts/deploy.sh"), "utf8");
+    assert.match(deploy, /VERIFY:-}" = 1/, `${template}: deploy.sh has the VERIFY=1 mode`);
+    // The Docker container sees only the project, so the key must be passed by a relative path inside it.
+    assert.match(deploy, /keyfile=".stylus-deploy-key"/);
+    assert.match(fs.readFileSync(path.join(dir, ".gitignore"), "utf8"), /^\.stylus-deploy-key$/m, `${template}: key file ignored`);
+  }
 });
 
 test("devnode.sh ships the setup that constructor deploys need, and it is wired in", async () => {
