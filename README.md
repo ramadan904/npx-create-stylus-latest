@@ -4,6 +4,7 @@ Scaffold an [Arbitrum Stylus](https://docs.arbitrum.io/stylus/gentle-introductio
 one command, **always pinned to the newest `stylus-sdk`**.
 
 Built for the Arbitrum Open House Singapore Online Buildathon. **Live site and playground:** https://npx-create-stylus-latest-web-mocha.vercel.app/
+**Demo video (narrated, 2 min 46 s):** [media/demo-narrated.mp4](media/demo-narrated.mp4)
 
 ```bash
 npm create stylus-latest my-app            # prompts for a template (same as npx create-stylus-latest my-app)

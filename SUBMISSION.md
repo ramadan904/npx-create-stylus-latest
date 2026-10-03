@@ -2,12 +2,16 @@
 
 **Arbitrum Open House Singapore Online Buildathon**
 
+**The only developer tool in the field.** At least nine public entries in this buildathon ship Rust/Stylus code, and
+every one of them starts where this tool starts: a Stylus project, its tests and a path to a live deploy. Nine
+production-shaped templates, one command, CI that deploys every template to a real Arbitrum node on every change.
+
 | | |
 |---|---|
 | **Live site** | https://npx-create-stylus-latest-web-mocha.vercel.app/ (playground with real test money, and an AI-agent demo you run from your own wallet) |
 | **npm** | [`create-stylus-latest@0.5.0`](https://www.npmjs.com/package/create-stylus-latest): `npm create stylus-latest my-app` (or `npx create-stylus-latest my-app`). Published from CI with provenance ([publish run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37127822293)) |
-| **Latest CI** | All 17 jobs green on `main` ([run 37142443951](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37142443951)), including 147 on-chain MCP checks across all nine templates ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37125566134)). [All runs](https://github.com/ramadan904/npx-create-stylus-latest/actions/workflows/ci.yml) |
-| **Demo video** | [`media/demo.mp4`](https://github.com/ramadan904/npx-create-stylus-latest/blob/main/media/demo.mp4) (69 s, recorded from a real run; also submitted separately) |
+| **Latest CI** | All 17 jobs green on `main` ([run 37148028874](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37148028874)), including 147 on-chain MCP checks across all nine templates ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37125566134)). [All runs](https://github.com/ramadan904/npx-create-stylus-latest/actions/workflows/ci.yml) |
+| **Demo video** | **Narrated, 2 min 46 s:** [`media/demo-narrated.mp4`](https://github.com/ramadan904/npx-create-stylus-latest/blob/main/media/demo-narrated.mp4), the whole demo with voice-over and word-by-word captions. Short silent cut: [`media/demo.mp4`](https://github.com/ramadan904/npx-create-stylus-latest/blob/main/media/demo.mp4) (69 s). Both recorded from a real run ([how](media/README.md)) |
 | **Zero install** | [Open in Codespaces](https://codespaces.new/ramadan904/npx-create-stylus-latest?quickstart=1), then `.devcontainer/quickstart.sh`: a contract deployed and called on a local Arbitrum chain in 105 s ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37061245097)) |
 | **Source** | https://github.com/ramadan904/npx-create-stylus-latest |
 
@@ -21,8 +25,8 @@
 
 | Criterion | What we built | Proof |
 |---|---|---|
-| **Smart contract quality** | Nine Rust/Stylus templates. Eight have a property test against a reference model (every token movement, every oracle answer, every 512-bit `mulDiv`). All use custom errors, checks-effects-interactions and `#[constructor]` init (no front-runnable `init`). Not audited. | The tests caught a real partial-state bug. Every template is linted, tested, built and deployed to a Nitro node on every change ([CI](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37142443951)). |
-| **Product-market fit** | The users are builders: every Stylus dApp starts as a scaffold, and end users meet this tool through what builders ship (the playground shows exactly that: real streams, escrows and a vault anyone can use from a wallet). One command for every new Stylus builder: a project pinned to the newest `stylus-sdk`, deploy scripts already run on Arbitrum Sepolia, USDG presets for Arbitrum One and Robinhood Chain. | [Published on npm](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37127822293) with provenance. Zero-install Codespace: deploy and call in 105 s. |
+| **Smart contract quality** | Nine Rust/Stylus templates. Eight have a property test against a reference model (every token movement, every oracle answer, every 512-bit `mulDiv`). All use custom errors, checks-effects-interactions and `#[constructor]` init (no front-runnable `init`). Not audited. | The tests caught a real partial-state bug. Every template is linted, tested, built and deployed to a Nitro node on every change ([CI](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37148028874)). |
+| **Product-market fit** | The users are builders: every Stylus dApp starts as a scaffold, and end users meet this tool through what builders ship (the playground shows exactly that: real streams, escrows and a vault anyone can use from a wallet). One command for every new Stylus builder: a project pinned to the newest `stylus-sdk`, deploy scripts already run on Arbitrum Sepolia, USDG presets for Arbitrum One and Robinhood Chain. | The demand is in this buildathon: Stylus code ships in [Strike](https://github.com/Prashant-thakur77/Strike), [Equinox](https://github.com/nodesproof/equinox), [AfterHours](https://github.com/bchuazw/afterhours), [Zeus Guard](https://github.com/clebson-scott/zeus-guard), [Arboretum](https://github.com/mupengzi/arboretum), [OrbitRepo](https://github.com/Prestige14/OrbitRepo), [PichiFi Yieldy](https://github.com/zzzbedream/pichifi-yieldy), [ArbiScore](https://github.com/olasmi02/arbiscore) and [Juno](https://github.com/nickthelegend/juno-arbitrum), each with its own setup. [Published on npm](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37127822293) with provenance (6 releases). Zero-install Codespace: deploy and call in 105 s. |
 | **Innovation & creativity** | Contracts built for AI agents. Every template ships a JSON tool interface and an MCP server, so Claude, Cursor or any MCP client can use the contract. Spending limits are enforced before signing, and errors come back by the contract's own names. | 147 on-chain MCP checks across all nine templates ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37125566134)). On the site, a visitor's wallet runs the agent demo, which CI holds byte-for-byte to the CLI. |
 | **Real problem solving** | Every pitfall we hit on a real deploy is now handled by the generated scripts: Docker-only builds, an RPC refusing activation, a gas cap racing the base fee, dev nodes that can't run constructors, reproducible verification. | Each one is covered in CI. Measured gas, reported honestly: Stylus about 2× on plain storage and about 31× cheaper on compute ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36935538361)). |
 
@@ -347,7 +351,7 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
   Solidity calling the Rust interop library, a reproducible deploy verified against its source (and a one-line change
   rejected), the generated contract page driven in a real browser, the npm package smoke test, the site in a real browser, the live
   agent demo against the agent CLI, and the USDG addresses, Chainlink feeds and network RPCs checked on-chain):
-  https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37142443951
+  https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37148028874
 - The Codespace, built and used in CI: the published package scaffolds, tests and builds inside it, and the one-command
   quickstart deploys and calls a contract on a local Nitro node in 105 s:
   https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37061245097
