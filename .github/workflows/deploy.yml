@@ -82,14 +82,14 @@ jobs:
         id: cargo-stylus
         with:
           path: ~/.cargo/bin/cargo-stylus
-          key: cargo-stylus-${{ runner.os }}-v1
+          key: cargo-stylus-${{ runner.os }}-deploy-v2
       - if: steps.cargo-stylus.outputs.cache-hit != 'true'
-        run: cargo install --locked cargo-stylus
+        run: cargo install --locked cargo-stylus && cargo stylus --version
       - if: steps.cargo-stylus.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: ~/.cargo/bin/cargo-stylus
-          key: cargo-stylus-${{ runner.os }}-v1
+          key: cargo-stylus-${{ runner.os }}-deploy-v2
       - name: Read the chain id from the RPC
         run: |
           id=$(curl -fsS -m 30 -X POST -H 'content-type: application/json' \
