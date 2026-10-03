@@ -309,7 +309,7 @@
   <section class="stats" aria-label="Verified in CI">
     <div class="stat"><div class="n" data-count="9">9</div><div class="l">contract templates, tested on a real node</div></div>
     <div class="stat"><div class="n" data-count="98">98</div><div class="l">agent end-to-end checks on a real node</div></div>
-    <div class="stat"><div class="n" data-count="13">13</div><div class="l">CI jobs green on every change</div></div>
+    <div class="stat"><div class="n" data-count="17">17</div><div class="l">CI jobs green on every change</div></div>
     <div class="stat"><div class="n" data-count="20">20</div><div class="l">on-chain checks: USDG, Chainlink feeds, RPCs</div></div>
   </section>
 
@@ -729,6 +729,14 @@ if (window.ethereum && window.ethereum.on) {
   window.ethereum.on("chainChanged", () => location.reload());
 }
 CONTRACTS.forEach(build);
+// The ERC-721 is deployed once Arbitrum Sepolia resumes Stylus activations; until then, say so instead of leaving a gap.
+if (!NFT_ADDRESS) {
+  const pending = el("div", { className: "card" });
+  pending.append(el("h3", {}, "ERC-721 badges (Rust)"),
+    el("p", {}, "Pending network reactivation: Arbitrum Sepolia has paused new Stylus activations, so this collection deploys as soon as they resume. The erc721 template itself is deployed and exercised on a local Nitro node in CI on every change, including minting and transfers through its MCP tools."),
+    el("span", { className: "live err" }, "\u25CB PENDING"));
+  document.getElementById("contracts").append(pending);
+}
 </script>
 <script src="abi.js"></script>
 <script src="playground.js"></script>
