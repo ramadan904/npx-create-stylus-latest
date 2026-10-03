@@ -315,6 +315,16 @@
 
   async function demo() {
     if (state.running) return;
+    // No wallet on this device: show the same agent's recorded run instead, so the button always ends in a result.
+    if (!account && !window.ethereum) {
+      const replay = document.getElementById("agent");
+      status.replaceChildren(document.createTextNode("No browser wallet found, so here is the same agent's recorded run (real transactions from CI, no wallet needed). "),
+        Object.assign(node("a", "", "Watch it below \u2193"), { href: "#agent" }));
+      if (replay) replay.scrollIntoView({ behavior: "smooth", block: "start" });
+      const play = document.getElementById("agent-play");
+      if (play && !play.disabled) play.click();
+      return;
+    }
     state.running = true;
     state.done = false;
     state.results = [];
