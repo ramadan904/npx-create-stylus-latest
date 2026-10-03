@@ -33,8 +33,8 @@ const succeeded = (result, label) => check(result.ok === true, label, result.err
 const same = (a, b, label) => check(a === b, `${label} (got ${a}, want ${b})`);
 const sleep = (s) => new Promise((r) => setTimeout(r, s * 1000));
 
-// Every intent and its exact JSON result, in order. Printed at the end as one AGENT_TRANSCRIPT line, so the CI log holds
-// the whole run.
+// Every intent and its exact JSON result, in order. Printed at the end as one AGENT_TRANSCRIPT line; the project site
+// replays it (web/agent-demo.json) so visitors see a real agent run, not a mock-up.
 const transcript = [];
 
 /** Calls the agent CLI the way a tool-use harness would and returns the parsed JSON result. */

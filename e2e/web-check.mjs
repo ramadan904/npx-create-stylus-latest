@@ -1,7 +1,8 @@
 import { chromium } from "playwright-core";
 import { createServer } from "node:http";
-import { readFileSync } from "node:fs";
-import { encodeFunctionData, parseAbi, encodeErrorResult, parseUnits } from "viem";
+import { existsSync, readFileSync } from "node:fs";
+import { encodeFunctionData, parseAbi, encodeErrorResult, parseUnits, formatUnits, getAddress } from "viem";
+import { randomBytes } from "node:crypto";
 
 // Serves web/ locally and checks the playground in a real browser: no script errors, phone layout, and the pure logic
 // that is easy to get wrong without a library (amount parsing, calldata, revert decoding, the earning curve), compared
@@ -25,7 +26,9 @@ let fail = 0;
 const check = (cond, label, extra = "") => { console.log((cond ? "ok   " : "FAIL ") + label + (cond ? "" : " " + extra)); if (!cond) fail++; };
 
 // 1. the page has no script errors, apart from network reads the sandbox may block
-const scriptErrors = errors.filter((e) => !/Failed to fetch|net::|ERR_|fetch/i.test(e));
+// Until CI has produced web/agent-demo.json, loading it 404s; the page handles that, so it is not a script error.
+const demoMissing = !existsSync(web + "agent-demo.json");
+const scriptErrors = errors.filter((e) => !/Failed to fetch|net::|ERR_|fetch/i.test(e) && !(demoMissing && /status of 404/.test(e)));
 check(scriptErrors.length === 0, "no script errors on load", JSON.stringify(scriptErrors));
 check(await page.evaluate(() => typeof ABI === "object" && typeof PG === "object"), "abi.js and playground.js loaded");
 if (await page.evaluate(() => PG.faucet === null)) {
@@ -105,6 +108,45 @@ check(shown.length >= 4, `the gas comparison has rows (${shown.length})`);
 for (const [key, [sty, sol]] of shown) {
   check(JSON.stringify(measured[key]) === JSON.stringify([sty, sol]), `gas row "${key}" matches bench/README.md`, `page ${sty}/${sol}, README ${measured[key]}`);
 }
+
+// 6. the recorded agent run: every step renders with its result, it links its CI run, and it fits a phone.
+// Reduced motion makes the replay render at once instead of animating.
+let demo = null;
+try { demo = JSON.parse(readFileSync(web + "agent-demo.json", "utf8")); } catch { console.log("skip agent replay checks: web/agent-demo.json not generated yet"); }
+if (demo) {
+check(demo.steps.length >= 10 && demo.steps.every((s) => s.result && typeof s.result.ok === "boolean" && s.ok === s.result.ok), "agent-demo.json holds verbatim results for every step");
+check(/^https:\/\/github\.com\/ramadan904\/npx-create-stylus-latest\/actions\/runs\/\d+/.test(demo.source), "the replay names the CI run it was recorded from", demo.source);
+const still = await browser.newPage({ viewport: { width: 390, height: 900 }, reducedMotion: "reduce" });
+still.on("pageerror", (e) => errors.push("pageerror: " + e.message));
+await still.goto(`http://localhost:${process.env.PORT || 8811}/`, { waitUntil: "load" });
+await still.waitForTimeout(1500);
+check(await still.locator("#agent-log .astep.done").count() === demo.steps.length, "the agent replay renders every step and its result");
+check(await still.locator("#agent-log .astep.bad").count() === demo.steps.filter((s) => !s.ok).length, "refused steps are shown as refusals");
+check(!(await still.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)), "no horizontal scroll at phone width with the replay shown");
+check(errors.filter((e) => !/Failed to fetch|net::|ERR_|fetch/i.test(e)).length === 0, "still no script errors", JSON.stringify(errors));
+}
+
+// 8. the live agent demo: ready to run, and its hand-written helpers agree with viem, which the agent itself uses.
+// (Running it needs a chain: e2e/agent-live.mjs does that in the e2e-flows job and compares the results with the agent CLI's.)
+check(await page.locator('a.btn[href="#agent-live"]').count() === 1, "the hero links to the live agent demo");
+check(await page.locator("#al-run").isEnabled(), "the agent demo button is enabled");
+check(await page.locator("#al-to").inputValue() === "0x000000000000000000000000000000000000dEaD", "the agent demo prefills a non-self recipient");
+const addrs = ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead", "0xffffffffffffffffffffffffffffffffffffffff",
+  ...Array.from({ length: 40 }, () => "0x" + randomBytes(20).toString("hex"))];
+const sums = await page.evaluate((list) => list.map((a) => __agentLive.helpers.checksum(a)), addrs);
+check(sums.every((c, i) => c === getAddress(addrs[i])), `EIP-55 checksums match viem's getAddress (${addrs.length} addresses)`, JSON.stringify(sums.filter((c, i) => c !== getAddress(addrs[i]))));
+const amounts = [[0n, 18], [1n, 18], [10n ** 18n, 18], [1500000000000000000n, 18], [123456789n, 6], [100n, 0], [-25n, 1]];
+const formatted = await page.evaluate((list) => list.map(([v, d]) => __agentLive.helpers.formatUnits(BigInt(v), d)), amounts.map(([v, d]) => [v.toString(), d]));
+check(formatted.every((f, i) => f === formatUnits(...amounts[i])), "formatUnits matches viem", JSON.stringify(formatted));
+for (const [t, d] of [["10", 18], ["2.5", 6], ["0.000001", 6], ["7", 0]]) {
+  const got = await page.evaluate(([x, n]) => __agentLive.helpers.tokensToUnits("amountTokens", x, n).toString(), [t, d]);
+  check(got === parseUnits(t, d).toString(), `tokensToUnits("${t}", ${d})`, got);
+}
+check(await page.evaluate(() => { try { __agentLive.helpers.tokensToUnits("amountTokens", "1.0000001", 6); return false; } catch (e) { return e.code === "InvalidInput"; } }),
+  "tokensToUnits refuses more decimals than the token has, with the agent's error code");
+await page.locator("#al-run").click();
+await page.waitForTimeout(300);
+check(/No browser wallet/.test(await page.locator("#al-status").textContent()), "without a wallet the demo says what is missing");
 
 // 10. one name per @keyframes: a second definition silently replaces the first (and once set the playground spinning)
 const frames = [...readFileSync(web + "index.html", "utf8").matchAll(/@keyframes ([\w-]+)/g)].map((m) => m[1]);

@@ -1,7 +1,7 @@
-// Feedback polish for the playground: a card glows while its transaction waits on the wallet or the
+// Feedback polish for the playground and the agent demo: a card glows while its transaction waits on the wallet or the
 // chain, flashes green when it lands and shakes on an error; the clicked button spins; the stream bar shimmers while it
 // pays out; the activity list becomes a timeline with a state per transaction; balances flash when they change; the
-// connected account gets an identicon. It only watches what playground.js already renders (status
+// connected account gets an identicon. It only watches what playground.js and agent-live.js already render (status
 // lines, the activity list, balances) and adds classes, so the page works the same without it. Reduced motion keeps the
 // colours and drops the movement (see the CSS).
 "use strict";
@@ -42,6 +42,15 @@
     });
   }
   root.querySelectorAll(".card").forEach((card) => card.querySelectorAll(".msg").forEach((msg) => track(msg, card)));
+  const live = document.getElementById("agent-live");
+  const status = document.getElementById("al-status");
+  if (live && status) {
+    const run = document.getElementById("al-run");
+    new MutationObserver(() => {
+      live.classList.toggle("busy", run.disabled);
+      run.classList.toggle("spin", run.disabled);
+    }).observe(run, { attributes: true, attributeFilter: ["disabled"] });
+  }
 
   // The stream bar shimmers while the stream is paying out (its facts say how long is left).
   const facts = document.getElementById("pg-stream-facts");

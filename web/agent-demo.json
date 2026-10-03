@@ -1,0 +1,378 @@
+{
+ "source": "https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37035141408",
+ "chainId": 412346,
+ "checks": 98,
+ "totalCalls": 32,
+ "steps": [
+  {
+   "say": "Goal: pay a contractor 1,000 units continuously over 90 seconds.",
+   "contract": "stream",
+   "tool": "open_stream",
+   "input": {
+    "recipient": "0xEFdD…5E73",
+    "amount": "1000",
+    "durationSeconds": 90,
+    "startInSeconds": 5
+   },
+   "policy": {},
+   "ok": true,
+   "summary": "stream #3 opened · 1000 locked · 11/s · tx 0xe041ea50…",
+   "ms": 722,
+   "result": {
+    "ok": true,
+    "intent": "open_stream",
+    "streamId": "3",
+    "txHash": "0xe041ea50e6ea4e6a24a0a7b96701bcd58ee4173a863bd17ce120ab1569966e6e",
+    "approvalTxHash": "0x2c4171b88a103318dd190a2de2025a1dc69ae2dbc8bd62dfbcade1604be2e2c0",
+    "recipient": "0xEFdDf7C4b8F3Fecd0288d541F300e7c0F1015E73",
+    "amount": "1000",
+    "amountTokens": "0.000000000000001 TST",
+    "start": "1790959492",
+    "stop": "1790959582",
+    "ratePerSecond": "11"
+   }
+  },
+  {
+   "say": "Read the stream back, including what cancelling would pay each side right now.",
+   "contract": "stream",
+   "tool": "get_stream",
+   "input": {
+    "id": "3"
+   },
+   "policy": {},
+   "ok": true,
+   "summary": "active · deposit 0.000000000000001 TST · cancel now → 0 to recipient, 1000 back",
+   "ms": 708,
+   "result": {
+    "ok": true,
+    "intent": "get_stream",
+    "id": "3",
+    "state": "active",
+    "token": {
+     "address": "0xab8e440727A38bBB180f7032ca4a8009E7b52B80",
+     "symbol": "TST",
+     "decimals": 18
+    },
+    "depositTokens": "0.000000000000001 TST",
+    "sender": "0x9AA099B10D294975F70CFC65AE3b652ad0bd5bf1",
+    "recipient": "0xEFdDf7C4b8F3Fecd0288d541F300e7c0F1015E73",
+    "deposit": "1000",
+    "start": "1790959492",
+    "stop": "1790959582",
+    "withdrawn": "0",
+    "streamed": "0",
+    "withdrawable": "0",
+    "cancelPreview": {
+     "toRecipient": "0",
+     "toSender": "1000"
+    },
+    "heldForClaim": {
+     "sender": "0",
+     "recipient": "0"
+    },
+    "youAre": "sender"
+   }
+  },
+  {
+   "say": "Try to overspend. The operator capped any single payment at 500 units in the environment.",
+   "contract": "stream",
+   "tool": "open_stream",
+   "input": {
+    "recipient": "0xEFdD…5E73",
+    "amount": "1000",
+    "durationSeconds": 40
+   },
+   "policy": {
+    "AGENT_MAX_AMOUNT": "500"
+   },
+   "ok": false,
+   "summary": "refused before signing: PolicyViolation",
+   "ms": 713,
+   "result": {
+    "ok": false,
+    "error": {
+     "code": "PolicyViolation",
+     "message": "amount 1000 exceeds the operator's limit of 500 (AGENT_MAX_AMOUNT)",
+     "details": {
+      "amount": "1000",
+      "maxAmount": "500"
+     }
+    }
+   }
+  },
+  {
+   "say": "Try to pay someone who is not on the operator's allow-list.",
+   "contract": "stream",
+   "tool": "open_stream",
+   "input": {
+    "recipient": "0x1C3B…9639",
+    "amount": "10",
+    "durationSeconds": 40
+   },
+   "policy": {
+    "AGENT_ALLOWED_COUNTERPARTIES": "0xEFdD…5E73"
+   },
+   "ok": false,
+   "summary": "refused before signing: PolicyViolation",
+   "ms": 619,
+   "result": {
+    "ok": false,
+    "error": {
+     "code": "PolicyViolation",
+     "message": "recipient 0x1C3B4cF1671cB6E8ab57a2D1E26dE154eA789639 is not on the operator's allow-list (AGENT_ALLOWED_COUNTERPARTIES)",
+     "details": {
+      "role": "recipient",
+      "address": "0x1C3B4cF1671cB6E8ab57a2D1E26dE154eA789639"
+     }
+    }
+   }
+  },
+  {
+   "say": "Pay out what the contractor has earned so far.",
+   "contract": "stream",
+   "tool": "withdraw_from_stream",
+   "input": {
+    "id": "3"
+   },
+   "policy": {},
+   "ok": true,
+   "summary": "100 paid to the recipient · tx 0xb9d3697d…",
+   "ms": 725,
+   "result": {
+    "ok": true,
+    "intent": "withdraw_from_stream",
+    "id": "3",
+    "txHash": "0xb9d3697d6bbd2e2b82b6c36199ef9fed32be7753cf320324b105cfd7b2578047",
+    "paidToRecipient": "100",
+    "stream": {
+     "id": "3",
+     "state": "active",
+     "token": {
+      "address": "0xab8e440727A38bBB180f7032ca4a8009E7b52B80",
+      "symbol": "TST",
+      "decimals": 18
+     },
+     "depositTokens": "0.000000000000001 TST",
+     "sender": "0x9AA099B10D294975F70CFC65AE3b652ad0bd5bf1",
+     "recipient": "0xEFdDf7C4b8F3Fecd0288d541F300e7c0F1015E73",
+     "deposit": "1000",
+     "start": "1790959492",
+     "stop": "1790959582",
+     "withdrawn": "100",
+     "streamed": "100",
+     "withdrawable": "0",
+     "cancelPreview": {
+      "toRecipient": "0",
+      "toSender": "900"
+     },
+     "heldForClaim": {
+      "sender": "0",
+      "recipient": "0"
+     },
+     "youAre": "sender"
+    }
+   }
+  },
+  {
+   "say": "Stop the stream: the earned part goes to the contractor, the rest comes back.",
+   "contract": "stream",
+   "tool": "cancel_stream",
+   "input": {
+    "id": "3"
+   },
+   "policy": {},
+   "ok": true,
+   "summary": "11 to the recipient · 889 refunded · nothing held · tx 0xfaa13067…",
+   "ms": 717,
+   "result": {
+    "ok": true,
+    "intent": "cancel_stream",
+    "id": "3",
+    "txHash": "0xfaa13067eb6d1fbe760ac6394a6dab342efd4e2eb167792b275b0a0ad26604ca",
+    "paidToRecipient": "11",
+    "refundedToSender": "889",
+    "held": []
+   }
+  },
+  {
+   "say": "Cancel again by mistake. The contract's own error comes back, with a hint.",
+   "contract": "stream",
+   "tool": "cancel_stream",
+   "input": {
+    "id": "3"
+   },
+   "policy": {},
+   "ok": false,
+   "summary": "NotActive: This stream was already cancelled.",
+   "ms": 721,
+   "result": {
+    "ok": false,
+    "error": {
+     "code": "NotActive",
+     "message": "The contract function \"cancel\" reverted.",
+     "hint": "This stream was already cancelled.",
+     "details": {
+      "args": [
+       "3"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "say": "Hire someone: lock the payment in escrow, given in whole tokens.",
+   "contract": "escrow",
+   "tool": "create_escrow",
+   "input": {
+    "seller": "0xEFdD…5E73",
+    "amountTokens": "0.0000000000000007",
+    "deadlineSeconds": 3600
+   },
+   "policy": {},
+   "ok": true,
+   "summary": "deal #5 funded · 0.0000000000000007 TST (= 700 base units) · tx 0xa60558ae…",
+   "ms": 810,
+   "result": {
+    "ok": true,
+    "intent": "create_escrow",
+    "dealId": "5",
+    "txHash": "0xa60558ae95be9cda78e332fddfc36af7c5c7e9223eadb5cdda6235be6b85b8df",
+    "approvalTxHash": "0x49f9e347eda80da0ed94f8c424dd821ca382967cb2c5ecd5f1d7acaf4e434c20",
+    "seller": "0xEFdDf7C4b8F3Fecd0288d541F300e7c0F1015E73",
+    "arbiter": null,
+    "amount": "700",
+    "amountTokens": "0.0000000000000007 TST",
+    "deadline": "1790963106"
+   }
+  },
+  {
+   "say": "Before acting, ask the contract what the seller is allowed to do.",
+   "contract": "escrow",
+   "tool": "check_escrow_permissions",
+   "input": {
+    "id": "5",
+    "who": "0xEFdD…5E73"
+   },
+   "policy": {},
+   "ok": true,
+   "summary": "seller can release: false · can refund: true",
+   "ms": 766,
+   "result": {
+    "ok": true,
+    "intent": "check_escrow_permissions",
+    "id": "5",
+    "state": "funded",
+    "account": "0xEFdDf7C4b8F3Fecd0288d541F300e7c0F1015E73",
+    "canRelease": false,
+    "canRefund": true
+   }
+  },
+  {
+   "say": "Try to take the money back before the deadline.",
+   "contract": "escrow",
+   "tool": "refund_escrow",
+   "input": {
+    "id": "5"
+   },
+   "policy": {},
+   "ok": false,
+   "summary": "NotAuthorized, as the permission check predicted",
+   "ms": 793,
+   "result": {
+    "ok": false,
+    "error": {
+     "code": "NotAuthorized",
+     "message": "The contract function \"refund\" reverted.",
+     "hint": "This account is not allowed to do this right now. Check the permission or status intent to see who can.",
+     "details": {}
+    }
+   }
+  },
+  {
+   "say": "The work is accepted: release the payment to the seller.",
+   "contract": "escrow",
+   "tool": "release_escrow",
+   "input": {
+    "id": "5"
+   },
+   "policy": {},
+   "ok": true,
+   "summary": "deal released · tx 0x3efa0d28…",
+   "ms": 729,
+   "result": {
+    "ok": true,
+    "intent": "release_escrow",
+    "id": "5",
+    "txHash": "0x3efa0d281449db98603b02321323a7bbb2c049222eb5d937d1f94325713cf12f",
+    "state": "released"
+   }
+  },
+  {
+   "say": "Park spare funds in the vault.",
+   "contract": "vault",
+   "tool": "deposit_to_vault",
+   "input": {
+    "amountTokens": "0.0000000000000009"
+   },
+   "policy": {},
+   "ok": true,
+   "summary": "deposited 0.0000000000000009 TST · tx 0xf96536a7…",
+   "ms": 734,
+   "result": {
+    "ok": true,
+    "intent": "deposit_to_vault",
+    "txHash": "0xf96536a7a08b16417367a136141cce0a921a674a96fdd2532a660acaef0148d4",
+    "approvalTxHash": "0xde99234d8283b2a4732b752bed411bee890d9940399a90dc72aedb728fcd7fb6",
+    "deposited": "900",
+    "depositedTokens": "0.0000000000000009 TST",
+    "depositNow": "900",
+    "depositNowTokens": "0.0000000000000009 TST"
+   }
+  },
+  {
+   "say": "Try to withdraw more than was deposited.",
+   "contract": "vault",
+   "tool": "withdraw_from_vault",
+   "input": {
+    "amount": "901"
+   },
+   "policy": {},
+   "ok": false,
+   "summary": "refused before sending: InsufficientDeposit (have 900, want 901)",
+   "ms": 718,
+   "result": {
+    "ok": false,
+    "error": {
+     "code": "InsufficientDeposit",
+     "message": "The agent has 0.0000000000000009 TST in the vault, not 0.000000000000000901 TST",
+     "hint": "The account has less than that in the vault. Check get_vault, or withdraw with all: true.",
+     "details": {
+      "have": "900",
+      "want": "901"
+     }
+    }
+   }
+  },
+  {
+   "say": "Take everything back out.",
+   "contract": "vault",
+   "tool": "withdraw_from_vault",
+   "input": {
+    "all": true
+   },
+   "policy": {},
+   "ok": true,
+   "summary": "withdrew 0.0000000000000006 TST · 0 TST left · tx 0xe61ea4c3…",
+   "ms": 720,
+   "result": {
+    "ok": true,
+    "intent": "withdraw_from_vault",
+    "txHash": "0xe61ea4c3f08d0507c5de71d1cad8384314a4481828c7b284e0b6fefdc9adedfd",
+    "withdrawn": "600",
+    "withdrawnTokens": "0.0000000000000006 TST",
+    "depositNow": "0",
+    "depositNowTokens": "0 TST"
+   }
+  }
+ ]
+}
