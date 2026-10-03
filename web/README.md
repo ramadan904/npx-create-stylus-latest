@@ -9,12 +9,7 @@ test tokens from the faucet, open a payment stream and watch it pay out, fund an
   out of date.
 - `e2e/web-check.mjs` loads the page in a real browser and checks it: no script errors, phone layout, calldata identical to
   viem's, contract errors turned into sentences. CI runs it on every change.
-- `agent-live.js` is the "Run the AI agent demo" section: the stream agent's `open_stream`, `withdraw_from_stream` and
-  `cancel_stream`, ported from `templates/_client/stream/agent.ts` and run from the visitor's wallet. `e2e/agent-live.mjs`
-  runs it against a dev node in CI and checks its JSON against the agent CLI's (same fields; identical bytes for the same
-  calls). Its error hints come from `agent-kit.ts` through `abi.js`.
-- `agent-demo.js` replays `agent-demo.json`, a longer agent run that CI recorded (see `e2e/gen-agent-demo.mjs`).
-- `pg-polish.js` adds feedback to the playground and the agent demo: a card glows while its transaction waits, flashes
+- `pg-polish.js` adds feedback to the playground: a card glows while its transaction waits, flashes
   on success and shakes on an error, the pressed button spins, the stream bar shimmers while it pays out, the activity
   list is a timeline with each transaction's state, balances flash when they change, and the connected account gets an
   identicon. It only reads what the page already renders, so the page works the same without it; `web-check` drives it.
