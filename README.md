@@ -162,9 +162,9 @@ the contract does not define.
 
 ### Use the contract from Claude, Cursor or any MCP client
 
-For every template except `counter` and `interop`, the client also includes an MCP server (`src/agent-mcp.ts`). It serves the
-same tools as the agent CLI, so an assistant can send tokens or NFTs, price a payment, open, read and cancel streams, or use the
-escrow or vault, by itself:
+For every template, the client also includes an MCP server (`src/agent-mcp.ts`). It serves the same tools as the agent CLI,
+so an assistant can send tokens or NFTs, price a payment, do exact 256-bit math in Rust, open, read and cancel streams, or
+use the escrow or vault, by itself:
 
 ```bash
 cd my-app/client && npm install
@@ -180,7 +180,8 @@ Every call goes through the same code as the CLI:
 It speaks MCP over stdio with no extra dependencies. CI drives it with the official MCP SDK client: it checks the tools
 match the CLI's, opens and cancels a real stream on a Nitro node, refuses an amount over the limit with the CLI's exact
 JSON, sends, approves and revokes the real ERC-20 with exact balances checked, mints and transfers an NFT (refusing a contract that
-cannot hold it), prices amounts through the oracle against a
+cannot hold it), refuses to wrap the counter past 2^256 - 1, gets exact `mulDiv` results and named errors from the Rust
+library, prices amounts through the oracle against a
 feed it then makes stale, zero and incomplete (each refused by name), and returns the contract's errors by name.
 
 ## Options

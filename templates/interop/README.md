@@ -60,3 +60,17 @@ Why not a Foundry test? Foundry's EVM cannot run Stylus (WASM) code, so a Solidi
 `interop.sh` runs both contracts on a real Nitro node instead.
 
 With `--with-client`, `cd client && npm install && npm start` calls MathLib from TypeScript.
+
+## Let an AI agent use it
+
+`--with-client` also adds a JSON-in/JSON-out agent interface and an MCP server (Claude Desktop, Claude Code, Cursor), so
+an agent gets exact 256-bit math from the same Rust contract Solidity calls, instead of doing it in floats:
+
+```bash
+cd client && npm install
+npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"mul_div_up","a":"1001","b":"30","denominator":"10000"}'
+npx tsx src/agent-mcp.ts --config      # prints the MCP setup, with absolute paths
+```
+
+The tools are `mul_div`, `mul_div_up` and `isqrt`. Errors come back by the contract's names: `DivisionByZero`, and
+`MulDivOverflow` with its arguments.

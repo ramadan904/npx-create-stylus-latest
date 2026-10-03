@@ -129,7 +129,7 @@ jobs:
             printf 'RPC_URL=http://127.0.0.1:8547\nCHAIN_ID=412346\nPRIVATE_KEY=%s\n' "$E2E_KEY" > "$dir/.env"
             # DOTENV_TOKEN: put the token in .env as TOKEN_ADDRESS, the way --usdg does, for an env:TOKEN_ADDRESS argument
             if [ -n "${DOTENV_TOKEN:-}" ]; then echo "TOKEN_ADDRESS=$DOTENV_TOKEN" >> "$dir/.env"; fi
-            (cd "$dir" && ./scripts/deploy.sh -- "$@" > deploy.log 2>&1) || { sed 's/\x1b\[[0-9;]*m//g' "$dir/deploy.log" | tail -30 >&2; return 1; }
+            (cd "$dir" && if [ $# -gt 0 ]; then ./scripts/deploy.sh -- "$@"; else ./scripts/deploy.sh; fi > deploy.log 2>&1) || { sed 's/\x1b\[[0-9;]*m//g' "$dir/deploy.log" | tail -30 >&2; return 1; }
             sed 's/\x1b\[[0-9;]*m//g' "$dir/deploy.log" | grep -iE 'deployed code at address' | grep -oE '0x[0-9a-fA-F]{40}' | head -1
           }
           token=$(WITH_CLIENT=1 deploy erc20 "Test Token" TST 1000000000000000000000000 "$E2E_ADDR")
@@ -142,6 +142,11 @@ jobs:
           test -n "$vault" || { echo "vault deploy failed"; exit 1; }
           echo "VAULT=$vault" >> "$GITHUB_ENV"
           echo "VAULT_DIR=${{ runner.temp }}/app-vault" >> "$GITHUB_ENV"
+          counter=$(WITH_CLIENT=1 deploy counter)
+          test -n "$counter" || { echo "counter deploy failed"; exit 1; }
+          mathlib=$(WITH_CLIENT=1 deploy interop)
+          test -n "$mathlib" || { echo "interop deploy failed"; exit 1; }
+          { echo "COUNTER=$counter"; echo "COUNTER_DIR=${{ runner.temp }}/app-counter"; echo "MATHLIB=$mathlib"; echo "MATHLIB_DIR=${{ runner.temp }}/app-interop"; } >> "$GITHUB_ENV"
           nft=$(WITH_CLIENT=1 deploy erc721 "Test Badges" TBDG ipfs://cid/ "$E2E_ADDR")   # the agent's key is the minter
           test -n "$nft" || { echo "nft deploy failed"; exit 1; }
           echo "NFT=$nft" >> "$GITHUB_ENV"

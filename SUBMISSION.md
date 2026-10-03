@@ -36,10 +36,9 @@ Each claim links to its proof, with the limit after it.
 - *Limit:* published on 2026-10-02, so no adoption data yet.
 
 **3. Innovation: contracts and tooling built for AI agents, proven rather than promised.**
-- For seven of the nine templates, `--with-client` adds a JSON tool interface: schemas an LLM can be handed, results
-  using the contract's own error names, whole-token amounts converted with the token's decimals, and operator spending
-  limits enforced before signing. The seven are erc20, erc721, stream, escrow, vault, faucet and oracle; counter and
-  interop are the exceptions.
+- For all nine templates, `--with-client` adds a JSON tool interface: schemas an LLM can be handed, results using the
+  contract's own error names, whole-token amounts converted with the token's decimals, and operator spending limits
+  enforced before signing.
 - The same tools are an MCP server (`src/agent-mcp.ts`), so Claude Desktop, Claude Code or Cursor can use the contracts
   directly; `--config` prints the setup. CI drives it with the official MCP SDK client against real contracts on a
   Nitro node. It checks that:
@@ -48,6 +47,7 @@ Each claim links to its proof, with the limit after it.
   - tokens and NFTs move exactly as reported, with balances checked on-chain;
   - an NFT sent to a contract that can't hold it is refused;
   - a payment is priced through the oracle, and the price feed being stale, zero or incomplete is refused by name;
+  - the Rust math library returns exact results past 256-bit products, and its errors come back by name;
   - errors come back by the contract's names.
 - The contracts answer "what would happen" before an agent commits (`previewCancel`, `canRelease`, `canRefund`), using
   the same logic as the real call.

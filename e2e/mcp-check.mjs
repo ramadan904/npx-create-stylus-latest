@@ -3,8 +3,8 @@
 // uses it against the real contracts on the dev node, and compares its results with the agent CLI's.
 //
 // Env: RPC_URL, CHAIN_ID, E2E_KEY (the funded agent key), TOKEN, STREAM, ESCROW, VAULT, FAUCET, ORACLE, and their *_DIR
-// projects (TOKEN_DIR for the token), NFT and NFT_DIR (an erc721 whose minter is the agent), and FEED (the mock price
-// feed ORACLE reads; see mock-feed.mjs).
+// projects (TOKEN_DIR for the token), NFT and NFT_DIR (an erc721 whose minter is the agent), COUNTER, MATHLIB (interop) and
+// their *_DIR, and FEED (the mock price feed ORACLE reads; see mock-feed.mjs).
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -63,10 +63,11 @@ function cli(dir, contract, intent, extraEnv = {}) {
 
 const [tdir, sdir, edir, vdir, fdir, odir] = [need("TOKEN_DIR"), need("STREAM_DIR"), need("ESCROW_DIR"), need("VAULT_DIR"), need("FAUCET_DIR"), need("ORACLE_DIR")];
 const [NFT, ndir] = [need("NFT"), need("NFT_DIR")];
+const [COUNTER, cdir, MATHLIB, mdir] = [need("COUNTER"), need("COUNTER_DIR"), need("MATHLIB"), need("MATHLIB_DIR")];
 const [STREAM, ESCROW, VAULT, FAUCET, ORACLE, FEED] = [need("STREAM"), need("ESCROW"), need("VAULT"), need("FAUCET"), need("ORACLE"), need("FEED")];
 
 console.log("\nevery agent template serves its CLI's tools over MCP");
-for (const [dir, contract] of [[tdir, TOKEN], [sdir, STREAM], [edir, ESCROW], [vdir, VAULT], [fdir, FAUCET], [odir, ORACLE], [ndir, NFT]]) {
+for (const [dir, contract] of [[tdir, TOKEN], [sdir, STREAM], [edir, ESCROW], [vdir, VAULT], [fdir, FAUCET], [odir, ORACLE], [ndir, NFT], [cdir, COUNTER], [mdir, MATHLIB]]) {
   const client = await connect(dir, contract);
   check(client.getServerCapabilities()?.tools !== undefined, `${dir.split("/").pop()}: the server offers tools`);
   const { tools } = await client.listTools();
@@ -244,5 +245,40 @@ check(sentNft.ok && sentNft.ownerNow === nftRecipient && (await nftOwnerOf(nftId
 const notMine = await call(nft, "transfer_nft", { to: nftRecipient, tokenId: mintedNft.tokenId });
 check(!notMine.ok && notMine.error.code === "ERC721IncorrectOwner" && notMine.error.details?.owner === nftRecipient, "sending it again is refused: the agent no longer owns it", notMine);
 await nft.close();
+
+console.log("\ncounter, through MCP: read, increment, add, refuse bad input and overflow");
+const counter = await connect(cdir, COUNTER);
+const n0 = await call(counter, "get_number", {});
+check(n0.ok && n0.number === "0", "get_number reads 0 on a fresh counter", n0);
+const inc = await call(counter, "increment", {});
+check(inc.ok && inc.before === "0" && inc.after === "1", "increment: 0 -> 1, read at the confirming block", inc);
+const add = await call(counter, "add_number", { value: "5" });
+check(add.ok && add.before === "1" && add.after === "6", "add_number 5: 1 -> 6", add);
+check(JSON.stringify(cli(cdir, COUNTER, { intent: "get_number" })) === JSON.stringify(await call(counter, "get_number", {})), "the CLI reads the identical JSON");
+const negative = await call(counter, "add_number", { value: "-1" });
+check(!negative.ok && negative.error.code === "InvalidInput", "a negative value is refused before signing", negative);
+const maxed = await call(counter, "set_number", { value: String(2n ** 256n - 1n) });
+check(maxed.ok && maxed.after === String(2n ** 256n - 1n), "set_number to 2^256 - 1", maxed);
+const overflow = await call(counter, "increment", {});
+check(!overflow.ok && overflow.error.code === "Overflow" && overflow.error.hint, "incrementing past 2^256 - 1 is refused before signing, not wrapped to 0", overflow);
+const still = await call(counter, "get_number", {});
+check(still.number === String(2n ** 256n - 1n), "and the counter is unchanged");
+await counter.close();
+
+console.log("\ninterop (MathLib, Rust), through MCP: exact 256-bit math, errors by name");
+const math = await connect(mdir, MATHLIB);
+const e = (n) => "1" + "0".repeat(n);
+const big = await call(math, "mul_div", { a: e(40), b: e(40), denominator: e(36) });
+check(big.ok && big.result === e(44), "mul_div(1e40, 1e40, 1e36) = 1e44, though the product overflows 256 bits", big);
+check(JSON.stringify(cli(mdir, MATHLIB, { intent: "mul_div", a: e(40), b: e(40), denominator: e(36) })) === JSON.stringify(big), "the CLI computes the identical JSON");
+const feeUp = await call(math, "mul_div_up", { a: "1001", b: "30", denominator: "10000" });
+check(feeUp.ok && feeUp.result === "4", "mul_div_up(1001, 30, 10000) = 4: 3.003 rounded up", feeUp);
+const root = await call(math, "isqrt", { n: "36" + "0".repeat(36) });
+check(root.ok && root.result === "6" + "0".repeat(18), "isqrt(36e36) = 6e18", root);
+const byZero = await call(math, "mul_div", { a: "1", b: "1", denominator: "0" });
+check(!byZero.ok && byZero.error.code === "DivisionByZero" && byZero.error.hint, "division by zero comes back as the Rust contract's DivisionByZero, with a hint", byZero);
+const tooBig = await call(math, "mul_div", { a: String(2n ** 256n - 1n), b: "2", denominator: "1" });
+check(!tooBig.ok && tooBig.error.code === "MulDivOverflow" && tooBig.error.details?.args?.[1] === "2", "a result past 256 bits comes back as MulDivOverflow(a, b, denominator)", tooBig);
+await math.close();
 
 console.log(`\nMCP: ${checks} checks passed`);
