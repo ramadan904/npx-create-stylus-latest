@@ -309,9 +309,9 @@ GitHub Actions, Nitro dev node. Deployed on Arbitrum Sepolia and Robinhood Chain
 
 ## Roadmap
 
-1. Done, shipping in the next npm release: the `interop` template (Solidity calling a Stylus contract, on a real Nitro node rather than in
+1. Done in 0.3.0: the `interop` template (Solidity calling a Stylus contract, on a real Nitro node rather than in
    Foundry, whose EVM cannot run Stylus code).
-2. Done, shipping in the next npm release: verifiable deploys. `VERIFY=1 ./scripts/deploy.sh` builds in cargo-stylus's
+2. Done in 0.3.0: verifiable deploys. `VERIFY=1 ./scripts/deploy.sh` builds in cargo-stylus's
    pinned Docker image (the key goes in a git-ignored file inside the project, which the container can read), and
    `./scripts/verify.sh <tx>` proves the deployed code matches the source. A CI job verifies a deploy, then shows a
    one-line source change fails verification.
