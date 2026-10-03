@@ -283,8 +283,8 @@ test("devnode.sh ships the setup that constructor deploys need, and it is wired 
   }
 });
 
-test("erc20, stream, escrow and vault ship an agent interface with the client, and other templates do not", () => {
-  for (const [template, minimum] of [["erc20", 3], ["stream", 5], ["escrow", 5], ["vault", 3]]) {
+test("erc20, stream, escrow, vault, faucet and oracle ship an agent interface with the client, and other templates do not", () => {
+  for (const [template, minimum] of [["erc20", 3], ["stream", 5], ["escrow", 5], ["vault", 3], ["faucet", 2], ["oracle", 3]]) {
     const dir = tmp();
     scaffold({ targetDir: dir, name: "my-app", template, versions, withClient: true });
     for (const f of ["agent.ts", "agent-cli.ts", "agent-example.ts", "agent-kit.ts"]) {
@@ -293,7 +293,7 @@ test("erc20, stream, escrow and vault ship an agent interface with the client, a
     const agent = fs.readFileSync(path.join(dir, "client/src/agent.ts"), "utf8");
     // every intent an agent can call is described to the model, and every described tool has a handler
     const tools = [...agent.matchAll(/^\s*name: "(\w+)",$/gm)].map((m) => m[1]);
-    const handlers = [...agent.matchAll(/^  async (\w+)\(input\)/gm)].map((m) => m[1]);
+    const handlers = [...agent.matchAll(/^  async (\w+)\((?:input)?\)/gm)].map((m) => m[1]);
     assert.ok(tools.length >= minimum, `${template}: expected at least ${minimum} tools, found ${tools.length}`);
     assert.deepEqual([...tools].sort(), [...handlers].sort(), `${template}: tool schemas and handlers must match`);
   }

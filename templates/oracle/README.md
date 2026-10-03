@@ -40,3 +40,25 @@ cp .env.example .env                 # add a funded PRIVATE_KEY
 Other feeds and chains: https://docs.chain.link/data-feeds/price-feeds/addresses (set `FEED_ADDRESS` and its decimals).
 With `--with-client`: `cd client && npm install && npm start` prints the price, its age, the value of 1 unit and
 whether the decimals match.
+
+## Let an AI agent price a payment
+
+`--with-client` also adds a JSON-in/JSON-out agent interface in `client/src`, and an MCP server for Claude Desktop, Claude
+Code or Cursor:
+
+```bash
+cd client && npm install
+npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"get_price"}'
+npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"amount_for_value","value":"50"}'   # how much ETH is $50
+npx tsx src/agent-mcp.ts --config      # prints the MCP setup, with absolute paths
+```
+
+There are three tools:
+
+- `get_price` reads the price.
+- `value_of` says what an amount of the asset is worth.
+- `amount_for_value` gives the smallest amount worth at least a value. It rounds up, so a payment of that amount is never
+  short, and the contract's `valueOf` confirms the figure.
+
+Every price goes through the contract, so the agent can't use a price the contract would refuse. A stale, zero or
+incomplete price comes back as `StalePrice`, `InvalidPrice` or `IncompleteRound`, with a hint.

@@ -2,13 +2,14 @@
 // Claude Code would: launched with the command its own `--config` prints, from another directory, over stdio. Then
 // uses it against the real contracts on the dev node, and compares its results with the agent CLI's.
 //
-// Env: RPC_URL, CHAIN_ID, E2E_KEY (the funded agent key), TOKEN, STREAM, ESCROW, VAULT, FAUCET, and their *_DIR projects
-// (TOKEN_DIR for the token).
+// Env: RPC_URL, CHAIN_ID, E2E_KEY (the funded agent key), TOKEN, STREAM, ESCROW, VAULT, FAUCET, ORACLE, and their *_DIR
+// projects (TOKEN_DIR for the token), and FEED (the mock price feed ORACLE reads; see mock-feed.mjs).
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createPublicClient, createWalletClient, defineChain, http, parseAbi } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { setFeed } from "./mock-feed.mjs";
 
 const need = (n) => process.env[n] || (() => { throw new Error(`Set ${n}`); })();
 const rpc = need("RPC_URL");
@@ -59,11 +60,11 @@ function cli(dir, contract, intent, extraEnv = {}) {
   return JSON.parse(r.stdout);
 }
 
-const [tdir, sdir, edir, vdir, fdir] = [need("TOKEN_DIR"), need("STREAM_DIR"), need("ESCROW_DIR"), need("VAULT_DIR"), need("FAUCET_DIR")];
-const [STREAM, ESCROW, VAULT, FAUCET] = [need("STREAM"), need("ESCROW"), need("VAULT"), need("FAUCET")];
+const [tdir, sdir, edir, vdir, fdir, odir] = [need("TOKEN_DIR"), need("STREAM_DIR"), need("ESCROW_DIR"), need("VAULT_DIR"), need("FAUCET_DIR"), need("ORACLE_DIR")];
+const [STREAM, ESCROW, VAULT, FAUCET, ORACLE, FEED] = [need("STREAM"), need("ESCROW"), need("VAULT"), need("FAUCET"), need("ORACLE"), need("FEED")];
 
 console.log("\nevery agent template serves its CLI's tools over MCP");
-for (const [dir, contract] of [[tdir, TOKEN], [sdir, STREAM], [edir, ESCROW], [vdir, VAULT], [fdir, FAUCET]]) {
+for (const [dir, contract] of [[tdir, TOKEN], [sdir, STREAM], [edir, ESCROW], [vdir, VAULT], [fdir, FAUCET], [odir, ORACLE]]) {
   const client = await connect(dir, contract);
   check(client.getServerCapabilities()?.tools !== undefined, `${dir.split("/").pop()}: the server offers tools`);
   const { tools } = await client.listTools();
@@ -164,5 +165,47 @@ const revoked = await call(capped20, "approve_spender", { spender: recipient, am
 check(revoked.ok && revoked.previousAllowance === "1000" && revoked.allowance === "0", "but revoking (0) is always allowed, and does revoke", revoked);
 await capped20.close();
 await token.close();
+
+console.log("\noracle, through MCP: price, value and amount from a fresh price; stale, zero and incomplete prices refused by name");
+const oracleValueOf = (amount, decimals) =>
+  pub.readContract({ address: ORACLE, abi: parseAbi(["function valueOf(uint256, uint8) view returns (uint256)"]), functionName: "valueOf", args: [amount, decimals] });
+const feedAt = async (answer, age) => {
+  const { timestamp } = await pub.getBlock();
+  return setFeed(FEED, answer, age === null ? 0n : timestamp - BigInt(age));
+};
+const PRICE = 3000n * 10n ** 8n; // 3000 with the feed's 8 decimals, as an ETH / USD feed reports it
+await feedAt(PRICE, 0);
+const oracle = await connect(odir, ORACLE);
+const price = await call(oracle, "get_price", {});
+check(price.ok && price.price === String(PRICE) && price.priceDecimals === 8 && price.priceFormatted === "3000", "get_price reads 3000 through the contract", price);
+check(price.feed.toLowerCase() === FEED.toLowerCase() && price.decimalsMatch === true && price.maxAgeSeconds === "3600", "with the feed, its decimals checked against the feed, and the max age", price);
+const priceCli = cli(odir, ORACLE, { intent: "get_price" });
+check(priceCli.price === price.price && priceCli.updatedAt === price.updatedAt && priceCli.feed === price.feed, "the CLI reads the same price and update time");
+const worth = await call(oracle, "value_of", { amountTokens: "1.5" });
+check(worth.ok && worth.value === String(4500n * 10n ** 18n) && worth.valueFormatted === "4500", "value_of: 1.5 ETH is worth exactly 4500", worth);
+const forFifty = await call(oracle, "amount_for_value", { value: "45" });
+check(forFifty.ok && forFifty.amount === String(15n * 10n ** 15n) && forFifty.amountFormatted === "0.015", "amount_for_value: 45 is exactly 0.015 ETH", forFifty);
+const forOne = await call(oracle, "amount_for_value", { value: "1", decimals: 6 });
+check(forOne.ok && forOne.amount === "334" && BigInt(forOne.value) >= 10n ** 18n, "amount_for_value rounds up: 1 at 3000 is 334 units of a 6-decimal asset, worth at least 1", forOne);
+check((await oracleValueOf(333n, 6)) < 10n ** 18n, "and the contract confirms one unit less (333) is worth less than 1: the smallest amount that is never short");
+
+await feedAt(PRICE, 7200);
+const stale = await call(oracle, "get_price", {});
+check(!stale.ok && stale.error.code === "StalePrice" && stale.error.hint && stale.error.details?.args?.[2] === "3600", "a price 2 hours old is refused as StalePrice(updatedAt, now, maxAge 3600), with a hint", stale);
+const staleValue = await call(oracle, "value_of", { amountTokens: "1" });
+const staleAmount = await call(oracle, "amount_for_value", { value: "50" });
+check(staleValue.error?.code === "StalePrice" && staleAmount.error?.code === "StalePrice", "value_of and amount_for_value refuse it too: no payment is priced with it");
+const staleCli = cli(odir, ORACLE, { intent: "get_price" });
+check(staleCli.error?.code === "StalePrice" && staleCli.error.details.args[0] === stale.error.details.args[0], "the CLI refuses it the same way");
+await feedAt(0n, 0);
+const zeroPrice = await call(oracle, "get_price", {});
+check(!zeroPrice.ok && zeroPrice.error.code === "InvalidPrice" && zeroPrice.error.hint, "a zero price is refused as InvalidPrice", zeroPrice);
+await feedAt(PRICE, null);
+const incomplete = await call(oracle, "amount_for_value", { value: "50" });
+check(!incomplete.ok && incomplete.error.code === "IncompleteRound", "a round with no update time is refused as IncompleteRound", incomplete);
+await feedAt(PRICE, 0);
+const served = await call(oracle, "get_price", {});
+check(served.ok && served.price === String(PRICE), "once the feed updates, prices are served again", served);
+await oracle.close();
 
 console.log(`\nMCP: ${checks} checks passed`);
