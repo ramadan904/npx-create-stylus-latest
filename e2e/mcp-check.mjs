@@ -3,7 +3,8 @@
 // uses it against the real contracts on the dev node, and compares its results with the agent CLI's.
 //
 // Env: RPC_URL, CHAIN_ID, E2E_KEY (the funded agent key), TOKEN, STREAM, ESCROW, VAULT, FAUCET, ORACLE, and their *_DIR
-// projects (TOKEN_DIR for the token), and FEED (the mock price feed ORACLE reads; see mock-feed.mjs).
+// projects (TOKEN_DIR for the token), NFT and NFT_DIR (an erc721 whose minter is the agent), and FEED (the mock price
+// feed ORACLE reads; see mock-feed.mjs).
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -61,10 +62,11 @@ function cli(dir, contract, intent, extraEnv = {}) {
 }
 
 const [tdir, sdir, edir, vdir, fdir, odir] = [need("TOKEN_DIR"), need("STREAM_DIR"), need("ESCROW_DIR"), need("VAULT_DIR"), need("FAUCET_DIR"), need("ORACLE_DIR")];
+const [NFT, ndir] = [need("NFT"), need("NFT_DIR")];
 const [STREAM, ESCROW, VAULT, FAUCET, ORACLE, FEED] = [need("STREAM"), need("ESCROW"), need("VAULT"), need("FAUCET"), need("ORACLE"), need("FEED")];
 
 console.log("\nevery agent template serves its CLI's tools over MCP");
-for (const [dir, contract] of [[tdir, TOKEN], [sdir, STREAM], [edir, ESCROW], [vdir, VAULT], [fdir, FAUCET], [odir, ORACLE]]) {
+for (const [dir, contract] of [[tdir, TOKEN], [sdir, STREAM], [edir, ESCROW], [vdir, VAULT], [fdir, FAUCET], [odir, ORACLE], [ndir, NFT]]) {
   const client = await connect(dir, contract);
   check(client.getServerCapabilities()?.tools !== undefined, `${dir.split("/").pop()}: the server offers tools`);
   const { tools } = await client.listTools();
@@ -207,5 +209,40 @@ await feedAt(PRICE, 0);
 const served = await call(oracle, "get_price", {});
 check(served.ok && served.price === String(PRICE), "once the feed updates, prices are served again", served);
 await oracle.close();
+
+console.log("\nerc721, through MCP: mint, read, refuse unsafe sends and non-minters, transfer");
+const nftOwnerOf = (id) => pub.readContract({ address: NFT, abi: parseAbi(["function ownerOf(uint256) view returns (address)"]), functionName: "ownerOf", args: [id] });
+const [nftRecipient, nftStranger] = [privateKeyToAccount(generatePrivateKey()).address, privateKeyToAccount(generatePrivateKey()).address];
+const nft = await connect(ndir, NFT);
+const collection = await call(nft, "get_nft", {});
+check(collection.ok && collection.collection.name === "Test Badges" && collection.collection.symbol === "TBDG" && collection.collection.minter === agent.address, "get_nft reads the collection, with the agent as minter", collection);
+const mintedNft = await call(nft, "mint_nft", {});
+check(mintedNft.ok && /^\d+$/.test(mintedNft.tokenId) && mintedNft.to === agent.address, `mint_nft minted token ${mintedNft.tokenId} to the agent`, mintedNft);
+const nftId = BigInt(mintedNft.tokenId);
+check((await nftOwnerOf(nftId)) === agent.address, "the chain says the agent owns it");
+const token1 = await call(nft, "get_nft", { tokenId: mintedNft.tokenId });
+check(token1.ok && token1.token.owner === agent.address && token1.token.youOwnIt === true && token1.token.tokenURI === `ipfs://cid/${nftId}`, "get_nft reads its owner and metadata URI", token1);
+check(JSON.stringify(cli(ndir, NFT, { intent: "get_nft", tokenId: mintedNft.tokenId })) === JSON.stringify(token1), "the CLI reads it with the identical JSON");
+const missing = await call(nft, "get_nft", { tokenId: "999999" });
+check(!missing.ok && missing.error.code === "ERC721NonexistentToken" && missing.error.hint, "an id that does not exist comes back as ERC721NonexistentToken, with a hint", missing);
+const notMinter = await connect(ndir, NFT, { PRIVATE_KEY: generatePrivateKey() });
+const refusedMint = await call(notMinter, "mint_nft", {});
+check(!refusedMint.ok && refusedMint.error.code === "NotMinter", "a key that is not the minter is refused before signing (it has no gas to spend anyway)", refusedMint);
+await notMinter.close();
+const intoContract = await call(nft, "transfer_nft", { to: ORACLE, tokenId: mintedNft.tokenId });
+check(!intoContract.ok && intoContract.error.code === "ERC721InvalidReceiver" && intoContract.error.hint, "sending it to a contract that cannot hold NFTs is refused as ERC721InvalidReceiver", intoContract);
+const toZero = await call(nft, "transfer_nft", { to: "0x0000000000000000000000000000000000000000", tokenId: mintedNft.tokenId });
+const toSelf = await call(nft, "transfer_nft", { to: NFT, tokenId: mintedNft.tokenId });
+check(toZero.error?.code === "InvalidInput" && toSelf.error?.code === "InvalidInput", "so are the zero address and the NFT contract itself");
+const fencedNft = await connect(ndir, NFT, { AGENT_ALLOWED_COUNTERPARTIES: nftStranger });
+const offList = await call(fencedNft, "transfer_nft", { to: nftRecipient, tokenId: mintedNft.tokenId });
+check(!offList.ok && offList.error.code === "PolicyViolation", "with AGENT_ALLOWED_COUNTERPARTIES set, a recipient not on it is refused", offList);
+await fencedNft.close();
+check((await nftOwnerOf(nftId)) === agent.address, "none of the refusals moved the token");
+const sentNft = await call(nft, "transfer_nft", { to: nftRecipient, tokenId: mintedNft.tokenId });
+check(sentNft.ok && sentNft.ownerNow === nftRecipient && (await nftOwnerOf(nftId)) === nftRecipient, "transfer_nft sends it, and the chain agrees on the new owner", sentNft);
+const notMine = await call(nft, "transfer_nft", { to: nftRecipient, tokenId: mintedNft.tokenId });
+check(!notMine.ok && notMine.error.code === "ERC721IncorrectOwner" && notMine.error.details?.owner === nftRecipient, "sending it again is refused: the agent no longer owns it", notMine);
+await nft.close();
 
 console.log(`\nMCP: ${checks} checks passed`);

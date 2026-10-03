@@ -142,6 +142,10 @@ jobs:
           test -n "$vault" || { echo "vault deploy failed"; exit 1; }
           echo "VAULT=$vault" >> "$GITHUB_ENV"
           echo "VAULT_DIR=${{ runner.temp }}/app-vault" >> "$GITHUB_ENV"
+          nft=$(WITH_CLIENT=1 deploy erc721 "Test Badges" TBDG ipfs://cid/ "$E2E_ADDR")   # the agent's key is the minter
+          test -n "$nft" || { echo "nft deploy failed"; exit 1; }
+          echo "NFT=$nft" >> "$GITHUB_ENV"
+          echo "NFT_DIR=${{ runner.temp }}/app-erc721" >> "$GITHUB_ENV"
           # The dev node has no Chainlink feeds: a mock one (e2e/mock-feed.mjs) at 3000 with 8 decimals, like ETH / USD
           (cd e2e && npm install --silent --no-audit --no-fund)
           feed=$(cd e2e && E2E_KEY="$E2E_KEY" node mock-feed.mjs 8 300000000000)

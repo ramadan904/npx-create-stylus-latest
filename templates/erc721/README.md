@@ -50,3 +50,26 @@ docker rm -f stylus-devnode
 
 With `--with-client`: `cd client && npm install && MINT_TO=0xSomeone npm start` reads the collection and mints the next
 token (your `PRIVATE_KEY` must be the minter's).
+
+## Let an AI agent use the collection
+
+`--with-client` also adds a JSON-in/JSON-out agent interface in `client/src`, and an MCP server for Claude Desktop, Claude
+Code or Cursor:
+
+```bash
+cd client && npm install
+npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"mint_nft"}'                         # the key must be the minter
+npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"get_nft","tokenId":"1"}'
+npx tsx --env-file=../.env src/agent-cli.ts '{"intent":"transfer_nft","to":"0x...","tokenId":"1"}'
+npx tsx src/agent-mcp.ts --config      # prints the MCP setup, with absolute paths
+```
+
+`transfer_nft` uses the safe transfer, so a recipient contract that cannot hold NFTs is refused (`ERC721InvalidReceiver`)
+and the token isn't locked. These are also refused before signing:
+
+- a token the agent doesn't own;
+- the zero address, or the collection contract itself;
+- a recipient not on `AGENT_ALLOWED_COUNTERPARTIES`;
+- `mint_nft` from a key that isn't the minter.
+
+Each refusal has a stable error code and a hint.
