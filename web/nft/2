@@ -1,0 +1,15 @@
+{
+  "name": "Buildathon Badge #2",
+  "description": "An ERC-721 written in Rust and running on Arbitrum Stylus, scaffolded with create-stylus-latest.",
+  "image": "https://npx-create-stylus-latest-web-mocha.vercel.app/nft/badge-2.svg",
+  "attributes": [
+    {
+      "trait_type": "Language",
+      "value": "Rust"
+    },
+    {
+      "trait_type": "Runtime",
+      "value": "Arbitrum Stylus"
+    }
+  ]
+}

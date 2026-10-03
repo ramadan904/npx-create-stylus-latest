@@ -274,6 +274,11 @@
     .reveal { opacity: 1; transform: none; transition: none; }
     .card, a.btn, button.btn { transition: none; }
   }
+  .nft-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; margin: 12px 0; }
+  .nft-gallery:empty { display: none; }
+  .nft-gallery figure { margin: 0; }
+  .nft-gallery img { width: 100%; aspect-ratio: 1; border-radius: 12px; display: block; background: var(--bg, #0b1020); }
+  .nft-gallery figcaption { font-size: 12px; color: var(--muted, #9aa4bf); margin-top: 4px; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
@@ -486,6 +491,7 @@ RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh -- 0xYourTokenAddress</pre>
     <div class="grid four">
       <div class="card"><div class="ico" style="--a:var(--c4);--b:var(--c3)" aria-hidden="true">&#9889;</div><h3>Always current</h3><p>Reads the crates.io index at scaffold time and pins the newest stable SDK with the exact alloy version it needs. Works offline with a known-good fallback.</p></div>
       <div class="card"><div class="ico" style="--a:var(--c1);--b:var(--c2)" aria-hidden="true">&#129521;</div><h3>Nine templates</h3><p><code>counter</code>, <code>erc20</code>, <code>erc721</code>, <code>vault</code>, <code>escrow</code>, <code>stream</code>, <code>oracle</code> (Chainlink), <code>interop</code> (Solidity calling Rust) and <code>faucet</code>. Every one except the counter has unit tests and a property test: every token movement against a reference model, every price against the oracle rules, every <code>mulDiv</code> against its 512-bit definition.</p></div>
+      <div class="card"><div class="ico" style="--a:var(--c3);--b:var(--c1)" aria-hidden="true">&#127912;</div><h3>NFTs in Rust</h3><p>The <code>erc721</code> template: metadata through <code>tokenURI</code>, safe transfers that ask a receiving contract first, a minter, <code>burn</code>, and the standard ERC-6093 errors, in about 20 KB of WASM (the limit is 24 KB). A property test checks every mint, approval, transfer and burn against a model. Its agent tools mint and send NFTs, and refuse a send that would lock the token in a contract.</p></div>
       <div class="card"><div class="ico" style="--a:var(--c2);--b:var(--c3)" aria-hidden="true">&#129302;</div><h3>Agent-native</h3><p>All nine templates ship a JSON tool interface an AI agent can call, with spending limits enforced before signing and the contract's own error names in every failure. The same tools are an MCP server, so Claude Desktop, Claude Code or Cursor can use the contract directly.</p></div>
       <div class="card"><div class="ico" style="--a:var(--c5);--b:var(--c1)" aria-hidden="true">&#128640;</div><h3>Deploy that works</h3><p><code>deploy.sh</code> handles the lockfile, RPC override, gas cap and key hand-off. <code>devnode.sh</code> starts a local Nitro node for free validation. <code>VERIFY=1</code> deploys reproducibly, and <code>verify.sh</code> proves the deployed code is your source.</p></div>
       <div class="card"><div class="ico" style="--a:var(--c3);--b:var(--c4)" aria-hidden="true">&#128187;</div><h3>Typed client</h3><p><code>--with-client</code> adds a viem script that fails loudly on reverted transactions.</p></div>
@@ -522,7 +528,10 @@ const SEL = {
   number: "0x8381f58a", increment: "0xd09de08a", name: "0x06fdde03", symbol: "0x95d89b41",
   decimals: "0x313ce567", totalSupply: "0x18160ddd", balanceOf: "0x70a08231",
   asset: "0x38d52e0f", totalDeposits: "0x7d882097",
+  minter: "0x07546172", mint: "0x6a627842", ownerOf: "0x6352211e", tokenURI: "0xc87b56dd",
 };
+// The erc721 template on Arbitrum Sepolia. Empty until it is deployed: the card is then left out.
+const NFT_ADDRESS = "";
 const pad32 = (hexAddr) => hexAddr.toLowerCase().replace(/^0x/, "").padStart(64, "0");
 
 let account = null;
@@ -554,6 +563,45 @@ const CONTRACTS = [
         ["Total deposits", (await uint(to, SEL.totalDeposits)).toString()]];
     } },
 ];
+if (NFT_ADDRESS) CONTRACTS.push({
+  title: "ERC-721 badges (Rust)", blurb: "The erc721 template: each badge's tokenURI resolves to metadata and an image on this site.",
+  address: NFT_ADDRESS,
+  action: {
+    label: "Mint a badge (minter only)",
+    data: () => SEL.mint + pad32(account),
+    // Checked first so a visitor who is not the minter gets an answer, not a failed transaction.
+    check: async (to) => {
+      const minter = addr(await call(to, SEL.minter));
+      return minter.toLowerCase() === account.toLowerCase() ? null : "Only the collection's minter (" + short(minter) + ") can mint. The contract would refuse with NotMinter.";
+    },
+  },
+  read: async (to) => {
+    const name = str(await call(to, SEL.name));
+    if (!name) return [["Status", "Deployed, not initialized yet"]];
+    const minted = await uint(to, SEL.totalSupply);
+    const rows = [["Name", name], ["Symbol", str(await call(to, SEL.symbol))],
+      ["Minted", minted.toString()], ["Minter", short(addr(await call(to, SEL.minter)))]];
+    if (minted === 0n) rows.push(["Badges", "None minted yet: only the minter can mint (try the button to see the refusal)"]);
+    return rows;
+  },
+  // Every badge, newest first: its owner from ownerOf, its image from the JSON its tokenURI points at.
+  gallery: async (to, box) => {
+    const count = Number(await uint(to, SEL.totalSupply));
+    const figures = [];
+    for (let id = count; id >= 1 && figures.length < 6; id--) {
+      const idHex = id.toString(16).padStart(64, "0");
+      try {
+        const owner = addr(await call(to, SEL.ownerOf + idHex));
+        const uri = str(await call(to, SEL.tokenURI + idHex));
+        const meta = await (await fetch(uri)).json();
+        const fig = el("figure");
+        fig.append(el("img", { src: meta.image, alt: meta.name, loading: "lazy" }), el("figcaption", {}, "#" + id + " \u00b7 " + short(owner)));
+        figures.push(fig);
+      } catch (_) { /* burned, or its metadata is not reachable: skip it */ }
+    }
+    box.replaceChildren(...figures);
+  },
+});
 
 async function call(to, data) {
   if (ctx.wallet && window.ethereum) {
@@ -595,6 +643,7 @@ async function refresh(c, override) {
   try {
     const rows = await c.read(c.address, account);
     c.dl.replaceChildren(...rows.flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, v)]));
+    if (c.gallery) await c.gallery(c.address, c.gal);
     c.status.textContent = "\u25CF LIVE"; c.status.className = "live";
   } catch (err) {
     c.status.textContent = "COULD NOT READ (see Arbiscan)"; c.status.className = "live err";
@@ -605,6 +654,7 @@ function build(c) {
   const card = el("div", { className: "card" });
   c.dl = el("dl"); c.status = el("span", { className: "live" }, "READING\u2026"); c.msg = el("div", { className: "msg" });
   card.append(el("h3", {}, c.title), el("p", {}, c.blurb), el("div", { className: "addr" }, c.address), c.dl);
+  if (c.gallery) { c.gal = el("div", { className: "nft-gallery" }); card.append(c.gal); }
   const row = el("div"); row.append(c.status, document.createTextNode(" "),
     el("a", { href: SCAN + "address/" + c.address, target: "_blank", rel: "noopener" }, "Open on Arbiscan \u2192"));
   card.append(row);
@@ -646,8 +696,11 @@ async function act(c) {
   c.button.disabled = true;
   try {
     if (!account) await connect();
+    const refusal = c.action.check && await c.action.check(c.address);
+    if (refusal) { setMsg(c.msg, refusal, "bad"); return; }
     setMsg(c.msg, "Confirm the transaction in your wallet\u2026");
-    const hash = await window.ethereum.request({ method: "eth_sendTransaction", params: [{ from: account, to: c.address, data: c.action.data }] });
+    const data = typeof c.action.data === "function" ? c.action.data() : c.action.data;
+    const hash = await window.ethereum.request({ method: "eth_sendTransaction", params: [{ from: account, to: c.address, data }] });
     const link = el("a", { href: SCAN + "tx/" + hash, target: "_blank", rel: "noopener" }, "view transaction");
     c.msg.className = "msg"; c.msg.replaceChildren(document.createTextNode("Sent, waiting for confirmation: "), link);
     const receipt = await waitReceipt(hash);
