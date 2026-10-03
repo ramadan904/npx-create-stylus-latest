@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Live site** | https://npx-create-stylus-latest-web-mocha.vercel.app/ (playground with real test money, and an AI-agent demo you run from your own wallet) |
-| **npm** | [`create-stylus-latest@0.5.0`](https://www.npmjs.com/package/create-stylus-latest): `npx create-stylus-latest my-app`. Published from CI with provenance ([publish run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37127822293)) |
+| **npm** | [`create-stylus-latest@0.5.0`](https://www.npmjs.com/package/create-stylus-latest): `npm create stylus-latest my-app` (or `npx create-stylus-latest my-app`). Published from CI with provenance ([publish run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37127822293)) |
 | **Latest CI** | All 17 jobs green on `main` ([run 37133582068](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37133582068)), including 147 on-chain MCP checks across all nine templates ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37125566134)). [All runs](https://github.com/ramadan904/npx-create-stylus-latest/actions/workflows/ci.yml) |
 | **Demo video** | [`media/demo.mp4`](https://github.com/ramadan904/npx-create-stylus-latest/blob/main/media/demo.mp4) (69 s, recorded from a real run; also submitted separately) |
 | **Zero install** | [Open in Codespaces](https://codespaces.new/ramadan904/npx-create-stylus-latest?quickstart=1), then `.devcontainer/quickstart.sh`: a contract deployed and called on a local Arbitrum chain in 105 s ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37061245097)) |
@@ -22,9 +22,37 @@
 | Criterion | What we built | Proof |
 |---|---|---|
 | **Smart contract quality** | Nine Rust/Stylus templates. Eight have a property test against a reference model (every token movement, every oracle answer, every 512-bit `mulDiv`). All use custom errors, checks-effects-interactions and `#[constructor]` init (no front-runnable `init`). Not audited. | The tests caught a real partial-state bug. Every template is linted, tested, built and deployed to a Nitro node on every change ([CI](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37133582068)). |
-| **Product-market fit** | One command for every new Stylus builder: a project pinned to the newest `stylus-sdk`, deploy scripts already run on Arbitrum Sepolia, USDG presets for Arbitrum One and Robinhood Chain. | [Published on npm](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37127822293) with provenance. Zero-install Codespace: deploy and call in 105 s. |
+| **Product-market fit** | The users are builders: every Stylus dApp starts as a scaffold, and end users meet this tool through what builders ship (the playground shows exactly that: real streams, escrows and a vault anyone can use from a wallet). One command for every new Stylus builder: a project pinned to the newest `stylus-sdk`, deploy scripts already run on Arbitrum Sepolia, USDG presets for Arbitrum One and Robinhood Chain. | [Published on npm](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37127822293) with provenance. Zero-install Codespace: deploy and call in 105 s. |
 | **Innovation & creativity** | Contracts built for AI agents. Every template ships a JSON tool interface and an MCP server, so Claude, Cursor or any MCP client can use the contract. Spending limits are enforced before signing, and errors come back by the contract's own names. | 147 on-chain MCP checks across all nine templates ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37125566134)). On the site, a visitor's wallet runs the agent demo, which CI holds byte-for-byte to the CLI. |
 | **Real problem solving** | Every pitfall we hit on a real deploy is now handled by the generated scripts: Docker-only builds, an RPC refusing activation, a gas cap racing the base fee, dev nodes that can't run constructors, reproducible verification. | Each one is covered in CI. Measured gas, reported honestly: Stylus about 2× on plain storage and about 31× cheaper on compute ([run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/36935538361)). |
+
+### Why not `cargo stylus new` or Scaffold-Stylus?
+
+| | `cargo stylus new` | Scaffold-Stylus (`npx create-stylus`) | **create-stylus-latest** |
+|---|---|---|---|
+| You get | One counter contract | A Next.js dApp around a sample contract | Nine contracts shaped for real use (payment streams, escrow, vault, NFTs, Chainlink oracle, Solidity-to-Rust interop, faucet), each with its deploy path |
+| How it is tested | Example tests | `yarn stylus:test` | Property tests against a reference model; every template deployed to a Nitro node on every change |
+| AI agents | – | – | A JSON tool interface and an MCP server on every template, with 147 on-chain checks |
+| Stablecoins and chains | – | Arbitrum Sepolia, mainnet, Orbit | Paxos USDG presets checked on-chain; Arbitrum One and Robinhood Chain |
+
+They combine. Use Scaffold-Stylus for a frontend and these contracts for the money: they are plain Stylus projects any
+frontend can call.
+
+### First five minutes, no wallet needed
+
+- **On the site:** "Run the AI agent demo" plays a real recorded agent run when no wallet is connected.
+- **[Codespace](https://codespaces.new/ramadan904/npx-create-stylus-latest?quickstart=1):** needs only a GitHub account.
+  `.devcontainer/quickstart.sh` deploys and calls a contract on a local Arbitrum chain in about 105 s, with no faucet and
+  no test ETH.
+
+### Security and maintenance
+
+- **Security:** [SECURITY.md](https://github.com/ramadan904/npx-create-stylus-latest/blob/main/SECURITY.md) lists what each template does not do yet, a pre-mainnet
+  checklist and how to report a vulnerability. The templates are not audited, and the docs say so everywhere it
+  matters. `deploy.sh` refuses mainnets without `MAINNET=1`.
+- **Staying "latest":** besides every push and PR, CI now runs **every week on a schedule**. It scaffolds every template
+  against the newest `stylus-sdk` and `alloy` on crates.io, then builds, tests and deploys each one. A release that
+  breaks a template turns CI red within a week instead of surfacing in a user's first build.
 
 ## In detail, with proof
 
@@ -277,7 +305,7 @@ endpoint (which reports Stylus enabled, ArbWasm version 3). It prints only the R
 
 ## Security model and limitations
 
-These are templates and a scaffolder, not audited products. Read this before putting real funds in anything generated.
+These are templates and a scaffolder, not audited products. Read this before putting real funds in anything generated. [SECURITY.md](SECURITY.md) has the same, per template, with a pre-mainnet checklist.
 
 - **Not audited.** No external review of any template. The tests are strong (see above) but tests are not an audit.
 - **No admin keys.** `vault`, `escrow` and `stream` have no owner, no pause and no upgrade path; the token is fixed at deploy by a
