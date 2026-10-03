@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Buildathon Badge #2">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f97316"/><stop offset="1" stop-color="#facc15"/></linearGradient></defs>
+  <rect width="400" height="400" rx="40" fill="#0b1020"/>
+  <circle cx="200" cy="170" r="110" fill="url(#g)"/>
+  <path d="M200 95l22 45 50 7-36 35 9 50-45-24-45 24 9-50-36-35 50-7z" fill="#0b1020" opacity=".85"/>
+  <text x="200" y="330" text-anchor="middle" font-family="system-ui,sans-serif" font-size="30" font-weight="700" fill="#fff">Buildathon Badge #2</text>
+  <text x="200" y="365" text-anchor="middle" font-family="system-ui,sans-serif" font-size="18" fill="#9aa4bf">ERC-721 in Rust · Arbitrum Stylus</text>
+</svg>
