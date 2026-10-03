@@ -28,6 +28,10 @@ for t in $templates; do
   for f in scripts/deploy.sh scripts/devnode.sh scripts/export-abi.sh; do
     [ -x "$dir/$f" ] || { echo "FAIL: $t/$f lost its executable bit" >&2; exit 1; }
   done
+  if [ "$t" = interop ]; then
+    [ -e "$dir/solidity/Consumer.sol" ] || { echo "FAIL: interop is missing solidity/Consumer.sol" >&2; exit 1; }
+    [ -x "$dir/scripts/interop.sh" ] || { echo "FAIL: interop/scripts/interop.sh lost its executable bit" >&2; exit 1; }
+  fi
   if grep -rq '{{' "$dir" --include='*.toml' --include='*.rs' --include='*.md' --include='*.sh'; then
     echo "FAIL: $t has an unrendered {{placeholder}}" >&2; exit 1
   fi

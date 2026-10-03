@@ -1,0 +1,36 @@
+[package]
+name = "{{name}}"
+version = "0.1.0"
+edition = "2024"
+description = "A Stylus (Rust) smart contract for Arbitrum"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+alloy-primitives = "{{alloy_version}}"
+alloy-sol-types = "{{alloy_version}}"
+stylus-sdk = "{{stylus_sdk_version}}"
+
+[dev-dependencies]
+stylus-sdk = { version = "{{stylus_sdk_version}}", features = ["stylus-test"] }
+proptest = "1"
+
+[features]
+default = ["mini-alloc"]
+mini-alloc = ["stylus-sdk/mini-alloc"]
+export-abi = ["stylus-sdk/export-abi"]
+debug = ["stylus-sdk/debug"]
+contract-client-gen = []
+
+[[bin]]
+name = "{{name}}"
+path = "src/main.rs"
+
+[lib]
+crate-type = ["lib", "cdylib"]
+
+[profile.release]
+codegen-units = 1
+strip = true
+lto = true
+panic = "abort"
+opt-level = "s"

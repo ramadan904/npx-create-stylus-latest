@@ -186,7 +186,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        template: [counter, erc20, erc721, vault, escrow, stream, oracle, faucet]
+        template: [counter, erc20, erc721, vault, escrow, stream, oracle, interop, faucet]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -247,14 +247,27 @@ jobs:
           RPC_URL: http://127.0.0.1:8547
         run: |
           case "${{ matrix.template }}" in
-            counter) args=() ;;
+            counter|interop) args=() ;;
             erc20) args=("Test Token" TST 1000 0x1111111111111111111111111111111111111111) ;;
             erc721) args=("Test Badges" TBDG ipfs://cid/ 0x1111111111111111111111111111111111111111) ;;  # name, symbol, base URI, minter
             faucet) args=(0x1111111111111111111111111111111111111111 100 60) ;;  # token, amount per drip, cooldown
             oracle) args=(0x1111111111111111111111111111111111111111 8 90000) ;;  # feed, its decimals, max age (s)
             *) args=(0x1111111111111111111111111111111111111111) ;;  # vault, escrow, stream: any non-zero token address
           esac
-          if [ ${#args[@]} -gt 0 ]; then ./scripts/deploy.sh -- "${args[@]}"; else ./scripts/deploy.sh; fi
+          set -o pipefail
+          if [ ${#args[@]} -gt 0 ]; then ./scripts/deploy.sh -- "${args[@]}"; else ./scripts/deploy.sh; fi | tee deploy.log
+      # interop: compile solidity/Consumer.sol, deploy it against the Rust contract just deployed, and check the answers
+      # and the errors crossing between the two languages on the dev node.
+      - name: Solidity calls the Rust contract
+        if: matrix.template == 'interop'
+        working-directory: ${{ runner.temp }}/app
+        env:
+          RPC_URL: http://127.0.0.1:8547
+          CHAIN_ID: "412346"
+        run: |
+          CONTRACT_ADDRESS="$(sed 's/\x1b\[[0-9;]*m//g' deploy.log | grep -i 'deployed code at address' | grep -oE '0x[0-9a-fA-F]{40}' | head -1)"
+          [ -n "$CONTRACT_ADDRESS" ] || { echo "::error::no deployed address in deploy.log"; exit 1; }
+          CONTRACT_ADDRESS="$CONTRACT_ADDRESS" ./scripts/interop.sh
       - if: failure()
         run: docker logs --tail 60 stylus-devnode || true
 
