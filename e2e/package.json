@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "viem": "^2.57.2",
-    "playwright-core": "^1.56.0"
+    "@modelcontextprotocol/sdk": "^1.32.0",
+    "playwright-core": "^1.56.0",
+    "viem": "^2.57.2"
   }
 }

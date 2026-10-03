@@ -313,3 +313,89 @@ export async function agentMain(tools: ToolSpec[], handlers: Record<string, Hand
   console.log(JSON.stringify(result));
   process.exit(result.ok ? 0 : 1);
 }
+
+// ---- MCP server (Model Context Protocol, stdio) ----------------------------------------------------------------------------
+// The same tools and handlers as the CLI, served to any MCP client (Claude Desktop, Claude Code, Cursor, ...): newline-
+// delimited JSON-RPC 2.0 on stdin/stdout. Every call goes through `runIntent`, so the operator's limits, the named errors
+// and the JSON results are exactly the CLI's. Stdout carries only protocol messages; anything else goes to stderr.
+
+const MCP_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05", "2024-10-07"];
+
+type RpcMessage = { jsonrpc?: string; id?: string | number | null; method?: string; params?: Record<string, unknown> };
+
+/** Answers one JSON-RPC message; `undefined` for a notification, which gets no reply. */
+export async function mcpHandle(
+  server: { name: string; version: string },
+  tools: ToolSpec[],
+  handlers: Record<string, Handler>,
+  message: RpcMessage,
+): Promise<object | undefined> {
+  const { id, method, params = {} } = message;
+  if (id === undefined || id === null) return undefined; // notifications/initialized, notifications/cancelled, ...
+  const reply = (result: object) => ({ jsonrpc: "2.0", id, result });
+  switch (method) {
+    case "initialize": {
+      const asked = typeof params.protocolVersion === "string" ? params.protocolVersion : "";
+      return reply({
+        protocolVersion: MCP_VERSIONS.includes(asked) ? asked : MCP_VERSIONS[0],
+        capabilities: { tools: {} },
+        serverInfo: server,
+        instructions:
+          "Tools for one deployed contract. Amounts are decimal strings: `amount` in base units or `amountTokens` in whole " +
+          "tokens. Every result is JSON with ok: true, or ok: false and error { code, message, hint }; the operator's " +
+          "spending limits are enforced before anything is signed.",
+      });
+    }
+    case "ping":
+      return reply({});
+    case "tools/list":
+      return reply({ tools: tools.map((t) => ({ name: t.name, description: t.description, inputSchema: t.input_schema })) });
+    case "tools/call": {
+      const args = typeof params.arguments === "object" && params.arguments !== null ? params.arguments : {};
+      const result = await runIntent(handlers, { ...args, intent: params.name });
+      return reply({ content: [{ type: "text", text: JSON.stringify(result) }], isError: !result.ok });
+    }
+    default:
+      return { jsonrpc: "2.0", id, error: { code: -32601, message: `Method not found: ${method}` } };
+  }
+}
+
+/** The MCP entry point. `--config` prints ready-to-paste client setup with absolute paths instead of serving. */
+export async function mcpMain(server: { name: string; version: string }, tools: ToolSpec[], handlers: Record<string, Handler>) {
+  if (process.argv[2] === "--config") return void printMcpConfig(server.name);
+  const { createInterface } = await import("node:readline");
+  const send = (message: object) => process.stdout.write(`${JSON.stringify(message)}\n`);
+  // One request at a time: two concurrent writes from the same key would race for the same nonce.
+  let queue = Promise.resolve();
+  for await (const line of createInterface({ input: process.stdin, crlfDelay: Infinity })) {
+    if (!line.trim()) continue;
+    let message: RpcMessage;
+    try {
+      message = JSON.parse(line);
+    } catch {
+      send({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } });
+      continue;
+    }
+    queue = queue.then(async () => {
+      try {
+        const response = await mcpHandle(server, tools, handlers, message);
+        if (response) send(response);
+      } catch (err) {
+        send({ jsonrpc: "2.0", id: message.id ?? null, error: { code: -32603, message: err instanceof Error ? err.message : String(err) } });
+      }
+    });
+  }
+  await queue;
+}
+
+function printMcpConfig(name: string) {
+  const here = new URL(".", import.meta.url).pathname; // client/src/
+  const client = new URL("..", new URL(".", import.meta.url)).pathname.replace(/\/$/, "");
+  const project = new URL("../..", new URL(".", import.meta.url)).pathname.replace(/\/$/, "");
+  const command = `${client}/node_modules/.bin/tsx`;
+  const args = [`--env-file=${project}/.env`, `${here}agent-mcp.ts`];
+  console.log(`# Claude Code:\nclaude mcp add ${name} -- ${command} ${args.join(" ")}\n`);
+  console.log(`# Claude Desktop (claude_desktop_config.json), Cursor (.cursor/mcp.json) or a project .mcp.json:`);
+  console.log(JSON.stringify({ mcpServers: { [name]: { command, args } } }, null, 2));
+  console.log(`\n# The server reads RPC_URL, CHAIN_ID, CONTRACT_ADDRESS, PRIVATE_KEY and the AGENT_* limits from ${project}/.env.`);
+}

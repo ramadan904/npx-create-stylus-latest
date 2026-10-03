@@ -236,6 +236,24 @@ test("every project can deploy reproducibly and verify: verify.sh, VERIFY=1 in d
   }
 });
 
+test("agent templates ship an MCP server beside the agent CLI, serving the same tools and handlers", async () => {
+  const { AGENT_TEMPLATES } = await import("../src/templates.js");
+  for (const template of Object.keys(TEMPLATES)) {
+    const dir = tmp();
+    scaffold({ targetDir: dir, name: "my-app", template, versions, withClient: true });
+    const mcp = path.join(dir, "client/src/agent-mcp.ts");
+    if (!AGENT_TEMPLATES.includes(template)) {
+      assert.ok(!fs.existsSync(mcp), `${template} has no agent, so no MCP server`);
+      continue;
+    }
+    const src = fs.readFileSync(mcp, "utf8");
+    assert.match(src, /import \{ handlers, tools \} from "\.\/agent\.js"/, `${template}: same tools and handlers as the CLI`);
+    assert.match(src, /mcpMain\(\{ name: "my-app"/, `${template}: the server is named after the project`);
+    const kit = fs.readFileSync(path.join(dir, "client/src/agent-kit.ts"), "utf8");
+    assert.match(kit, /await runIntent\(handlers, \{ \.\.\.args, intent: params\.name \}\)/, "tools/call goes through runIntent, like the CLI");
+  }
+});
+
 test("devnode.sh ships the setup that constructor deploys need, and it is wired in", async () => {
   const { spawnSync } = await import("node:child_process");
   const dir = tmp();

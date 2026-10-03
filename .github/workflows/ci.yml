@@ -165,6 +165,14 @@ jobs:
           CHAIN_ID: "412346"
         shell: bash
         run: node agent.mjs | tee "$RUNNER_TEMP/agent.log"
+      # The same tools served over MCP (client/src/agent-mcp.ts), driven by the official MCP SDK client the way Claude
+      # Desktop or Claude Code would launch it: open, read and cancel a real stream, a spending limit, errors by name.
+      - name: Use the contracts through the MCP server
+        working-directory: e2e
+        env:
+          RPC_URL: http://127.0.0.1:8547
+          CHAIN_ID: "412346"
+        run: node mcp-check.mjs
       # The site's "Run the AI agent demo" section, run in a browser from a stand-in wallet against these contracts, and
       # compared with the agent CLI: same fields as this run's results, identical JSON for the same calls.
       - name: Run the site's live agent demo

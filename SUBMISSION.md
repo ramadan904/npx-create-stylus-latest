@@ -38,6 +38,9 @@ Each claim links to its proof, with the limit after it.
 **3. Innovation: contracts and tooling built for AI agents, proven rather than promised.**
 - `--with-client` adds a JSON tool interface: schemas an LLM can be handed, results using the contract's own error
   names, whole-token amounts converted with the token's decimals, and operator spending limits enforced before signing.
+- The same tools are an MCP server (`src/agent-mcp.ts`), so Claude Desktop, Claude Code or Cursor can use the contracts
+  directly; `--config` prints the setup. CI drives it with the official MCP SDK client against a real stream: the tools
+  match the CLI's, the spending limit refuses with the CLI's exact JSON, and errors come back by the contract's names.
 - The contracts answer "what would happen" before an agent commits (`previewCancel`, `canRelease`, `canRefund`), using
   the same logic as the real call.
 - 98 agent checks run the CLI against real contracts on every change.
