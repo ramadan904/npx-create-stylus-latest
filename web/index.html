@@ -308,7 +308,7 @@
 
   <section class="stats" aria-label="Verified in CI">
     <div class="stat"><div class="n" data-count="9">9</div><div class="l">contract templates, tested on a real node</div></div>
-    <div class="stat"><div class="n" data-count="98">98</div><div class="l">agent end-to-end checks on a real node</div></div>
+    <div class="stat"><div class="n" data-count="147">147</div><div class="l">on-chain MCP checks across all nine templates</div></div>
     <div class="stat"><div class="n" data-count="17">17</div><div class="l">CI jobs green on every change</div></div>
     <div class="stat"><div class="n" data-count="20">20</div><div class="l">on-chain checks: USDG, Chainlink feeds, RPCs</div></div>
   </section>
@@ -496,6 +496,8 @@ RPC_URL=http://127.0.0.1:8547 ./scripts/deploy.sh -- 0xYourTokenAddress</pre>
       <div class="card"><div class="ico" style="--a:var(--c5);--b:var(--c1)" aria-hidden="true">&#128640;</div><h3>Deploy that works</h3><p><code>deploy.sh</code> handles the lockfile, RPC override, gas cap and key hand-off. <code>devnode.sh</code> starts a local Nitro node for free validation. <code>VERIFY=1</code> deploys reproducibly, and <code>verify.sh</code> proves the deployed code is your source.</p></div>
       <div class="card"><div class="ico" style="--a:var(--c3);--b:var(--c4)" aria-hidden="true">&#128187;</div><h3>Typed client</h3><p><code>--with-client</code> adds a viem script that fails loudly on reverted transactions.</p></div>
       <div class="card"><div class="ico" style="--a:var(--c5);--b:var(--c2)" aria-hidden="true">&#128181;</div><h3>USDG &amp; Robinhood</h3><p><code>--usdg</code> wires vault, escrow and stream to Paxos USDG; <code>--network</code> targets Arbitrum or Robinhood Chain. Addresses checked on-chain in CI; mainnet deploys need <code>MAINNET=1</code>.</p></div>
+      <div class="card"><div class="ico" style="--a:var(--c2);--b:var(--c5)" aria-hidden="true">&#9729;&#65039;</div><h3>Zero install</h3><p>One click opens a Codespace with Rust, cargo-stylus and Docker ready; <code>quickstart.sh</code> deploys and calls a contract on a local Arbitrum chain in about 105 s. CI builds that container and times it.</p></div>
+      <div class="card"><div class="ico" style="--a:var(--c4);--b:var(--c1)" aria-hidden="true">&#128274;</div><h3>Provenance</h3><p>Every npm release is published by CI with a signed provenance statement, so anyone can check which commit and workflow built the package they run with <code>npx</code>.</p></div>
     </div>
   </section>
 
@@ -644,9 +646,16 @@ async function refresh(c, override) {
     const rows = await c.read(c.address, account);
     c.dl.replaceChildren(...rows.flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, v)]));
     if (c.gallery) await c.gallery(c.address, c.gal);
-    c.status.textContent = "\u25CF LIVE"; c.status.className = "live";
+    c.status.textContent = "\u25CF LIVE"; c.status.className = "live"; c.tries = 0;
   } catch (err) {
-    c.status.textContent = "COULD NOT READ (see Arbiscan)"; c.status.className = "live err";
+    // Public RPCs drop the odd request; retry twice before saying so, and keep the Arbiscan link as the fallback.
+    c.tries = (c.tries || 0) + 1;
+    if (c.tries <= 2) {
+      c.status.textContent = "READING\u2026"; c.status.className = "live";
+      setTimeout(() => refresh(c, override), 1500 * c.tries);
+    } else {
+      c.status.textContent = "RPC BUSY, see Arbiscan"; c.status.className = "live err";
+    }
   } finally { Object.assign(ctx, saved); }
 }
 

@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # Weekly, with no code change: every template is scaffolded against the newest stylus-sdk and alloy on crates.io and
+  # built, tested and deployed, so a release that breaks "always latest" turns this red within a week.
+  schedule:
+    - cron: "17 6 * * 1"
 
 concurrency:
   group: ci-${{ github.ref }}

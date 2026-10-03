@@ -6,13 +6,16 @@ one command, **always pinned to the newest `stylus-sdk`**.
 Built for the Arbitrum Open House Singapore Online Buildathon. **Live site and playground:** https://npx-create-stylus-latest-web-mocha.vercel.app/
 
 ```bash
-npx create-stylus-latest my-app            # prompts for a template
+npm create stylus-latest my-app            # prompts for a template (same as npx create-stylus-latest my-app)
 npx create-stylus-latest my-token -t erc20 # skip the prompt
 ```
 
 Published on npm as [`create-stylus-latest`](https://www.npmjs.com/package/create-stylus-latest), with a provenance statement linking the package to the
 commit and workflow that built it ([0.5.0 publish run](https://github.com/ramadan904/npx-create-stylus-latest/actions/runs/37127822293)). New versions publish automatically from a version tag
 (see [RELEASING.md](RELEASING.md)).
+
+The templates are tested hard but **not audited**: [SECURITY.md](SECURITY.md) lists what each one does not do yet and a
+checklist before mainnet. CI also runs weekly against the newest crates.io releases, so "always latest" stays tested.
 
 ### Try it without installing anything
 
