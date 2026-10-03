@@ -141,6 +141,9 @@ export async function main(argv) {
   if (values["with-client"]) {
     console.log("\nClient: set CONTRACT_ADDRESS in .env after deploying, then");
     console.log("  cd client && npm install && npm start");
+    console.log("AI agents (in client/): the same contract as JSON tools, and an MCP server for Claude or Cursor");
+    console.log("  npx tsx src/agent-cli.ts --tools          # the tool schemas");
+    console.log("  npx tsx src/agent-mcp.ts --config         # how to connect it");
   }
   if (values["with-ui"]) {
     console.log("\nUI: set CONTRACT_ADDRESS in .env after deploying, then");
