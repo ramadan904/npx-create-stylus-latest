@@ -279,6 +279,14 @@
   .nft-gallery figure { margin: 0; }
   .nft-gallery img { width: 100%; aspect-ratio: 1; border-radius: 12px; display: block; background: var(--bg, #0b1020); }
   .nft-gallery figcaption { font-size: 12px; color: var(--muted, #9aa4bf); margin-top: 4px; overflow-wrap: anywhere; }
+  .lead-hook { display: block; color: var(--text); font-weight: 650; margin-bottom: 6px; }
+  .pmf { display: flex; align-items: center; gap: 16px; margin: 0 0 18px; padding: 14px 18px; border-radius: 14px; text-decoration: none;
+    color: var(--muted); font-size: 14.5px; line-height: 1.5; border: 1px solid var(--line);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--c2) 12%, transparent), transparent 70%), var(--panel); }
+  .pmf b { color: var(--text); } .pmf u { color: var(--accent); text-decoration: none; font-weight: 600; white-space: nowrap; }
+  .pmf-n { font-size: 34px; font-weight: 800; line-height: 1; letter-spacing: -1px; flex: none;
+    background: linear-gradient(90deg, var(--c1), var(--c2), var(--c3)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .pmf:hover { border-color: color-mix(in srgb, var(--c2) 50%, var(--line)); }
   .cs-cta { display: flex; align-items: center; gap: 16px; margin: 14px 0 16px; padding: 16px 18px; border-radius: 14px;
     text-decoration: none; color: var(--text); border: 2px solid transparent; box-shadow: 0 6px 24px rgba(0,0,0,.08);
     background: linear-gradient(var(--panel), var(--panel)) padding-box,
@@ -310,8 +318,14 @@
   <header>
     <span class="tag"><span class="dot"></span>Rust &rarr; WASM &rarr; Arbitrum &middot; 9 templates</span>
     <h1>Scaffold a Stylus project that <span class="grad">deploys on the first try.</span></h1>
-    <p class="lead">create-stylus-latest generates a Rust smart contract project for Arbitrum, pinned to the newest
-      <code>stylus-sdk</code> and its matching <code>alloy</code> version, with deploy scripts that have been run on a live network.</p>
+    <p class="lead"><b class="lead-hook">Stylus projects fail before their first deploy. One command fixes it: nine tested Rust templates, agent-ready from day one.</b>
+      Pinned to the newest <code>stylus-sdk</code> and its matching <code>alloy</code>, with deploy scripts already run on a live network.</p>
+    <a class="pmf" href="https://github.com/ramadan904/npx-create-stylus-latest/blob/main/SUBMISSION.md#product-market-fit-the-evidence">
+      <span class="pmf-n">14+</span>
+      <span><b>Built for the Stylus teams in this buildathon.</b> At least 14 entries ship Rust/Stylus code, and they hand-built
+        what these templates generate in one command: Solidity calling a Rust engine, 512-bit math, gas benchmarks,
+        reproducible builds. <u>See the evidence &rarr;</u></span>
+    </a>
     <div class="term"><div class="bar3" aria-hidden="true"><b></b><b></b><b></b></div><pre><span class="p">$ </span>npm create stylus-latest my-app -- -t stream --with-client
 <span class="p">$ </span>npx create-stylus-latest pay -t escrow --usdg --network arbitrum-one</pre></div>
     <a class="cs-cta" href="https://codespaces.new/ramadan904/npx-create-stylus-latest?quickstart=1" target="_blank" rel="noopener">
@@ -322,6 +336,7 @@
     </a>
     <div class="btns">
       <a class="btn primary" href="#agent-live">&#9654; Run the AI agent demo</a>
+      <a class="btn" href="https://github.com/ramadan904/npx-create-stylus-latest/blob/main/media/pitch.mp4" target="_blank" rel="noopener">&#127908; Watch the pitch (1:40)</a>
       <a class="btn" href="https://github.com/ramadan904/npx-create-stylus-latest/blob/main/media/demo-narrated.mp4" target="_blank" rel="noopener">&#127916; Watch the demo (2:46)</a>
       <a class="btn" href="https://github.com/ramadan904/npx-create-stylus-latest">View on GitHub</a>
       <a class="btn" href="https://github.com/ramadan904/npx-create-stylus-latest/blob/main/README.md">Read the docs</a>
