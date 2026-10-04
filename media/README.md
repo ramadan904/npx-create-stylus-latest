@@ -32,3 +32,8 @@ python3 build.py ../../../media/demo-narrated.mp4   # mixes the voice in and bur
 
 `<term-dir>` holds the real terminal output the video replays: `created.txt` (`npm create stylus-latest my-app -- -t
 stream --with-client`), `tested.txt` (`cargo test --lib` in that project) and `list.txt` (`create-stylus-latest --list`).
+
+## Pitch
+
+`pitch.mp4` (1 min 40 s, 1280×720): problem, solution, what you get, proof, who it is for. Same voice and word-by-word
+captions as the narrated cut; the proof section is the real site.
